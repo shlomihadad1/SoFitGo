@@ -44,6 +44,8 @@ const denied = r => r.status === 401 || r.status === 403 || (r.status === 200 &&
   const del = await call('/rest/v1/rpc/delete_my_account', { method: 'POST', body: {} }); ok(del.status >= 400, 'anon cannot call delete_my_account', del.status);
 
   const E = process.env; if (!(E.LIVE_A_EMAIL && E.LIVE_A_PASSWORD && E.LIVE_B_EMAIL && E.LIVE_B_PASSWORD)) { console.log('Part 2 skipped (LIVE_A_*/LIVE_B_* not set).'); return; }
+  /* safety: only dedicated test accounts — never a real user's account */
+  if (![E.LIVE_A_EMAIL, E.LIVE_B_EMAIL].every(x => /(^|[.+_-])test(er)?[s0-9._+-]|^tester|^test/i.test(x.split('@')[0]))) { ok(false, 'refusing: LIVE_A/B_EMAIL must be dedicated test accounts (local part starting with "test"/"tester")'); return; }
   G = 'auth';
   const login = async (email, password) => { const r = await call('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password } }); return r.status === 200 && r.data && r.data.access_token ? r.data : (ok(false, 'sign-in ' + email.replace(/(.).*@/, '$1…@'), r.status + ' ' + JSON.stringify(r.data && (r.data.error_code || r.data.msg || r.data.error))), null); };
   const A = await login(E.LIVE_A_EMAIL, E.LIVE_A_PASSWORD), B = await login(E.LIVE_B_EMAIL, E.LIVE_B_PASSWORD);
@@ -81,6 +83,37 @@ const denied = r => r.status === 401 || r.status === 403 || (r.status === 200 &&
   const stale = await call(`/rest/v1/user_state?section=eq.tracking&rev=eq.1`, { method: 'PATCH', token: A.access_token, headers: { Prefer: 'return=representation' }, body: { data: { stale: true } } });
   ok(rows(stale) && rows(stale).length === 0, 'stale write (old rev) changes nothing → conflict is detectable');
 
+  G = 'profile persistence (server is the store)';
+  const pmark = 'live_' + Date.now();
+  const profA = { name: 'בודק א', age: 33, height: 170, weight: 70, targetWeight: 66, availability: { days: [0, 2, 4], sessions: 3, prefMin: null, maxMin: 45 }, onboarded: true, live_mark: pmark };
+  const exP = await call('/rest/v1/user_state?select=rev&section=eq.profile', { token: A.access_token });
+  const wp = rows(exP) && rows(exP).length
+    ? await call(`/rest/v1/user_state?section=eq.profile&rev=eq.${rows(exP)[0].rev}`, { method: 'PATCH', token: A.access_token, headers: { Prefer: 'return=representation' }, body: { data: profA } })
+    : await call('/rest/v1/user_state', { method: 'POST', token: A.access_token, headers: { Prefer: 'return=representation' }, body: { section: 'profile', data: profA } });
+  ok((wp.status === 200 || wp.status === 201) && rows(wp) && rows(wp)[0] && rows(wp)[0].user_id === A.user.id, 'A saves a profile (age, weights, training days, onboarding) to the server', wp.status);
+  const pn = await call('/rest/v1/profiles', { method: 'POST', token: A.access_token, headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: { id: A.user.id, first_name: 'בודק' } });
+  ok(pn.status === 201 || pn.status === 200, 'A saves the display name (profiles table)', pn.status);
+  const A2 = await login(E.LIVE_A_EMAIL, E.LIVE_A_PASSWORD); /* a brand-new session = what a reload / another browser gets */
+  const rp = A2 && await call('/rest/v1/user_state?select=data&section=eq.profile', { token: A2.access_token });
+  ok(rp && rows(rp) && rows(rp)[0] && rows(rp)[0].data.live_mark === pmark && rows(rp)[0].data.age === 33 && JSON.stringify(rows(rp)[0].data.availability.days) === '[0,2,4]', 'new session (reload / new browser): A\'s profile comes back from the server intact');
+  G = 'isolation: B attacks A\'s profile through the API';
+  const bpr = await call(`/rest/v1/user_state?select=data&user_id=eq.${A.user.id}&section=eq.profile`, { token: B.access_token });
+  ok(rows(bpr) && rows(bpr).length === 0, 'B cannot read A\'s profile');
+  const bpn = await call(`/rest/v1/profiles?select=first_name&id=eq.${A.user.id}`, { token: B.access_token });
+  ok(rows(bpn) && rows(bpn).length === 0, 'B cannot read A\'s display name');
+  const bup = await call(`/rest/v1/user_state?user_id=eq.${A.user.id}&section=eq.profile`, { method: 'PATCH', token: B.access_token, headers: { Prefer: 'return=representation' }, body: { data: { hacked: true } } });
+  ok(rows(bup) && rows(bup).length === 0, 'B cannot change A\'s profile (0 rows)', bup.status);
+  const bun = await call(`/rest/v1/profiles?id=eq.${A.user.id}`, { method: 'PATCH', token: B.access_token, headers: { Prefer: 'return=representation' }, body: { first_name: 'hacked' } });
+  ok(rows(bun) && rows(bun).length === 0, 'B cannot change A\'s display name (0 rows)', bun.status);
+  const bdl = await call(`/rest/v1/user_state?user_id=eq.${A.user.id}&section=eq.profile`, { method: 'DELETE', token: B.access_token, headers: { Prefer: 'return=representation' } });
+  ok(!rows(bdl) || rows(bdl).length === 0, 'B cannot delete A\'s profile (0 rows)', bdl.status);
+  const bimp = await call('/rest/v1/profiles', { method: 'POST', token: B.access_token, body: { id: A.user.id, first_name: 'impostor' } });
+  ok(bimp.status === 401 || bimp.status === 403 || bimp.status === 409, 'B cannot create/overwrite a profile row with A\'s id (impersonation)', bimp.status);
+  const bmove = await call(`/rest/v1/user_state?section=eq.tracking`, { method: 'PATCH', token: B.access_token, headers: { Prefer: 'return=representation' }, body: { user_id: A.user.id } });
+  ok(bmove.status >= 400 || (rows(bmove) && rows(bmove).length === 0), 'B cannot move its own row onto A (changing user_id is refused)', bmove.status);
+  const still = await call('/rest/v1/user_state?select=data&section=eq.profile', { token: A2.access_token }); const nm = await call('/rest/v1/profiles?select=first_name', { token: A2.access_token });
+  ok(rows(still)[0].data.live_mark === pmark && !rows(still)[0].data.hacked && rows(nm)[0].first_name === 'בודק', 'after all of B\'s attempts, A\'s profile and name are unchanged');
+
   G = 'bug reports';
   const rep = await call('/rest/v1/bug_reports', { method: 'POST', token: A.access_token, headers: { Prefer: 'return=representation' }, body: { client_report_id: 'live-' + Date.now(), category: 'other', title: 'live_check — please ignore', description: 'automated live check', severity: 'low', status: 'resolved' } });
   ok(rep.status === 201 && rows(rep)[0].status === 'received', 'A files a report; status forced to "received"', rep.status + ' ' + JSON.stringify(rep.data));
@@ -96,5 +129,11 @@ const denied = r => r.status === 401 || r.status === 403 || (r.status === 200 &&
   const after = await call('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: A.refresh_token } });
   ok(after.status >= 400, 'after sign-out the refresh token no longer works', after.status);
   await call('/auth/v1/logout', { method: 'POST', token: B.access_token });
+  G = 'logout → login restores A';
+  if (A2) await call('/auth/v1/logout', { method: 'POST', token: A2.access_token });
+  const A3 = await login(E.LIVE_A_EMAIL, E.LIVE_A_PASSWORD); const back = A3 && await call('/rest/v1/user_state?select=data&section=eq.profile', { token: A3.access_token });
+  ok(back && rows(back)[0] && rows(back)[0].data.live_mark === pmark, 'after logging out of every session, A logs in again and gets the same profile back');
+  if (A3) await call('/auth/v1/logout', { method: 'POST', token: A3.access_token });
+  /* the test profile is left in the TEST account on purpose (only rows of this run are ever deleted; nothing else is touched) */
 })().then(() => { const f = res.filter(r => !r.ok).length; console.log(`live check (${URL_.replace(/^https?:\/\//, '')}): pass ${res.length - f} fail ${f}`); process.exit(f ? 1 : 0); },
   e => { console.error('live check crashed in [' + G + ']: ' + e.message); process.exit(2); });

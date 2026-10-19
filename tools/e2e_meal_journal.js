@@ -94,7 +94,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   const adj = await p.locator('[data-adjusted]').allInnerTexts();
   ok(adj.length > 0 && adj.every(t => t === 'כמות המנה חושבה בהתאם לתכנון התזונתי היומי'), 'adjusted-portion label uses the new wording', adj);
   const times = await p.evaluate(() => [...document.querySelectorAll('.slot')].filter(s => s.querySelector('[data-time]')).map(s => ({ t: s.querySelector('[data-time]').textContent, href: (s.querySelector('a[href^="#/recipe/"]') || {}).getAttribute && s.querySelector('a[href^="#/recipe/"]').getAttribute('href') })));
-  const chk = await p.evaluate(ts => ts.map(x => { const id = x.href.split('/')[2]; const r = Logic.recipe(id); const exp = !r.prep && !r.cook ? null : !r.cook ? `${r.prep} דקות הכנה · בלי בישול` : !r.prep ? `${r.cook} דקות בישול` : `${r.prep + r.cook} דקות בסך הכול · ${r.prep} דקות הכנה + ${r.cook} דקות בישול`; return { ok: exp === null || x.t.includes(exp), t: x.t, exp }; }), times);
+  const chk = await p.evaluate(ts => ts.map(x => { const id = x.href.split('/')[2]; const r = Logic.recipe(id); const exp = !r.prep && !r.cook ? null : !r.cook ? `${r.prep} דקות הכנה · בלי בישול` : !r.prep ? `${r.cook} דקות בישול` : `${r.prep + r.cook} דקות בסך הכול (הערכה) · ${r.prep} דקות הכנה + ${r.cook} דקות בישול`; /* M10.2: authored times are labelled as estimates */ return { ok: exp === null || x.t.includes(exp), t: x.t, exp }; }), times);
   ok(chk.length > 0 && chk.every(x => x.ok), 'meal-card time label equals the recipe\'s prep + cook data', chk);
   G = 'flex meal';
   /* go to the first upcoming day on which the flex meal is offered, mark its second meal through the UI, then open the flex sheet */

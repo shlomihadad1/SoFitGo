@@ -64,3 +64,17 @@ unzip SoFitGo-M10.1-beta-a3701822bf-deploy.zip -d sofitgo-beta && cd sofitgo-bet
 - PostgreSQL 16 לבדיקות RLS.
 
 תוצאות: `TEST-RESULTS-M10.md`.
+
+## Tests against the real server (live) — test accounts only
+Two dedicated test users, created in Supabase with Auto Confirm. Credentials are passed **only** as environment variables. The scripts print no password, write nothing to the source, and refuse any account whose name doesn't start with `test`.
+```
+# API: anonymous checks, two-user isolation, profile persistence across a new session, logout/login
+SOFITGO_SUPABASE_URL=https://dvrfzeojctnttdkznuqr.supabase.co SOFITGO_SUPABASE_PUBLISHABLE_KEY=sb_publishable_… \
+LIVE_A_EMAIL=… LIVE_A_PASSWORD=… LIVE_B_EMAIL=… LIVE_B_PASSWORD=… node tools/live_check.js
+# The real app in a browser against the real server (deploy folder with a filled sofitgo-config.js)
+APP_DIR=<deploy folder> LIVE_A_EMAIL=… LIVE_A_PASSWORD=… LIVE_B_EMAIL=… LIVE_B_PASSWORD=… node tools/live_app_check.js
+```
+Behind a proxy, Node needs `NODE_USE_ENV_PROXY=1`.
+
+## Location-text scan (Manali regression)
+`node tools/location_scan.js --self-test <archive.zip …>` scans the shipped source, `dist/pwa` and archives as UTF-8. The self-test injects Hebrew and English text to prove that it catches them.

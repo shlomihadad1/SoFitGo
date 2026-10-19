@@ -18,3 +18,4 @@ timeout 600 node tools/e2e_sw_shell.js > $L/e2e_sw_shell.log 2>&1; echo "e2e_sw_
 sh tools/pg_local.sh > $L/pg_local.log 2>&1
 for t in rls_test rollback_test; do PGHOST=/tmp PGPORT=54329 node tools/$t.js > $L/$t.log 2>&1; echo "$t exit=$? :: $(tail -1 $L/$t.log)"; done
 PGHOST=/tmp PGPORT=54329 timeout 900 node tools/e2e_account.js > $L/e2e_account.log 2>&1; echo "e2e_account exit=$? :: $(tail -1 $L/e2e_account.log)"
+node tools/location_scan.js --self-test > $L/location_scan.log 2>&1; echo "location_scan exit=$? :: $(tail -1 $L/location_scan.log)"

@@ -258,6 +258,77 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
   ok(d2.kcal === d2.sum, 'daily total equals the sum of the records (nothing double-counted)', d2);
   allErrs.push(...errs); await ctx.close();
 
+  /* ── Bug E: durations and "target" wording say exactly what they are ── */
+  ({ ctx, p, errs } = await mk());
+  await p.goto(URL0); await p.waitForTimeout(600);
+  await p.evaluate(() => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 176, weight: 80, startWeight: 80, sex: 'm', startDate: Store.today() }); Store.save('profile'); localStorage.setItem('fit30.welcomeDone', '1'); });
+  await p.reload(); await p.waitForTimeout(800);
+  G = 'Bug E: workout duration and target wording';
+  const du = await p.evaluate(() => { const el = document.querySelector('[data-duration]'); const n = Core.todayN(), d = Core.dayDef(n); const bd = Logic.durationBreakdown(d, 'std');
+    return { txt: el ? el.innerText : null, shown: el ? +(el.innerText.match(/~(\d+)/) || [])[1] : null, calc: Math.round(bd.total / 60), parts: Math.round((bd.warm + bd.work + bd.rest + bd.cool + bd.trans) / 60), rest: d.type === 'rest' }; });
+  ok(du.rest || (du.shown === du.calc && Math.abs(du.parts - du.calc) <= 1), 'Home: shown minutes = calculated total (warm-up + work + rests + cool-down + transitions)', du);
+  ok(du.rest || /משך כולל/.test(du.txt) && /כולל חימום, מנוחות ושחרור/.test(du.txt) && /הערכה/.test(du.txt), 'Home: duration says it is the TOTAL scheduled time and an estimate', du.txt);
+  const tgtTxt = () => p.evaluate(() => ({ t: document.querySelector('[data-home-left]').innerText, kcal: Core.targets().kcal, eaten: Core.eatenTotals(Store.today()).k }));
+  let tt = await tgtTxt();
+  ok(new RegExp(`נאכל היום: ${tt.eaten} מתוך יעד ${tt.kcal} קק״ל`).test(tt.t) && new RegExp(`נשארו ${tt.kcal - tt.eaten} קק״ל`).test(tt.t), 'no data: "נאכל 0 מתוך יעד X · נשארו X" — target, eaten and remaining are explicit and add up', tt);
+  await p.evaluate(() => Core.addEntry(Store.today(), { slot: null, source: 'custom', name: 'בדיקה', k: 300, p: 10, c: 0, f: 0, fb: 0 })); await go(p, '#/calendar', 300); await go(p, '#/', 600);
+  tt = await tgtTxt(); ok(new RegExp(`נאכל היום: ${tt.eaten} מתוך`).test(tt.t) && new RegExp(`נשארו ${tt.kcal - tt.eaten} קק״ל`).test(tt.t) && tt.eaten === 300, 'partial: remaining = target − eaten', tt);
+  await p.evaluate(k => Core.addEntry(Store.today(), { slot: null, source: 'custom', name: 'בדיקה2', k: k - 300, p: 200, c: 0, f: 0, fb: 0 }), tt.kcal); await go(p, '#/calendar', 300); await go(p, '#/', 600);
+  tt = await tgtTxt(); ok(tt.eaten === tt.kcal && /נשארו 0 קק״ל/.test(tt.t) && /חלבון: היעד הושג/.test(tt.t), 'exactly on target: 0 remaining, protein target reached', tt);
+  await p.evaluate(() => Core.addEntry(Store.today(), { slot: null, source: 'custom', name: 'בדיקה3', k: 250, p: 0, c: 0, f: 0, fb: 0 })); await go(p, '#/calendar', 300); await go(p, '#/', 600);
+  tt = await tgtTxt(); ok(/מעל היעד ב־250 קק״ל/.test(tt.t) && !/נשארו -/.test(tt.t), 'exceeded: says "מעל היעד ב־250 קק״ל" (no negative and no silent 0)', tt);
+  await p.reload(); await p.waitForTimeout(800); ok(/מעל היעד ב־250 קק״ל/.test((await tgtTxt()).t), 'after reload the same numbers come back');
+  await p.evaluate(() => { const pr = Store.load('profile'); Object.assign(pr, { experience: 'beginner', aims: { primary: 'general', secondary: [] }, availability: { days: [0, 1, 2, 3, 4, 5, 6], sessions: 3, prefMin: null, maxMin: 45 } }); Store.save('profile'); Plans.activate(Plans.create('general_90', Plans.paramsFromProfile(pr), Store.today()), { confirmReplace: true }); });
+  const tn = await p.evaluate(() => { const ap = Plans.active(); const days = Plans.days(ap); const t = days.find(x => x.minutes); return t ? { n: t.n, m: Math.round(t.minutes) } : null; });
+  await go(p, '#/pday/' + tn.n, 900);
+  const pd = await p.evaluate(() => (document.querySelector('[data-duration]') || {}).innerText || '');
+  ok(+((pd.match(/~(\d+)/) || [])[1]) === tn.m && /בסך הכול/.test(pd) && /כולל חימום ומנוחות/.test(pd), 'plan day: minutes match the plan data and are labelled as the total incl. warm-up and rests', { pd, tn });
+  allErrs.push(...errs); await ctx.close();
+
+  /* ── eaten state comes only from a saved record ── */
+  ({ ctx, p, errs } = await mk());
+  await p.goto(URL0); await p.waitForTimeout(600);
+  await p.evaluate(() => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 176, weight: 80, startWeight: 80, sex: 'm' }); Store.save('profile'); localStorage.setItem('fit30.welcomeDone', '1'); });
+  await p.reload(); await p.waitForTimeout(800);
+  G = 'eaten checkboxes: never preselected';
+  const eat0 = await p.evaluate(() => ({ on: document.querySelectorAll('.check.on, .check[aria-pressed=true]').length, n: document.querySelectorAll('[data-act=eat].check').length, saved: Core.entries(Store.today()).length }));
+  ok(eat0.n >= 2 && eat0.on === 0 && eat0.saved === 0, 'new day: no meal shows as eaten and nothing is saved', eat0);
+  await go(p, '#/nutrition', 800); ok(await p.locator('[data-eaten]').count() === 0, 'nutrition screen: no "נאכל" badge without a record');
+  await go(p, '#/', 600); await p.locator('.check[data-act=eat]').first().click(); await p.waitForTimeout(500);
+  const eat1 = await p.evaluate(() => ({ on: document.querySelectorAll('.check.on[aria-pressed=true]').length, saved: Core.entries(Store.today()).length }));
+  ok(eat1.on === 1 && eat1.saved === 1, 'tap → exactly one saved record and one ticked meal', eat1);
+  await p.reload(); await p.waitForTimeout(800);
+  ok(await p.evaluate(() => document.querySelectorAll('.check.on').length) === 1, 'after reload the saved tick is restored');
+  await p.locator('.check.on[data-act=eat]').first().click(); await p.waitForTimeout(500);
+  await p.reload(); await p.waitForTimeout(800);
+  const eat2 = await p.evaluate(() => ({ on: document.querySelectorAll('.check.on').length, saved: Core.entries(Store.today()).length }));
+  ok(eat2.on === 0 && eat2.saved === 0, 'untick → record removed; after reload still unticked (nothing invented)', eat2);
+  G = 'recipe time labels';
+  const rt = await p.evaluate(() => { const r = NUTRI.RECIPES.find(x => x.prep && x.cook); location.hash = '#/recipe/' + r.id; return { id: r.id, sum: r.prep + r.cook }; }); await p.waitForTimeout(800);
+  const rtx = await p.evaluate(() => document.querySelector('#view').innerText);
+  ok(/הכנה: \d+ דק׳/.test(rtx) && /בישול: \d+ דק׳/.test(rtx) && /זמנים משוערים/.test(rtx), 'recipe screen: prep and cook shown separately and labelled as estimates', rt);
+  allErrs.push(...errs); await ctx.close();
+
+  /* ── Safari "disappearing headings/buttons" failure mode, simulated: every animation frozen at its first frame ── */
+  ({ ctx, p, errs } = await mk());
+  await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '*, *::before, *::after { animation-play-state: paused !important; animation-delay: 0s !important; }'; document.head.appendChild(st); }); });
+  await p.goto(URL0); await p.waitForTimeout(700);
+  await p.evaluate(() => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 176, weight: 80, startWeight: 80, sex: 'm' }); Store.save('profile'); });
+  await p.reload(); await p.waitForTimeout(700);
+  G = 'Safari failure mode: content never invisible';
+  for (const h of ['#/', '#/nutrition', '#/workouts', '#/progress', '#/settings', '#/setup/1', '#/account']) {
+    await go(p, h, 900);
+    const v = await p.evaluate(() => { const els = [...document.querySelectorAll('#view h1, #view h2, #view h3, #view .btn, #top .brand, #top h1, #nav a')].filter(e => e.offsetParent !== null || e.closest('#nav'));
+      const hidden = els.filter(e => { let o = 1; for (let n = e; n && n !== document.documentElement; n = n.parentElement) o *= +getComputedStyle(n).opacity; return o < 0.95 || getComputedStyle(e).visibility === 'hidden'; }).map(e => e.tagName + ':' + (e.textContent || '').trim().slice(0, 20));
+      return { n: els.length, hidden }; });
+    ok(v.n > 3 && v.hidden.length === 0, `${h}: with animations frozen, every heading, button, logo and tab is fully visible`, v);
+  }
+  await go(p, '#/settings', 800); await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300);
+  const hdr2 = await p.evaluate(() => { const t = document.getElementById('top').getBoundingClientRect(), el = document.elementFromPoint(innerWidth / 2, t.top + t.height / 2); return { top: Math.round(t.top), inHeader: !!el && document.getElementById('top').contains(el) }; });
+  ok(hdr2.top === 0 && hdr2.inHeader, 'after scrolling to the bottom the header is still on top and not covered', hdr2);
+  ok(await p.evaluate(() => { const css = [...document.styleSheets].flatMap(sh => { try { return [...sh.cssRules]; } catch (e) { return []; } }); const k = css.find(r => r.type === CSSRule.KEYFRAMES_RULE && r.name === 'rise'); return !!k && ![...k.cssRules].some(r => /opacity/.test(r.cssText)); }), 'the entrance animation does not change opacity');
+  allErrs.push(...errs); await ctx.close();
+
   G = 'errors'; ok(!allErrs.length, 'no page errors', allErrs);
   await b.close();
   const fail = res.filter(r => !r.ok); res.forEach(r => console.log((r.ok ? 'PASS ' : 'FAIL ') + `[${r.g}] ${r.m}`));

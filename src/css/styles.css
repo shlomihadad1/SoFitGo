@@ -462,7 +462,10 @@ h4 { margin: 12px 0 6px; color: var(--muted); font-weight: 600; }
 /* gentle entrance — disabled by reduced-motion rules above */
 #view > .card, #view > section, #view > .banner { animation: rise .28s ease both; }
 #view > :nth-child(2) { animation-delay: .03s; } #view > :nth-child(3) { animation-delay: .06s; } #view > :nth-child(4) { animation-delay: .09s; }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+/* M10.2 · Safari: the entrance animation never touches opacity. With `both` + opacity:0, a paused/unfinished animation (WebKit: rapid
+   re-render, tab restored from background/bfcache) left headings, cards and buttons in the DOM but invisible. Now a stuck animation
+   can at most leave content 6px lower — never hidden. */
+@keyframes rise { from { transform: translateY(6px); } }
 /* iPad / desktop: dashboard-like screens use two columns, reading screens stay narrow */
 @media (min-width: 900px) {
   main#view[data-screen="home"], main#view[data-screen="progress"] { max-width: 1120px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
@@ -590,3 +593,8 @@ body.kb .setup-nav { position: static; background: none; }
 .meal-more .btn { color: var(--muted); }
 /* M10 · fields side by side line up: labels of different length never push one input lower than its neighbour */
 .grid2 > label.field, .grid3 > label.field { justify-content: flex-end; }
+/* M10.2 · iOS WebKit: sticky/fixed bars with backdrop-filter can vanish or flicker while scrolling (known WebKit bug). On iOS only
+   (-webkit-touch-callout is iOS-only) the header and bottom navigation use an opaque background instead of the blur — same colours. */
+@supports (-webkit-touch-callout: none) {
+  .top, .nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); }
+}
