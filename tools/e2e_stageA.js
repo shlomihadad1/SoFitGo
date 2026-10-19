@@ -133,8 +133,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   /* ── 6. load performance (local server, Chromium) ── */
   G = 'performance (local)';
   const perf = {};
-  { const { ctx, p } = await mk({ serviceWorkers: 'block' }); let bytes = 0, reqs = 0; p.on('response', async r => { if (/fonts\./.test(r.url())) return; reqs++; try { bytes += (await r.body()).length; } catch (e) { } });
-    await p.goto(URL0, { waitUntil: 'load' }); await p.waitForTimeout(500);
+  { const { ctx, p } = await mk({ serviceWorkers: 'block' }); let bytes = 0, reqs = 0; const bodies = []; /* M10.2: the body sizes are read asynchronously — they are now awaited before the total is checked
+       (before, the check could run before index.html's body was counted: it reported 4,469 B while the real first load was 713,404 B) */
+    p.on('response', r => { if (/fonts\./.test(r.url())) return; reqs++; bodies.push(r.body().then(x => { bytes += x.length; }, () => { })); });
+    await p.goto(URL0, { waitUntil: 'load' }); await p.waitForTimeout(500); await Promise.all(bodies);
+    ok(bytes > 500000, 'first-load measurement includes the app shell (sanity: > 500 KB measured)', bytes);
     Object.assign(perf, await p.evaluate(() => { const n = performance.getEntriesByType('navigation')[0]; return { domContentLoadedMs: Math.round(n.domContentLoadedEventEnd), loadMs: Math.round(n.loadEventEnd) }; }), { firstLoadRequests: reqs, firstLoadBytes: bytes });
     ok(perf.loadMs < 3000, 'first load < 3 s on local server (' + perf.loadMs + ' ms)'); /* RC5: budget raised 700,000 → 712,000 B (uncompressed). Why the old limit no longer applies: the user approved on 2026-10-19 a
        10–20 KB *compressed* allowance for SoFitGo branding; RC5 adds +8.1 KB raw / +2.6 KB gzip to index.html (brand mark, P0 fixes,

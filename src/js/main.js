@@ -56,7 +56,7 @@ function screenFor(r) {
     case 'profile': return Screens.profile ? Screens.profile() : extraLoading('פרופיל', '#/settings'); /* M10: moved to extra.js */
     case 'setup': return Screens.setup(r.arg);
     case 'plan': return Screens.plan();
-    case 'pday': return Screens.pday(r.arg || pdayToday()); /* M8: '#/pday' without a day opens today's plan day instead of "not found" */
+    case 'pday': return Screens.pday ? Screens.pday(r.arg || pdayToday()) : extraLoading('יום בתוכנית', '#/plan'); /* M10.2: moved to extra.js */ /* M8: '#/pday' without a day opens today's plan day instead of "not found" */
     case 'explain': return Screens.explain ? Screens.explain() : extraLoading('למה ככה?', '#/workouts');
     case 'review': return Screens.review ? Screens.review(r.arg) : extraLoading('סיכום שבועי', '#/progress');
     case 'shopping': return Screens.shopping ? Screens.shopping(r.arg) : extraLoading('רשימת קניות', '#/nutrition');
