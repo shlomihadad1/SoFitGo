@@ -1,0 +1,44 @@
+-- SoFitGo — rollback for migration 20261020000100_sofitgo_beta_core.sql
+-- Three levels. Run ONLY the level you need, in the Supabase SQL Editor, as the project owner.
+-- Levels 1 and 2 keep every row. Level 3 deletes the beta tables and ALL their data — export first.
+
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- LEVEL 1 — PAUSE THE BETA (no data change, instant, reversible)
+--   The app reads app_config.beta_open; when false it stops sign-in and sync and shows a notice.
+--   Undo: set value back to 'true'.
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- update public.app_config set value = 'false'::jsonb, updated_at = now() where key = 'beta_open';
+
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- LEVEL 2 — LOCK THE API (no data change, reversible)
+--   Removes every API privilege from anon/authenticated on the beta tables and the delete function.
+--   Data stays in place and is still visible to the owner in the dashboard.
+--   Undo: re-run the "privileges" block and the two grant lines of delete_my_account from the migration.
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- begin;
+-- revoke all on public.profiles, public.user_state, public.bug_reports from anon, authenticated;
+-- revoke execute on function public.delete_my_account() from authenticated;
+-- update public.app_config set value = 'false'::jsonb, updated_at = now() where key = 'beta_open';
+-- commit;
+
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- LEVEL 3 — REMOVE THE SCHEMA (DESTRUCTIVE: deletes all beta data — profiles, synced data, bug reports)
+--   Only after: (a) explicit owner decision, (b) export of the tables (Table Editor → Export CSV, or a backup).
+--   Does NOT delete Auth users (auth.users) — remove those in Authentication → Users if required.
+--   The guard below makes the script fail unless you first edit the line to: select 'I-HAVE-EXPORTED' ...
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- begin;
+-- do $$ begin
+--   if (select 'NOT-CONFIRMED') <> 'I-HAVE-EXPORTED' then
+--     raise exception 'Level 3 rollback not confirmed — export data and edit the guard first';
+--   end if;
+-- end $$;
+-- drop function if exists public.delete_my_account();
+-- drop table if exists public.bug_reports;
+-- drop table if exists public.user_state;
+-- drop table if exists public.profiles;
+-- drop table if exists public.app_config;
+-- drop function if exists public.tg_bug_report_insert();
+-- drop function if exists public.tg_user_state_rev();
+-- drop function if exists public.tg_touch_updated_at();
+-- commit;
