@@ -1,0 +1,369 @@
+{
+ "ramp": {
+  "plans": 126,
+  "sessions": 6219,
+  "pairs": 5952,
+  "ramped": 139,
+  "rampedPct": 2.2,
+  "cutSets": 226,
+  "maxCutInOneSession": 4,
+  "pairsWithDifferentExercises": 5724,
+  "rampedWhenExercisesChanged": 135,
+  "circuitOnlyJumpsOver25": 0,
+  "circuitExamples": [],
+  "minutesJumpOver25": 33,
+  "avgRepsPerSetJumpOver25": 131,
+  "perLevel": {
+   "beginner": {
+    "s": 2073,
+    "r": 22
+   },
+   "intermediate": {
+    "s": 2073,
+    "r": 62
+   },
+   "advanced": {
+    "s": 2073,
+    "r": 55
+   }
+  }
+ },
+ "beginnerGeneral90": {
+  "beginner": {
+   "intro": [
+    "22222|reps8",
+    "22222|reps9"
+   ],
+   "base": [
+    "22222|reps7",
+    "22222|reps8",
+    "22222|reps9",
+    "22222|reps10"
+   ],
+   "base(deload)": [
+    "11111|reps9",
+    "11111|reps8"
+   ],
+   "volume": [
+    "22222|reps7",
+    "22222|reps8",
+    "22222|reps9"
+   ],
+   "volume(deload)": [
+    "11111|reps8"
+   ],
+   "assess": [
+    "22222|reps8",
+    "22222|reps9",
+    "22222|reps10"
+   ]
+  },
+  "intermediate": {
+   "intro": [
+    "22222|reps9",
+    "22222|reps10",
+    "22222|reps11"
+   ],
+   "base": [
+    "22333|reps9",
+    "33333|reps10",
+    "33333|reps9",
+    "33333|reps11",
+    "33333|reps12"
+   ],
+   "base(deload)": [
+    "22222|reps11",
+    "22222|reps10"
+   ],
+   "volume": [
+    "33333|reps9",
+    "33333|reps10",
+    "33333|reps11"
+   ],
+   "volume(deload)": [
+    "22222|reps10"
+   ],
+   "assess": [
+    "22222|reps9",
+    "22222|reps10",
+    "22222|reps11"
+   ]
+  },
+  "advanced": {
+   "intro": [
+    "22222|reps11",
+    "22222|reps12",
+    "22222|reps13"
+   ],
+   "base": [
+    "22333|reps11",
+    "33333|reps12",
+    "33333|reps11",
+    "33333|reps13",
+    "33333|reps14"
+   ],
+   "base(deload)": [
+    "22222|reps13",
+    "22222|reps12"
+   ],
+   "volume": [
+    "33333|reps11",
+    "33333|reps12",
+    "33333|reps13"
+   ],
+   "volume(deload)": [
+    "22222|reps12"
+   ],
+   "assess": [
+    "22222|reps11",
+    "22222|reps12",
+    "22222|reps13"
+   ]
+  }
+ },
+ "templates": [
+  {
+   "id": "fit30_classic",
+   "days": 30,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": true
+  },
+  {
+   "id": "start_7",
+   "days": 7,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "habits_30",
+   "days": 30,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "fatloss_30",
+   "days": 30,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "general_60",
+   "days": 60,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "strength_90",
+   "days": 90,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "general_90",
+   "days": 90,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "progress_6m",
+   "days": 182,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "annual",
+   "days": 364,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "home_noequip",
+   "days": 30,
+   "needsLibrary": [],
+   "equipLock": [
+    "none"
+   ],
+   "classic": false
+  },
+  {
+   "id": "basic_equipment",
+   "days": 60,
+   "needsLibrary": [
+    "dumbbells",
+    "bands"
+   ],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "gym",
+   "days": 84,
+   "needsLibrary": [
+    "gym"
+   ],
+   "equipLock": null,
+   "classic": false
+  },
+  {
+   "id": "custom",
+   "days": null,
+   "needsLibrary": [],
+   "equipLock": null,
+   "classic": false
+  }
+ ],
+ "exercises": {
+  "total": 57,
+  "byEquipment": {
+   "chair": 3,
+   "bench": 2,
+   "step": 1,
+   "wall": 3,
+   "table": 2,
+   "doorframe": 1,
+   "towel": 3
+  }
+ },
+ "equipmentChangesPlan": false,
+ "homeEquipChangesPlan": true,
+ "protein": [
+  {
+   "w": 50,
+   "bmi": 16.3,
+   "kcal": 1750,
+   "protein": 90,
+   "proteinKcalPct": 21,
+   "carbs": 235
+  },
+  {
+   "w": 70,
+   "bmi": 22.9,
+   "kcal": 2000,
+   "protein": 125,
+   "proteinKcalPct": 25,
+   "carbs": 250
+  },
+  {
+   "w": 90,
+   "bmi": 29.4,
+   "kcal": 2250,
+   "protein": 160,
+   "proteinKcalPct": 28,
+   "carbs": 255
+  },
+  {
+   "w": 120,
+   "bmi": 39.2,
+   "kcal": 2650,
+   "protein": 215,
+   "proteinKcalPct": 32,
+   "carbs": 280
+  },
+  {
+   "w": 150,
+   "bmi": 49,
+   "kcal": 3000,
+   "protein": 270,
+   "proteinKcalPct": 36,
+   "carbs": 290
+  },
+  {
+   "w": 180,
+   "bmi": 58.8,
+   "kcal": 3400,
+   "protein": 325,
+   "proteinKcalPct": 38,
+   "carbs": 310
+  }
+ ],
+ "nutrition": {
+  "omni3700": {
+   "kcal": 3700,
+   "protein": 190,
+   "avgKcalPct": 91.5,
+   "minKcalPct": 73.7,
+   "avgProtein": 202.9,
+   "minProtein": 190.6,
+   "days": 90,
+   "sampleKeys": [
+    "date",
+    "slots",
+    "notes",
+    "gap",
+    "totals"
+   ],
+   "mealKeys": []
+  },
+  "vegan3700": {
+   "kcal": 3700,
+   "protein": 190,
+   "avgKcalPct": 85.8,
+   "minKcalPct": 83,
+   "avgProtein": 125.3,
+   "minProtein": 106.2,
+   "days": 90,
+   "sampleKeys": [
+    "date",
+    "slots",
+    "notes",
+    "gap",
+    "totals"
+   ],
+   "mealKeys": []
+  },
+  "vegan2500ish": {
+   "kcal": 2600,
+   "protein": 130,
+   "avgKcalPct": 97.2,
+   "minKcalPct": 86.8,
+   "avgProtein": 111.6,
+   "minProtein": 90.1,
+   "days": 90,
+   "sampleKeys": [
+    "date",
+    "slots",
+    "notes",
+    "gap",
+    "totals"
+   ],
+   "mealKeys": []
+  },
+  "veganMaint": {
+   "kcal": 2600,
+   "protein": 130,
+   "avgKcalPct": 97.2,
+   "minKcalPct": 86.8,
+   "avgProtein": 111.6,
+   "minProtein": 90.1,
+   "days": 90,
+   "sampleKeys": [
+    "date",
+    "slots",
+    "notes",
+    "gap",
+    "totals"
+   ],
+   "mealKeys": []
+  }
+ },
+ "restrictionKinds": [
+  "KIND_HE",
+  "restrictionKinds",
+  "kindOf",
+  "worstKind"
+ ],
+ "recipes": 144,
+ "foods": 83,
+ "foodSourceField": {
+  "none": 83
+ }
+}

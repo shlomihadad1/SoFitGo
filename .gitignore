@@ -1,0 +1,6 @@
+dist/
+audit-rerun/
+*.log
+.env
+.env.*
+node_modules/

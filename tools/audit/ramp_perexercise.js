@@ -1,0 +1,9 @@
+/* Per-exercise load jumps at build time (read-only): same exercise vs its previous appearance in the same session type, over all 126 standard plans; causes (sets / reps / both), phase changes, level. Usage: node tools/audit/ramp_perexercise.js <root> */
+const path=require('path'),ROOT=process.argv[2];
+for (const f of ['src/js/figure.js','src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js','src/data/recipes_intl.js','src/data/catalog.js','src/data/programs.js','src/js/logic.js','src/js/planner.js']) require(path.join(ROOT,f));
+const {PROGRAMS:PG,Planner:P}=globalThis; const reg=d=>d.main&&d.main.length&&!['rest','active','assess'].includes(d.type)&&!d.deload;
+const per=x=>typeof x.reps==='number'?x.reps:typeof x.sec==='number'?x.sec/3:1; let n=0,over=0,sets=0,reps=0,both=0,phase=0,afterRamp=0,levels={beginner:[0,0],intermediate:[0,0],advanced:[0,0]};
+for (const t of PG.TEMPLATES.filter(t=>!t.classic&&!(t.needsLibrary||[]).length)) for (const level of ['beginner','intermediate','advanced']) for (const goal of t.goals) for (const spw of [3,5]) {
+ const r=P.build(t.id,{start:'2026-10-19',days:t.custom?90:t.days,profile:{level,days:[0,1,2,3,4,5,6],spw,maxMin:45,equipment:[]},goal}); const last={};
+ r.days.forEach(d=>{ if(!reg(d))return; d.main.forEach(x=>{ const k=d.type+'|'+x.ex, p=last[k]; if(p){ n++; levels[level][0]++; const ratio=(x.sets*per(x))/(p.x.sets*per(p.x)); if(ratio>1.25+1e-9){ over++; levels[level][1]++; const s=x.sets>p.x.sets, rp=per(x)>per(p.x); if(s&&rp)both++; else if(s)sets++; else if(rp)reps++; if(p.d.phase.idx!==d.phase.idx)phase++; if(p.d.ramped)afterRamp++; } } last[k]={x,d}; }); }); }
+console.log(JSON.stringify({perExerciseComparisons:n,over25:over,causes:{moreSets:sets,moreReps:reps,both},acrossPhaseChange:phase,previousSessionWasRamped:afterRamp,byLevel:levels}));

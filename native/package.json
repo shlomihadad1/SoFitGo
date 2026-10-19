@@ -1,0 +1,21 @@
+{
+  "name": "sofitgo-native",
+  "private": true,
+  "version": "0.5.0-rc5",
+  "description": "Capacitor shell for the SoFitGo web app (reuses dist/pwa). Not built or tested yet — see README-NATIVE.md.",
+  "scripts": {
+    "web": "sh scripts/prepare-web.sh",
+    "sync": "npm run web && npx cap sync",
+    "ios": "npm run sync && npx cap open ios",
+    "android": "npm run sync && npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/android": "8.5.3",
+    "@capgo/capacitor-health": "8.7.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

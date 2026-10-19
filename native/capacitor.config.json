@@ -1,0 +1,7 @@
+{
+  "appId": "OWNER.DECISION.bundle.id",
+  "appName": "SoFitGo",
+  "webDir": "www",
+  "ios": { "contentInset": "never" },
+  "android": { "allowMixedContent": false }
+}

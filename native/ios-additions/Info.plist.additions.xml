@@ -1,0 +1,6 @@
+<!-- Add to ios/App/App/Info.plist (inside the top-level <dict>). Texts are drafts for the owner to approve. -->
+<key>NSHealthShareUsageDescription</key>
+<string>SoFitGo קוראת את מספר הצעדים היומי מ־Apple Health כדי להציג את ההתקדמות שלך. הנתונים נשמרים רק במכשיר.</string>
+<key>NSHealthUpdateUsageDescription</key>
+<string>SoFitGo לא כותבת נתונים ל־Apple Health.</string>
+<!-- Xcode: target App → Signing & Capabilities → + Capability → HealthKit (no Clinical Records, no background delivery). -->
