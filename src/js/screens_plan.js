@@ -158,10 +158,16 @@ Screens.setup = function (arg) {
     next = b => { const e = readBasics(b); if (e) return e; if (!P().experience) return 'בחרו רמת ניסיון — היא נחוצה לבניית התוכנית.'; return null; };
     extra = { xp: el => { readBasics(document.getElementById('view')); P().experience = el.dataset.v; saveP(); root.App.render(); } }; }
   if (k === 2) { body = `<section class="card">${secGoal()}</section>`; next = () => P().aims.primary ? null : 'בחרו מטרה ראשית.'; extra = goalHandlers; }
-  if (k === 3) { body = `<section class="card"><h3>זמינות</h3>${secAvailability()}</section><section class="card"><h3>סביבה וציוד</h3>${secEquipment()}</section>`;
+  if (k === 3 && p.mode === 'nutrition' && !PS().active()) { /* M10: nutrition-only — zero workouts is a valid choice */
+    body = `<section class="card" data-nowo-on><h3>בלי אימונים כרגע</h3><p class="small">האפליקציה תציג תפריט, יומן אכילה, מים, צעדים ושינה — בלי אימונים ובלי תזכורות לאימון. כלום לא נמחק, ואפשר להוסיף אימונים בכל רגע.</p><button class="btn ghost" data-act="nowo">${icon('route')} בעצם, אני רוצה גם אימונים</button></section>`;
+    nextLabel = 'סיום — תזונה בלבד';
+    next = () => { p.onboarded = true; saveP(); location.hash = '#/'; root.UI.toast('נשמר: תזונה ומעקב, בלי אימונים'); return 'done'; };
+    extra = { nowo: () => { delete P().mode; saveP(); root.App.render(); } };
+  } else if (k === 3) { body = `${PS().active() ? '' : `<section class="card" data-nowo-off><div class="row between"><div class="grow small"><b>לא רוצים אימונים כרגע?</b><div class="muted tiny">אפשר להשתמש רק בתזונה ובמעקב.</div></div><button class="btn sm" data-act="nowo">תזונה בלבד</button></div></section>`}<section class="card"><h3>זמינות</h3>${secAvailability()}</section><section class="card"><h3>סביבה וציוד</h3>${secEquipment()}</section>`;
     next = b => { const e = readTimes(b); if (e) return e; const a = P().availability; if (!a.days.length) return 'סמנו לפחות יום אחד.'; if (!a.sessions) return 'בחרו כמה אימונים בשבוע.'; if (!a.maxMin) return 'בחרו זמן מקסימלי לאימון.'; return null; };
     const keep = f => el => { readTimes(document.getElementById('view')); f(el); }; /* keep the time selections when re-rendering */
-    extra = Object.fromEntries(Object.entries(Object.assign({}, availHandlers, eqHandlers)).map(([k, f]) => [k, keep(f)])); }
+    extra = Object.fromEntries(Object.entries(Object.assign({}, availHandlers, eqHandlers)).map(([k, f]) => [k, keep(f)]));
+    extra.nowo = () => { P().mode = 'nutrition'; saveP(); root.App.render(); }; }
   if (k === 4) { const goal = p.aims.primary, list = PG().TEMPLATES.filter(t => !t.classic);
     const rec = t => (t.goals.includes(goal) ? 2 : 0) + (p.aims.secondary.some(g => t.goals.includes(g)) ? 1 : 0);
     const sorted = list.slice().sort((a, b) => rec(b) - rec(a));

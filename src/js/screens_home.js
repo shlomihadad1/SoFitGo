@@ -23,7 +23,10 @@ Screens.home = function () {
   const ap = root.Plans.active();
   if (!ap && !C.hasBasics(p)) html.push(`<section class="card hero setup-cta"><span class="eyebrow">התחלה</span><h2>בונים תוכנית אישית</h2><p class="small muted">6 שלבים קצרים: פרטים, מטרה, ציוד וזמינות, מסלול, תצוגה מקדימה ואישור. אפשר לעצור ולחזור.</p><a class="btn primary" href="#/setup/1">${icon('route')} להתחלה</a><a class="btn ghost" href="#/workouts">או: תוכנית 30 היום הקיימת</a></section>`);
   if (ap) html.push(Screens.syncBanner(ap, { compact: true }), Screens.coachCard(ap), Screens.planStatsCard(ap), Screens.nowCard(today, { secondaryStart: true }), Screens.signatureLinks());
-  if (!ap) {
+  if (!ap && C.nutritionOnly()) { /* M10: nutrition-only mode — no workout cards, no workout task */
+    const pr = C.dailyProgress(today);
+    html.push(`<section class="card hero" data-nutrition-only><div class="row between top-al"><div class="stack tight grow"><span class="eyebrow">תזונה ומעקב · בלי אימונים</span><h2>${S.fmtDate(today, true)}</h2><span class="muted small">ארוחות, מים, צעדים ושינה נספרים כרגיל.</span></div>${ring(pr.pct, 100, pr.pct + '%', 'היום', 'var(--accent)')}</div><a class="btn ghost sm" href="#/setup/3" data-add-workouts>${icon('route')} להוסיף אימונים</a></section>`, Screens.nowCard(today));
+  } else if (!ap) {
   if (n < 1) {
     html.push(`<section class="card hero"><span class="eyebrow">התוכנית טרם התחילה</span><h1>מתחילים ב${S.fmtDate(p.startDate, true)}</h1><p class="muted">עוד ${1 - n} ימים. אפשר לצפות בתוכנית ובתפריט כבר עכשיו.</p><div class="btns"><a class="btn" href="#/day/1">אימון יום 1</a><button class="btn primary" data-act="startToday">להתחיל היום</button></div></section>`);
   } else if (n > 30) {

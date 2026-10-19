@@ -179,12 +179,14 @@ C.daily = date => { const t = S().load('tracking'); return t.daily[date] || {}; 
 C.setDaily = (date, patch) => { const t = S().load('tracking'); t.daily[date] = Object.assign({}, t.daily[date] || {}, patch); S().save('tracking'); };
 C.measures = () => S().load('tracking').measures.slice().sort((a, b) => a.date < b.date ? -1 : 1);
 C.latestWeight = () => { const m = C.measures().filter(x => x.weight); return m.length ? m[m.length - 1].weight : C.profile().weight; };
+/* M10: nutrition-only mode — the user chose no workouts for now. A personal plan, once activated, always wins. */
+C.nutritionOnly = () => C.profile().mode === 'nutrition' && !(root.Plans && root.Plans.active());
 C.dailyProgress = date => {
   const n = C.programDay(date), tasks = [], g = C.profile().goals, dl = C.daily(date);
   /* Stage D: a date covered by a personal plan counts THAT plan's workout (or none on its rest days), not the classic program's */
   const pl = root.MealPlan && root.Plans && root.MealPlan.planFor(date);
   if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; if (pd && root.Plans.isTraining(pd) && pd.status !== 'skipped') tasks.push({ k: 'workout', he: 'אימון', v: pd.status === 'done' ? 1 : pd.status === 'partial' ? 0.5 : 0 }); }
-  else if (n >= 1 && n <= 30 && C.isTraining(n)) { const st = C.status(n); tasks.push({ k: 'workout', he: 'אימון', v: st === 'done' ? 1 : st === 'partial' ? 0.5 : 0 }); }
+  else if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) { const st = C.status(n); tasks.push({ k: 'workout', he: 'אימון', v: st === 'done' ? 1 : st === 'partial' ? 0.5 : 0 }); }
   ['m1', 'm2', 'snack'].forEach(s => tasks.push({ k: s, he: C.slotNames[s], v: C.slotEntry(date, s) ? 1 : 0 }));
   tasks.push({ k: 'water', he: 'מים', v: Math.min(1, (dl.water || 0) / g.water) });
   { const A = root.Activity, tg = A ? A.targetOn(date) : (g.steps > 0 ? g.steps : null), sv = A ? A.day(date).value : dl.steps; /* RC5: no target → no steps task (nothing to fall short of) */

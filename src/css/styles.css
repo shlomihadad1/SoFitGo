@@ -539,6 +539,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
    (iOS Safari keeps fixed elements in the layout viewport). main.js sets body.kb on focus and clears it 400 ms after blur,
    so a tap on a button just above the nav never lands on a tab that reappears mid-tap. UNVERIFIED on a real iPhone. */
 body.kb .nav { display: none; }
+/* M10: with the keyboard open the setup Continue bar stops being sticky, so it can never cover the field being typed in */
+body.kb .setup-nav { position: static; background: none; }
 /* status components: loading, empty, error, offline, unavailable */
 .state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-5) var(--sp-3); border: 1px dashed var(--line-strong); border-radius: var(--r); color: var(--muted); font-size: var(--fs-sm); }
 .state svg { width: 26px; height: 26px; color: var(--muted); }
@@ -582,3 +584,7 @@ body.kb .nav { display: none; }
 .u-av img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .u-av-brand img { width: 60%; height: 60%; object-fit: contain; }
 .u-av.lg { width: 72px; height: 72px; }
+
+/* M10: meal card — secondary fine-tuning actions sit quietly under the main row */
+.meal-more { margin-top: -4px; }
+.meal-more .btn { color: var(--muted); }

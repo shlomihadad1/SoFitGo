@@ -192,7 +192,7 @@ function boot() {
   /* M8 · keyboard: hide the bottom nav while a text field has focus (see styles.css body.kb); delayed restore on blur */
   const isText = el => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|file|color)$/.test(el.type)));
   let kbT = null;
-  document.addEventListener('focusin', e => { if (isText(e.target)) { clearTimeout(kbT); document.body.classList.add('kb'); } });
+  document.addEventListener('focusin', e => { if (isText(e.target)) { clearTimeout(kbT); document.body.classList.add('kb'); const el = e.target; setTimeout(() => { if (document.activeElement !== el) return; const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight, r = el.getBoundingClientRect(); if (r.bottom > h - 16 || r.top < 70) el.scrollIntoView({ block: 'center' }); }, 320); } }); /* M10: keep the focused field visible above the keyboard */
   document.addEventListener('focusout', e => { if (isText(e.target)) { clearTimeout(kbT); kbT = setTimeout(() => { if (!isText(document.activeElement)) document.body.classList.remove('kb'); }, 400); } });
   App.render();
   /* M10: with accounts configured, resume the session (refresh token, pull/push) in the background after first paint */

@@ -120,6 +120,7 @@ function validateBackup(o) {
   if (typeof p.startDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.startDate)) return 'תאריך תחילת התוכנית בגיבוי חסר או פגום.';
   if (p.weight != null && !(typeof p.weight === 'number' && p.weight > 20 && p.weight < 400)) return 'ערך המשקל בגיבוי אינו תקין.';
   if (p.name != null && !(typeof p.name === 'string' && p.name.length <= 60)) return 'השם בגיבוי אינו תקין.';
+  if (p.mode != null && p.mode !== 'nutrition') return 'מצב השימוש בגיבוי אינו תקין.'; /* M10: optional nutrition-only mode */
   if (p.age != null && !(typeof p.age === 'number' && p.age >= 14 && p.age <= 100)) return 'ערך הגיל בגיבוי אינו תקין.';
   if (p.height != null && !(typeof p.height === 'number' && p.height >= 120 && p.height <= 230)) return 'ערך הגובה בגיבוי אינו תקין.';
   for (const k of ['aims', 'availability', 'environment', 'exercisePrefs']) if (p[k] != null && !isObj(p[k])) return 'שדה הפרופיל "' + k + '" בגיבוי פגום.';
