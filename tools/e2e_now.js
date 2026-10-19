@@ -25,7 +25,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   await go('#/'); const today = await p.evaluate(() => Store.today());
   const st = () => p.evaluate(() => { const c = document.querySelector('[data-now]'); if (!c) return null; const nx = c.querySelector('[data-now-next]');
     return { next: nx ? nx.dataset.nowNext : null, nextText: nx ? nx.textContent : '', q: c.querySelector('.now-q').textContent, done: [...c.querySelectorAll('[data-done]')].map(x => ({ k: x.dataset.done, ok: x.getAttribute('aria-pressed') === 'true' })), small: (c.querySelector('[data-now-small]') || {}).textContent || '', text: c.textContent }; });
-  const truth = () => p.evaluate(d => { const t = Core.dailyProgress(d).tasks; const pl = Core.plan(d); return { workout: (t.find(x => x.k === 'workout') || {}).v, meals: ['m1', 'm2', 'snack'].filter(k => pl[k] && pl[k].rid && !pl[k].off && !pl[k].missing).map(k => ({ k, eaten: !!Core.slotEntry(d, k) })), water: Core.daily(d).water || 0, goal: Core.profile().goals.water }; }, today);
+  const truth = () => p.evaluate(d => { const t = Core.dailyProgress(d).tasks; const pl = Core.plan(d); return { workout: (t.find(x => x.k === 'workout') || {}).v, meals: ['m1', 'm2', 'snack'].filter(k => pl[k] && pl[k].rid && !pl[k].off && !pl[k].missing).map(k => ({ k, eaten: !!Core.slotEntry(d, k) })), water: Core.daily(d).water || 0, goal: Core.waterGoalOn(d).ml /* M10: personal hydration target */ }; }, today);
   G = 'card reflects stored data';
   let s = await st(), t = await truth();
   ok(!!s, 'NOW card shown on home once a plan is active');
@@ -42,7 +42,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   for (let i = 0; i < 4 && s && s.next && s.next !== 'water' && s.next !== 'workout'; i++) { const k = s.next; await p.locator('[data-now-next] [data-act=eat]').click(); await p.waitForTimeout(400); s = await st(); t = await truth();
     ok(t.meals.find(m => m.k === k).eaten && s.done.find(d => d.k === k).ok, `"סמן שאכלתי" in the card stores ${k} and the chip turns done`); ok(s.next === expect(t), 'next step advances in order', { s: s.next, t }); }
   if (s && s.next === 'water') { const w0 = (await truth()).water; await p.locator('[data-now-next] [data-act=water]').click(); await p.waitForTimeout(300); ok((await truth()).water === w0 + 250, 'water button adds 250 ml');
-    await p.evaluate(d => Core.setDaily(d, { water: Core.profile().goals.water }), today); await go('#/calendar'); await go('#/'); s = await st();
+    await p.evaluate(d => Core.setDaily(d, { water: Core.waterGoalOn(d).ml }), today); await go('#/calendar'); await go('#/'); s = await st();
     ok(s.next === null && /בוצע ✓/.test(s.q), 'when everything planned is done the card says so and recommends rest'); }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close(); const pass = res.filter(r => r.ok).length, fail = res.length - pass;

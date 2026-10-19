@@ -13,9 +13,28 @@ Screens.versionSeg = (d, sel, act) => {
 };
 Screens.selectedVersion = { v: 'std' };
 
+/* M10 · first launch: a visible welcome with הרשמה / התחברות (also when this build has no account server — the account screen
+   then says so plainly; nothing is faked). Hidden after "להמשיך בלי חשבון", once signed in, or once a profile exists. */
+const lsPeek = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+/* M10 · water: liters on screen (stored in ml), personal target, remaining amount; quick-add stays in ml */
+Screens.waterBlock = function (date) {
+  const w = C.daily(date).water || 0, wg = C.waterGoalOn(date), left = Math.max(0, wg.ml - w);
+  return `<div class="stack tight" data-water><div class="row between"><span class="row">${icon('drop')} <b>מים</b></span><span class="num" data-water-total><bdi>${C.fmtL(w)}</bdi> מתוך <bdi>${C.fmtL(wg.ml)}</bdi> ליטר</span></div>${meter(w, wg.ml, 'gl')}
+    <div class="row between tiny muted"><span data-water-left>${left ? `נותרו <bdi>${C.fmtL(left)}</bdi> ליטר` : 'הגעת ליעד היום'}</span><a href="#/settings" data-water-goal-kind>${wg.manual ? 'יעד שקבעת' : wg.est ? 'הצעה כללית (הערכה)' : 'הצעה אישית (הערכה)'}</a></div>
+    <div class="btns"><button class="btn sm" data-act="water" data-ml="250">+250 מ״ל</button><button class="btn sm" data-act="water" data-ml="500">+500 מ״ל</button><button class="btn sm" data-act="water" data-ml="750">+750 מ״ל</button><button class="btn sm ghost" data-act="water" data-ml="-250" aria-label="הפחת 250 מ״ל">−250 מ״ל</button></div></div>`;
+};
+Screens.welcomeVisible = () => !lsPeek('fit30.welcomeDone') && !lsPeek('fit30.auth') && !C.hasBasics(C.profile()) && !root.Plans.active();
+Screens.welcomeCard = function () {
+  if (!Screens.welcomeVisible()) return '';
+  const on = !!root.FIT30_BACKEND;
+  return `<section class="card hero" data-welcome><span class="eyebrow">ברוכים הבאים ל־SoFitGo</span><h2>אימון, תזונה ומעקב — במקום אחד</h2><p class="small">Sofit, המאמנת שלך באפליקציה, מראה בכל יום מה הצעד הבא — אימון, ארוחה או מים — לפי התוכנית והיומן שלך.</p>
+    <p class="small muted">${on ? 'עם חשבון, ההתקדמות שלך נשמרת בשרת ומחכה לך גם בטלפון חדש. אפשר גם להתחיל בלי חשבון — הכול יישמר במכשיר הזה.' : 'אפשר להתחיל מיד. בגרסת הבטא הזו חשבונות הענן עוד לא הופעלו, ולכן הנתונים נשמרים במכשיר הזה.'}</p>
+    <div class="btns"><a class="btn primary" href="#/account/signup" data-welcome-signup>הרשמה</a><a class="btn" href="#/account/login" data-welcome-login>התחברות</a></div>
+    <button class="btn ghost sm" data-act="welcomeSkip">להמשיך בלי חשבון</button></section>`;
+};
 Screens.home = function () {
   const today = S.today(), n = C.todayN(), p = C.profile(), t = C.targets(), sess = S.load('session');
-  const html = [Screens.greeting(), Screens.accountPrompt ? Screens.accountPrompt() : '']; /* M10: from the account.js chunk (beta builds load it after first paint) */ /* M9: the user is greeted first; Sofit's card comes after the dashboard (hierarchy: user → progress → coach) */
+  const html = [Screens.greeting(), Screens.welcomeCard(), Screens.accountPrompt ? Screens.accountPrompt() : '']; /* M10: from the account.js chunk (beta builds load it after first paint) */ /* M9: the user is greeted first; Sofit's card comes after the dashboard (hierarchy: user → progress → coach) */
   if (!S.storageOK) html.push(`<div class="banner bad">${icon('info')}<div>האחסון המקומי חסום בדפדפן הזה (למשל גלישה פרטית). הנתונים יישמרו רק עד סגירת הדף. פתחו את האפליקציה בחלון רגיל.</div></div>`);
   if (sess) { const d = sess.plan ? (root.Plans.runDef(sess.plan.id, sess.plan.n) || { title: '' }) : C.dayDef(sess.day); html.push(`<div class="banner acc">${icon('timer')}<div class="grow"><b>אימון בתהליך:</b> יום ${sess.day} — ${esc(d.title)}. ${sess.stepIdx + 1}/${sess.total} שלבים.</div><button class="btn sm primary" data-act="resume">המשך</button></div>`); }
   if (!p.onboarded && C.hasBasics(p) && !root.Plans.active()) html.push(`<div class="banner info">${icon('info')}<div class="grow stack tight"><b>ברוך הבא.</b><span class="small">התוכנית מתחילה היום (${S.fmtDate(p.startDate)}). אפשר לשנות תאריך התחלה, יעדים והעדפות בהגדרות. כל הנתונים נשמרים רק במכשיר הזה — מומלץ לגבות מדי פעם.</span><div class="btns"><a class="btn sm" href="#/settings">להגדרות</a><button class="btn sm ghost" data-act="dismissOnb">הבנתי</button></div></div></div>`);
@@ -75,8 +94,7 @@ Screens.home = function () {
   // trackers
   const dl = C.daily(today), g = p.goals;
   html.push(`<section class="card"><h2>מעקב יומי</h2>
-    <div class="stack tight"><div class="row between"><span class="row">${icon('drop')} <b>מים</b></span><span class="num">${dl.water || 0} / ${g.water} מ״ל</span></div>${meter(dl.water || 0, g.water, 'gl')}
-      <div class="btns"><button class="btn sm" data-act="water" data-ml="250">+250</button><button class="btn sm" data-act="water" data-ml="500">+500</button><button class="btn sm" data-act="water" data-ml="750">+750</button><button class="btn sm ghost" data-act="water" data-ml="-250" aria-label="הפחת 250">−250</button></div></div>
+    ${Screens.waterBlock(today)}
     <div class="divider"></div>
     ${(() => { const A = root.Activity, v = A.day(today), tg = A.targetOn(today), e = A.env(); return `<div class="stack tight" data-steps-card><div class="row between"><span class="row">${icon('steps')} <b>צעדים</b> <span class="pill" data-steps-kind="${v.kind}">${esc(A.label(v))}</span></span><span class="num">${v.value != null ? v.value.toLocaleString('he-IL') : '—'}${tg ? ' / ' + tg.toLocaleString('he-IL') : ''}</span></div>${tg ? meter(v.value || 0, tg, 'good') : '<p class="tiny muted">יעד אישי לא נקבע — אין יעד אחד שמתאים לכולם. <a href="#/activity">לקביעת יעד</a></p>'}
       <div class="row"><input id="h-steps" type="number" inputmode="numeric" min="0" max="80000" placeholder="הזנה ידנית" value="${v.user != null ? v.user : ''}"><button class="btn sm" data-act="saveSteps">שמירה</button></div><p class="tiny faint" data-steps-env>${esc(e.native ? A.envText(e) : 'הזנה ידנית. בדפדפן אין גישה ל־Apple Health.')} <a href="#/activity">פרטים</a></p></div>`; })()}
@@ -101,6 +119,7 @@ Screens.home = function () {
       resume: () => root.Run.open(),
       hideAcct: () => { try { localStorage.setItem('fit30.acctCardHidden', 'true'); } catch (e) { } root.App.render(); },
       planStart: el => { const n2 = +el.dataset.n, d2 = root.Plans.dayOf(ap, n2); root.Run.start(n2, d2.type === 'assess' ? 'test' : (d2.version || 'std'), { id: ap.id, n: n2 }); },
+      welcomeSkip: () => { try { localStorage.setItem('fit30.welcomeDone', '1'); } catch (e) { } root.App.render(); },
       dismissOnb: () => { p.onboarded = true; S.save('profile'); root.App.render(); },
       startToday: () => { p.startDate = today; S.save('profile'); root.App.render(); },
       newCycle: () => root.UI.confirmSheet('מחזור חדש', 'תאריך ההתחלה יוגדר להיום. רישומי האימונים הקודמים (לפי מספר יום) יוחלפו כשתבצעו את אותו יום שוב. מומלץ לגבות קודם.', 'להתחיל מחזור חדש', () => { const w = S.load('workouts'); w.archive = (w.archive || []).concat([{ start: p.startDate, days: w.days }]); w.days = {}; S.save('workouts'); p.startDate = today; S.save('profile'); root.App.render(); }),
@@ -109,7 +128,7 @@ Screens.home = function () {
       applySug: el => { const s = C.suggestions()[+el.dataset.i]; if (!s) return; const w = S.load('workouts'); w.levels[s.ex] = s.to; w.feedback[s.ex] = []; S.save('workouts'); root.UI.toast('הרמה עודכנה ל' + C.LEVEL_HE[s.to]); root.App.render(); },
       eat: el => Screens.toggleEat(today, el.dataset.slot),
       extraOn: () => { C.setExtraOn(today, true); root.UI.toast('התוספת נוספה לתפריט והסיכום עודכן'); root.App.render(); },
-      water: el => { const v = Math.max(0, (C.daily(today).water || 0) + (+el.dataset.ml)); C.setDaily(today, { water: v }); root.App.render(); },
+      water: el => { C.addWater(today, +el.dataset.ml); root.App.render(); },
       saveSteps: () => { const raw = document.getElementById('h-steps').value, v = +raw; if (raw === '' || !(v >= 0)) return; if (root.Activity.setUserSteps(today, v)) root.UI.toast('הצעדים נשמרו (הוזן ידנית)'); root.App.render(); },
       saveWeight: () => { const u = p.units, v = parseFloat(document.getElementById('h-w').value); if (!(v > 0)) { root.UI.toast('הזינו משקל'); return; } const kg = root.UI.U.wIn(v, u.w); if (!(kg > 30 && kg < 300)) { root.UI.toast('משקל לא סביר'); return; }
         const tt = S.load('tracking'), prev = tt.measures.find(m => m.date === today); tt.measures = tt.measures.filter(m => m.date !== today); tt.measures.push(Object.assign({ id: 'm' + Date.now().toString(36), date: today, waist: null, note: '' }, prev || {}, { weight: kg })); S.save('tracking'); root.UI.toast('השקילה נשמרה'); root.App.render(); },
@@ -131,11 +150,11 @@ Screens.weekStrip = function (ap, date) {
    useful step. Rule-based and transparent — computed from the plan and the journal on this device; nothing is changed until
    the user taps, and no load or plan is altered. Order: unfinished workout → first planned meal not yet marked → water. */
 Screens.nowModel = function (date) {
-  const tasks = C.dailyProgress(date).tasks || [], by = k => tasks.find(t => t.k === k), plan = C.plan(date), ap = root.Plans.active(), g = C.profile().goals, water = C.daily(date).water || 0;
+  const tasks = C.dailyProgress(date).tasks || [], by = k => tasks.find(t => t.k === k), plan = C.plan(date), ap = root.Plans.active(), wgoal = C.waterGoalOn(date).ml, water = C.daily(date).water || 0;
   const done = [];
   const w = by('workout'); if (w) done.push({ k: 'workout', he: 'אימון', ok: w.v >= 1, part: w.v > 0 && w.v < 1 });
   ['m1', 'm2', 'snack'].filter(k => plan[k] && plan[k].rid && !plan[k].off && !plan[k].missing).forEach(k => done.push({ k, he: C.slotNames[k], ok: !!C.slotEntry(date, k) }));
-  done.push({ k: 'water', he: `מים ${water}/${g.water}`, ok: water >= g.water });
+  done.push({ k: 'water', he: `מים ${C.fmtL(water)}/${C.fmtL(wgoal)} ל׳`, ok: water >= wgoal });
   let next = null, small = null;
   if (w && w.v < 1) {
     const td = ap ? root.Plans.todayDay(ap) : null, n = ap ? (td && td.n) : C.clampDay(C.todayN());
@@ -145,7 +164,7 @@ Screens.nowModel = function (date) {
   } else { const m = done.find(d => ['m1', 'm2', 'snack'].includes(d.k) && !d.ok);
     if (m) { const r = L.recipe(plan[m.k].rid); next = { k: m.k, he: `${C.slotNames[m.k]}: ${r.he}`, btn: `<button class="btn primary" data-act="eat" data-slot="${m.k}">סמן שאכלתי</button>` };
       small = { he: 'אכלת רק חלק? אפשר לסמן כמות ביומן — גם חצי מנה נספרת.', href: '#/nutrition', link: 'ליומן התזונה' }; }
-    else if (water < g.water) { next = { k: 'water', he: `מים: ${water} מתוך ${g.water} מ״ל`, btn: `<button class="btn primary" data-act="water" data-ml="250">+250 מ״ל</button>` }; small = { he: 'כוס אחת עכשיו מספיקה כצעד הבא.' }; } }
+    else if (water < wgoal) { next = { k: 'water', he: `מים: ${C.fmtL(water)} מתוך ${C.fmtL(wgoal)} ליטר`, btn: `<button class="btn primary" data-act="water" data-ml="250">+250 מ״ל</button>` }; small = { he: 'כוס אחת עכשיו מספיקה כצעד הבא.' }; } }
   return { done, next, small };
 };
 Screens.nowCard = function (date, opts) {

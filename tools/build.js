@@ -7,7 +7,7 @@ const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/
    service worker for offline use; the single-file artifact inlines it. Keeps the first-load budget (700 KB) intact. */
 const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/screens_help.js'];
 /* RC5: second on-demand chunk for screens that are not needed on first load (precached for offline like help.js) */
-const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js'];
+const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js'];
 /* M10: accounts + sync + legal drafts — loaded only when the user opens the account screen or already has a session */
 const ACCOUNT = ['src/js/account.js', 'src/js/screens_account.js'];
 /* M10: backend configuration comes from the environment at build time (never from files in the repository).
@@ -23,6 +23,19 @@ const BACKEND = (() => {
   else if (!/^sb_publishable_[A-Za-z0-9_-]{8,}$/.test(key)) throw new Error('SOFITGO_SUPABASE_PUBLISHABLE_KEY does not look like a publishable key.');
   return { url, key, channel: (process.env.FIT30_CHANNEL || 'beta').replace(/[^a-z0-9-]/g, '').slice(0, 20) };
 })();
+/* M10 · runtime switch for cloud accounts WITHOUT rebuilding: sofitgo-config.js sits next to index.html. Empty (default) = device-only.
+   The owner fills in the project URL + PUBLISHABLE key and redeploys the folder. The loader below accepts only a *.supabase.co URL and a
+   publishable key (sb_publishable_… or a legacy JWT whose role is "anon"); anything else — e.g. a secret key — is ignored and never used.
+   A build made with SOFITGO_SUPABASE_* env vars has its config inline and ignores the file. */
+const CONFIG_TEMPLATE = `/* SoFitGo — cloud accounts switch (beta)
+   Empty values (default) = the app keeps all data on this device only; no account screens.
+   To turn on accounts: Supabase dashboard → Project Settings → API Keys. Copy the Project URL and the PUBLISHABLE key
+   (starts with sb_publishable_). Paste both below, save, and redeploy this folder.
+   Paste ONLY the publishable key — never any other key (e.g. service_role): this file is public. The app ignores other keys, but they would still be exposed.
+   Before turning this on, the database migration must be applied (see docs/SUPABASE-MIGRATION-REVIEW.md). */
+window.SOFITGO_CONFIG = { supabaseUrl: '', publishableKey: '' };
+`;
+const RUNTIME_CFG = "(function(){var w=window,c=w.SOFITGO_CONFIG;if(w.FIT30_BACKEND||!c||!c.supabaseUrl||!c.publishableKey)return;var u=String(c.supabaseUrl).trim().replace(/\\/+$/,''),k=String(c.publishableKey).trim(),ok=(/^https:\\/\\/[a-z0-9-]+\\.supabase\\.co$/.test(u)||/^http:\\/\\/(localhost|127\\.0\\.0\\.1):\\d+$/.test(u))&&(/^sb_publishable_[A-Za-z0-9_-]{8,}$/.test(k)||(function(){try{return /^eyJ/.test(k)&&JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role==='anon'}catch(e){return false}})());if(!ok){console.warn('sofitgo-config.js ignored: needs https://<project>.supabase.co and a PUBLISHABLE key');return}w.FIT30_BACKEND={url:u,key:k,channel:'beta',source:'config'}})();";
 const cssSrc = read('src/css/styles.css');
 const jsSrc = JS.concat(LAZY, EXTRA, ACCOUNT).filter(f => f !== 'src/data/tutorials_media.js' /* generated FROM this build by tools/tutorials_build.js; excluded so recording does not change the id it records */).map(f => `/* ${f} */\n` + read(f)).join('\n');
 const hash = crypto.createHash('sha1').update(cssSrc + jsSrc + read('src/js/debug_layout.js') + read('tools/build.js') + JSON.stringify(BACKEND) /* M10: a build for another backend/channel is a different build */ /* RC5: the service worker and manifest are generated here, so their changes must change the build id too */).digest('hex').slice(0, 10);
@@ -67,12 +80,15 @@ fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 ${FONTS}
 <style>${css}</style></head><body>${SHELL}
 <script>window.FIT30_ENV='pwa';window.FIT30_BUILD='${hash}';window.FIT30_BRAND=${JSON.stringify(BRAND.name)};window.FIT30_COACH=${BRAND.extra.length ? JSON.stringify({ name: 'Sofit', avatar: BRAND.extra[0] }) : 'null'};window.FIT30_LOGO=${BRAND.logo ? JSON.stringify(BRAND.logo) : 'null'};${BACKEND ? 'window.FIT30_BACKEND=' + JSON.stringify(BACKEND).replace(/</g, '\\u003c') + ';' : ''}</script>
+<script src="sofitgo-config.js"></script>
+<script>${RUNTIME_CFG}</script>
 <script>${js}</script></body></html>`);
 fs.writeFileSync(path.join(out, 'manifest.webmanifest'), JSON.stringify({
   name: BRAND.full, short_name: BRAND.short, lang: 'he', dir: 'rtl', start_url: './', scope: './', display: 'standalone', orientation: 'portrait',
   background_color: BRAND.bg, theme_color: BRAND.bg,
   icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }, { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }]
 }, null, 2));
+fs.writeFileSync(path.join(out, 'sofitgo-config.js'), CONFIG_TEMPLATE);
 fs.writeFileSync(path.join(out, 'sw.js'), `/* Service worker
    - app shell (index.html, manifest, icons) precached per build: 'fit30-<build>'; old shells deleted on activate
    - media images: cache on first view in 'fit30-media-v1', bounded to MEDIA_MAX entries (oldest removed first);
@@ -80,7 +96,7 @@ fs.writeFileSync(path.join(out, 'sw.js'), `/* Service worker
    - videos are NOT cached and not intercepted (range requests go straight to the network) — no offline video
    - fonts cached at runtime */
 const CACHE = 'fit30-${hash}', MEDIA = 'fit30-media-v1', MEDIA_MAX = 160;
-const ASSETS = ['./', 'index.html', 'help.js', 'extra.js', 'account.js', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'${BRAND.extra.concat(BRAND.logo ? [BRAND.logo.word, BRAND.logo.sym] : []).map(f => `, '${f}'`).join('')}];
+const ASSETS = ['./', 'index.html', 'help.js', 'extra.js', 'account.js', 'sofitgo-config.js', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'${BRAND.extra.concat(BRAND.logo ? [BRAND.logo.word, BRAND.logo.sym] : []).map(f => `, '${f}'`).join('')}];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('fit30-') && k !== CACHE && k !== MEDIA && k !== 'fit30-fonts').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 const trim = c => c.keys().then(ks => ks.length > MEDIA_MAX ? Promise.all(ks.slice(0, ks.length - MEDIA_MAX).map(k => c.delete(k))) : null);
@@ -91,6 +107,9 @@ self.addEventListener('fetch', e => {
     /* P0-F (RC5): only a real app shell may replace the cached one — never a login page (401/redirect), an error page or an
        opaque response; otherwise an expired host login or a 5xx would poison offline use. The live response is still shown. */
     if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(r => { if (r.ok && r.status === 200 && !r.redirected && r.type === 'basic' && /text\\/html/.test(r.headers.get('content-type') || '')) { const c = r.clone(); c.text().then(t => { if (t.includes('window.FIT30_BUILD=')) caches.open(CACHE).then(x => x.put('index.html', new Response(t, { headers: { 'content-type': 'text/html; charset=utf-8' } }))); }); } return r; }).catch(() => caches.match('index.html'))); return; }
+    /* M10: the accounts switch is read network-first (an edited file takes effect on the next launch); offline or after 3 s → cached copy */
+    if (u.pathname.endsWith('/sofitgo-config.js')) { const cfg = () => caches.match('sofitgo-config.js'); const net = fetch(e.request, { cache: 'no-store' }).then(r => { if (r.ok && r.status === 200 && !r.redirected && /javascript/.test(r.headers.get('content-type') || '')) { const c = r.clone(); caches.open(CACHE).then(x => x.put('sofitgo-config.js', c)); } return r; });
+      e.respondWith(Promise.race([net, new Promise(res => setTimeout(() => cfg().then(h => { if (h) res(h); }), 3000))]).catch(() => cfg())); return; }
     if (u.pathname.includes('/media/')) {
       if (/\\.(mp4|webm|m4v|mov)$/i.test(u.pathname) || e.request.headers.has('range')) return; // video: network only
       e.respondWith(caches.open(MEDIA).then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(r => { if (r.ok) { c.put(e.request, r.clone()).then(() => trim(c)); } return r; }))));

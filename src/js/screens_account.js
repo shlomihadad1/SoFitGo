@@ -7,6 +7,9 @@ const SEC_HE = { profile: 'פרופיל והגדרות', workouts: 'אימוני
 const ST_HE = { idle: 'מחובר', synced: 'מסונכרן', pending: 'יש שינויים שממתינים לסנכרון', syncing: 'מסנכרן…', offline: 'אין חיבור — יסונכרן כשהחיבור יחזור', error: 'הסנכרון נכשל', conflict: 'יש התנגשות שדורשת החלטה', expired: 'החיבור לחשבון פג — התחברו שוב', foreign: 'במכשיר יש נתונים של חשבון אחר', paused: 'הבטא מושהית — הסנכרון עוצר' };
 const ago = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'עכשיו' : m < 60 ? `לפני ${m} דק׳` : `לפני ${Math.round(m / 60)} שע׳`; };
 const field = (id, label, type, extra) => `<label class="field">${label}<input id="${id}" type="${type}" ${extra || ''}></label>`;
+const pwToggle = () => `<button type="button" class="btn sm ghost" data-act="pwShow" aria-pressed="false" aria-label="הצגת הסיסמה">הצגת הסיסמה</button>`;
+/* M10 · after sign-up / sign-in: no profile yet → onboarding (setup step 1); profile complete → the main screen */
+const nextScreen = () => { const C = root.Core; return C && C.hasBasics(C.profile()) ? '#/' : '#/setup/1'; };
 const errBox = () => ui.err ? `<p class="banner bad small" role="alert" data-acct-error>${icon('info')}<span>${esc(ui.err)}</span></p>` : '';
 const infoBox = () => ui.info ? `<p class="banner info small" role="status" data-acct-info>${icon('info')}<span>${esc(ui.info)}</span></p>` : '';
 async function run(fn) { if (ui.busy) return; ui.busy = true; ui.err = ''; ui.info = ''; root.App.render(); try { await fn(); } catch (e) { ui.err = e.he || A().message(e); } finally { ui.busy = false; root.App.render(); } }
@@ -16,11 +19,11 @@ function signedOutHtml(st) {
   const t = ui.tab, b = ui.busy ? 'disabled aria-busy="true"' : '';
   const tabs = `<div class="seg" role="group" aria-label="חשבון">${[['login', 'התחברות'], ['signup', 'הרשמה'], ['forgot', 'שכחתי סיסמה']].map(([k, l]) => `<button data-act="tab" data-t="${k}" aria-pressed="${t === k}">${l}</button>`).join('')}</div>`;
   let form = '';
-  if (t === 'signup') form = `<form class="stack" data-form="signup" novalidate>${field('ac-name', 'שם פרטי (רשות — לברכה בבית)', 'text', 'maxlength="30" autocomplete="given-name"')}${field('ac-email', 'אימייל', 'email', `autocomplete="email" inputmode="email" dir="ltr" value="${esc(ui.email)}" required`)}${field('ac-pw', 'סיסמה (לפחות 8 תווים)', 'password', 'autocomplete="new-password" minlength="8" dir="ltr" required')}
+  if (t === 'signup') form = `<form class="stack" data-form="signup" novalidate>${field('ac-name', 'שם פרטי (רשות — לברכה בבית)', 'text', 'maxlength="30" autocomplete="given-name"')}${field('ac-email', 'אימייל', 'email', `autocomplete="email" inputmode="email" dir="ltr" value="${esc(ui.email)}" required`)}${field('ac-pw', 'סיסמה (לפחות 8 תווים)', 'password', 'autocomplete="new-password" minlength="8" dir="ltr" required')}${field('ac-pw2', 'אימות סיסמה', 'password', 'autocomplete="new-password" minlength="8" dir="ltr" required')}${pwToggle()}
       <label class="row small"><input type="checkbox" id="ac-ok"> <span>קראתי את <a href="#/legal">הודעת הפרטיות ותנאי הבטא</a> ואני מסכים/ה להם</span></label>
       <button type="submit" class="btn primary" data-act="signup" ${b}>${ui.busy ? 'יוצר חשבון…' : 'יצירת חשבון'}</button></form>`;
   else if (t === 'forgot') form = `<form class="stack" data-form="forgot" novalidate><p class="small muted">נשלח קישור לאיפוס הסיסמה. הקישור מחזיר לאפליקציה, ושם בוחרים סיסמה חדשה.</p>${field('ac-email', 'אימייל', 'email', `autocomplete="email" inputmode="email" dir="ltr" value="${esc(ui.email)}"`)}<button type="submit" class="btn primary" data-act="forgot" ${b}>${ui.busy ? 'שולח…' : 'שליחת קישור'}</button></form>`;
-  else form = `<form class="stack" data-form="login" novalidate>${field('ac-email', 'אימייל', 'email', `autocomplete="email" inputmode="email" dir="ltr" value="${esc(ui.email || st.email || '')}"`)}${field('ac-pw', 'סיסמה', 'password', 'autocomplete="current-password" dir="ltr"')}
+  else form = `<form class="stack" data-form="login" novalidate>${field('ac-email', 'אימייל', 'email', `autocomplete="email" inputmode="email" dir="ltr" value="${esc(ui.email || st.email || '')}"`)}${field('ac-pw', 'סיסמה', 'password', 'autocomplete="current-password" dir="ltr"')}${pwToggle()}
       <button type="submit" class="btn primary" data-act="login" ${b}>${ui.busy ? 'מתחבר…' : 'התחברות'}</button>${ui.needConfirm ? `<button type="button" class="btn ghost sm" data-act="resend" ${b}>שליחה חוזרת של מייל האישור</button>` : ''}</form>`;
   return `<section class="card" data-acct="signed-out"><h2>חשבון SoFitGo${st.channel === 'beta' ? ' <span class="pill acc">בטא</span>' : ''}</h2>
     <p class="small muted">עם חשבון, הנתונים נשמרים גם בשרת ואפשר לחזור אליהם אחרי יציאה, החלפת מכשיר או מחיקת הדפדפן. בלי חשבון — הכול נשאר רק במכשיר הזה.</p>
@@ -61,14 +64,14 @@ function migrationHtml(st) {
 /* account entry points on Home and in Settings (only when this build has a backend configured) */
 const peek = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
 Screens.accountCard = function () {
-  if (!root.FIT30_BACKEND) return '';
+  if (!root.FIT30_BACKEND) return Screens.accountCardOff();
   const a = peek('fit30.auth'), s = peek('fit30.sync') || {}, line = a ? `מחובר/ת כ־<b dir="ltr">${esc(a.user && a.user.email || '')}</b>` : s.owner ? '<span class="warn">החיבור לחשבון פג — התחברו שוב</span>' : 'לא מחובר/ת — הנתונים נשמרים רק במכשיר';
   return `<section class="card" data-account-card><div class="card-h"><h2>חשבון וסנכרון</h2>${root.FIT30_BACKEND.channel === 'beta' ? '<span class="pill acc">בטא</span>' : ''}</div><p class="small">${line}</p><a class="btn" href="#/account">${a ? 'פרטי החשבון והסנכרון' : 'הרשמה / התחברות'}</a><p class="tiny muted">גרסה <span dir="ltr">${esc(root.FIT30_BUILD || '')}</span></p></section>`;
 };
 Screens.accountPrompt = function () {
   if (!root.FIT30_BACKEND || peek('fit30.acctCardHidden')) return '';
   const a = peek('fit30.auth'), s = peek('fit30.sync') || {};
-  if (a) return '';
+  if (a || (Screens.welcomeVisible && Screens.welcomeVisible())) return '';
   if (s.owner) return `<div class="banner warn small" data-account-expired>${icon('info')}<div class="grow">החיבור לחשבון פג. הנתונים במכשיר שמורים. <a href="#/account/login">התחברות מחדש</a></div></div>`;
   return `<section class="card" data-account-prompt><div class="card-h"><h3>שמירה בחשבון</h3>${root.FIT30_BACKEND.channel === 'beta' ? '<span class="pill acc">בטא</span>' : ''}</div><p class="small muted">צרו חשבון כדי שהנתונים יישמרו גם בשרת ויחזרו אליכם בכל מכשיר. אפשר גם להמשיך בלי חשבון — הכול יישאר במכשיר הזה.</p>
     <div class="btns"><a class="btn primary" href="#/account/signup">הרשמה</a><a class="btn" href="#/account/login">התחברות</a><button class="btn ghost sm" data-act="hideAcct">לא עכשיו</button></div></section>`;
@@ -79,15 +82,21 @@ Screens.account = function (arg) {
   if (arg && ['login', 'signup', 'forgot'].includes(arg)) ui.tab = arg;
   const red = Ac.lastRedirect; if (red) { Ac.lastRedirect = null; if (red.error) ui.err = red.error; if (red.recovery) ui.recovery = true; if (red.signedIn) ui.info = 'האימייל אושר וההתחברות הצליחה.'; }
   let html;
-  if (!st.available) html = `<section class="card" data-acct="unavailable"><h2>חשבון</h2><p class="small">בגרסה הזו אין חיבור לשרת חשבונות. כל הנתונים נשמרים רק במכשיר הזה. לגיבוי — <a href="#/settings">הגדרות ← ייצוא גיבוי</a>.</p></section>`;
+  if (!st.available) html = `<section class="card" data-acct="unavailable"><h2>${arg === 'login' ? 'התחברות' : arg === 'signup' ? 'הרשמה' : 'הרשמה והתחברות'}</h2>
+    <div class="banner warn small" role="status">${icon('info')}<div><b>חשבונות הענן עוד לא הופעלו בגרסת הבטא הזו.</b> לא נוצר חשבון ולא נשלח מייל. ההרשמה וההתחברות ייפתחו כאן כשהשרת יופעל.</div></div>
+    <p class="small">בינתיים אפשר להשתמש בכל האפליקציה. הנתונים נשמרים במכשיר הזה, וכשהחשבונות יופעלו אפשר יהיה לשייך אותם לחשבון בלי לאבד דבר. לגיבוי: <a href="#/settings">הגדרות ← ייצוא גיבוי</a>.</p>
+    <div class="btns"><button class="btn primary" data-act="noAcct">להמשיך בלי חשבון</button><a class="btn" href="#/setup/1">הגדרת פרופיל ותוכנית</a></div></section>`;
   else html = st.signedIn ? signedInHtml(st) : signedOutHtml(st);
   html += `<p class="tiny muted center"><a href="#/legal">הודעת פרטיות ותנאי הבטא (טיוטה)</a> · גרסה <span dir="ltr">${esc(root.FIT30_BUILD || '')}</span></p>`;
   return { title: 'חשבון וסנכרון', back: '#/settings', html, handlers: {
+    noAcct: () => { try { localStorage.setItem('fit30.welcomeDone', '1'); } catch (e) { } location.hash = '#/'; },
+    pwShow: el => { const on = el.getAttribute('aria-pressed') !== 'true'; ['ac-pw', 'ac-pw2'].forEach(id => { const i = document.getElementById(id); if (i) i.type = on ? 'text' : 'password'; }); el.setAttribute('aria-pressed', String(on)); el.setAttribute('aria-label', on ? 'הסתרת הסיסמה' : 'הצגת הסיסמה'); el.textContent = on ? 'הסתרת הסיסמה' : 'הצגת הסיסמה'; },
     tab: el => { ui.email = val('ac-email') || ui.email; ui.tab = el.dataset.t; ui.err = ''; ui.info = ''; root.App.render(); },
-    login: (el, e) => { e && e.preventDefault(); const em = val('ac-email'), pw = val('ac-pw'); ui.email = em; run(async () => { ui.needConfirm = false; try { const r = await Ac.signIn(em, pw); ui.info = r.next === 'migration' ? '' : 'התחברת בהצלחה.'; } catch (er) { if (er.code === 'email_not_confirmed') ui.needConfirm = true; throw er; } }); },
+    login: (el, e) => { e && e.preventDefault(); const em = val('ac-email'), pw = val('ac-pw'); ui.email = em; run(async () => { ui.needConfirm = false; try { const r = await Ac.signIn(em, pw); ui.info = r.next === 'migration' ? '' : 'התחברת בהצלחה.'; if (r.next !== 'migration' && Ac.state().signedIn) { location.hash = nextScreen(); root.UI.toast(nextScreen() === '#/' ? 'התחברת בהצלחה' : 'התחברת. נמשיך להגדרת הפרופיל'); } } catch (er) { if (er.code === 'email_not_confirmed') ui.needConfirm = true; throw er; } }); },
     signup: (el, e) => { e && e.preventDefault(); const em = val('ac-email'), pw = val('ac-pw'), nm = val('ac-name'); ui.email = em;
+      if (pw !== val('ac-pw2')) { ui.err = 'הסיסמאות לא תואמות. הקלידו את אותה סיסמה פעמיים.'; root.App.render(); return; }
       if (!document.getElementById('ac-ok').checked) { ui.err = 'כדי ליצור חשבון צריך לאשר את הודעת הפרטיות ותנאי הבטא.'; root.App.render(); return; }
-      run(async () => { const r = await Ac.signUp(em, pw, nm); if (r.confirm) { ui.tab = 'login'; ui.info = 'נשלח אליך מייל לאישור הכתובת. אחרי לחיצה על הקישור תחזור/י לכאן מחובר/ת.'; } else ui.info = 'החשבון נוצר והתחברת.'; }); },
+      run(async () => { const r = await Ac.signUp(em, pw, nm); if (r.confirm) { ui.tab = 'login'; ui.info = 'נשלח אליך מייל לאישור הכתובת. אחרי לחיצה על הקישור תחזור/י לכאן מחובר/ת.'; } else { ui.info = 'החשבון נוצר והתחברת.'; if (Ac.state().signedIn && !(Ac.state().migration && Ac.state().migration.state === 'pending')) { location.hash = nextScreen(); root.UI.toast('החשבון נוצר. נמשיך להגדרת הפרופיל'); } } }); },
     forgot: (el, e) => { e && e.preventDefault(); const em = val('ac-email'); ui.email = em; run(async () => { await Ac.recover(em); ui.info = 'אם הכתובת רשומה, נשלח אליה קישור לאיפוס. בדקו גם בספאם.'; }); },
     resend: () => run(async () => { await Ac.resend(ui.email || val('ac-email')); ui.info = 'מייל האישור נשלח שוב.'; }),
     setpw: () => { const pw = val('ac-newpw'); run(async () => { await Ac.updatePassword(pw); ui.recovery = false; ui.info = 'הסיסמה עודכנה.'; }); },

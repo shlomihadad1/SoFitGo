@@ -53,7 +53,7 @@ function screenFor(r) {
     case 'programs': return Screens.programs ? Screens.programs() : extraLoading('מסלולים', '#/workouts'); /* M8: moved to extra.js (first-load budget) */
     case 'program': return Screens.program ? Screens.program(r.arg) : extraLoading('מסלול', '#/programs');
     case 'media': return Screens.media ? Screens.media() : extraLoading('סרטוני הדרכה', '#/settings');
-    case 'profile': return Screens.profile();
+    case 'profile': return Screens.profile ? Screens.profile() : extraLoading('פרופיל', '#/settings'); /* M10: moved to extra.js */
     case 'setup': return Screens.setup(r.arg);
     case 'plan': return Screens.plan();
     case 'pday': return Screens.pday(r.arg || pdayToday()); /* M8: '#/pday' without a day opens today's plan day instead of "not found" */
@@ -105,8 +105,12 @@ App.render = function () {
   try { scr = screenFor(r); } catch (e) { console.error(e); scr = { title: 'שגיאה', html: `<div class="banner bad">${icon('info')}<div>אירעה שגיאה בהצגת המסך: ${esc(e.message)}. הנתונים שלכם לא נפגעו.</div></div><a class="btn" href="#/">לבית</a>`, handlers: {} }; }
   const sec = SECTION[r.name] || 'home';
   const back = scr.back ? `<a class="icon-btn" href="${scr.back}" aria-label="חזרה">${icon('back')}</a>` : BRAND_MARK;
-  document.getElementById('top').innerHTML = `<div class="top-in">${back}<h1>${esc(scr.title)}</h1><a class="icon-btn" href="#/settings" aria-label="הגדרות" ${sec === 'settings' ? 'aria-current="page"' : ''}>${icon('gear')}</a></div>`;
-  document.getElementById('nav').innerHTML = `<div class="nav-in" role="navigation" aria-label="ניווט ראשי">${NAV.map(n => `<a href="${n.h}" ${n.k === sec ? 'aria-current="page"' : ''}>${icon(n.i)}<span>${esc(tr('nav.' + n.k))}</span></a>`).join('')}</div>`;
+  /* M10: on Home the logo is the header — the redundant visible "בית" is dropped; the h1 stays (layout + screen readers) */
+  const topEl = document.getElementById('top'), navEl = document.getElementById('nav'); /* M10: header/nav are rewritten only when they change (no logo flash on every tap) */
+  const topHtml = `<div class="top-in">${back}<h1>${r.name === 'home' ? `<span class="sr-only">${esc(scr.title)}</span>` : esc(scr.title)}</h1><a class="icon-btn" href="#/settings" aria-label="הגדרות" ${sec === 'settings' ? 'aria-current="page"' : ''}>${icon('gear')}</a></div>`;
+  if (topEl.__html !== topHtml) { topEl.innerHTML = topHtml; topEl.__html = topHtml; }
+  const navHtml = `<div class="nav-in" role="navigation" aria-label="ניווט ראשי">${NAV.map(n => `<a href="${n.h}" ${n.k === sec ? 'aria-current="page"' : ''}>${icon(n.i)}<span>${esc(tr('nav.' + n.k))}</span></a>`).join('')}</div>`;
+  if (navEl.__html !== navHtml) { navEl.innerHTML = navHtml; navEl.__html = navHtml; }
   const v = document.getElementById('view'); const keepScroll = lastName === location.hash; const y = window.scrollY;
   v.dataset.screen = r.name; v.innerHTML = scr.html;
   root.UI.bind(v, scr.handlers || {});

@@ -588,3 +588,5 @@ body.kb .setup-nav { position: static; background: none; }
 /* M10: meal card — secondary fine-tuning actions sit quietly under the main row */
 .meal-more { margin-top: -4px; }
 .meal-more .btn { color: var(--muted); }
+/* M10 · fields side by side line up: labels of different length never push one input lower than its neighbour */
+.grid2 > label.field, .grid3 > label.field { justify-content: flex-end; }

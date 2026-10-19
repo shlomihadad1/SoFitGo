@@ -35,7 +35,7 @@ const procs = []; /* child servers started by this test; always stopped, also af
   const ready = p => waitFor(p, () => !!window.Account && !!window.Screens.account);
   const fill = async (p, sel, v) => { await p.fill(sel, v); };
   const signup = async (p, email, name) => { await go(p, '#/account/signup', 700); await ready(p); await p.evaluate(() => App.render()); await p.waitForTimeout(200);
-    if (name) await fill(p, '#ac-name', name); await fill(p, '#ac-email', email); await fill(p, '#ac-pw', PW); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await waitFor(p, () => !document.querySelector('[data-act=signup][disabled]')); await p.waitForTimeout(400); };
+    if (name) await fill(p, '#ac-name', name); await fill(p, '#ac-email', email); await fill(p, '#ac-pw', PW); await fill(p, '#ac-pw2', PW); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await waitFor(p, () => !document.querySelector('[data-act=signup][disabled]')); await p.waitForTimeout(400); };
   const login = async (p, email, pw) => { await go(p, '#/account/login', 700); await ready(p); await p.evaluate(() => App.render()); await p.waitForTimeout(200); await fill(p, '#ac-email', email); await fill(p, '#ac-pw', pw || PW); await p.locator('[data-act=login]').click(); await waitFor(p, () => !document.querySelector('[data-act=login][disabled]')); await p.waitForTimeout(500); };
   const lsKeys = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('fit30.')).sort());
   const seedData = p => p.evaluate(() => { const pr = Store.load('profile'); Object.assign(pr, { age: 33, height: 170, weight: 71.5, startWeight: 73, sex: 'f' }); pr.aims = { primary: 'fat_loss', secondary: [] }; Store.save('profile');
@@ -56,23 +56,51 @@ const procs = []; /* child servers started by this test; always stopped, also af
   /* ── 1. no backend: honest ── */
   G = 'standard build (no backend configured)';
   { const { ctx, p } = await mk(); await p.goto(STD); await p.waitForTimeout(800); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(700);
-    ok(await p.locator('[data-account-prompt], [data-account-card]').count() === 0, 'no account prompt on Home in a build without a backend'); await go(p, '#/account', 1500);
-    ok(await p.locator('[data-acct="unavailable"]').count() === 1, '#/account says accounts are not available in this build (no fake sign-in)'); await ctx.close(); }
+    /* M10 P0 (owner report): sign-up / sign-in must be visible from the first screen even before the server is switched on.
+       Replaces the old "no account prompt without a backend" check; the honesty requirement is kept and made stricter. */
+    ok(await p.locator('[data-welcome] [data-welcome-signup]').count() === 1 && await p.locator('[data-welcome] [data-welcome-login]').count() === 1, 'first launch: welcome card with הרשמה and התחברות');
+    ok(await p.locator('[data-account-prompt]').count() === 0, 'no second (duplicate) account prompt');
+    await p.locator('[data-welcome-signup]').click(); await p.waitForTimeout(1500);
+    const un = await p.evaluate(() => ({ un: !!document.querySelector('[data-acct="unavailable"]'), txt: document.querySelector('#view').innerText, form: !!document.querySelector('#ac-email, #ac-pw') }));
+    ok(un.un && /עוד לא הופעלו/.test(un.txt) && /לא נוצר חשבון/.test(un.txt) && !un.form, 'הרשמה without a server: says plainly accounts are not switched on; no form, no fake account', un);
+    await p.locator('[data-act=noAcct]').click(); await p.waitForTimeout(600);
+    ok(await p.evaluate(() => location.hash === '#/' || location.hash === '') && await p.locator('[data-welcome]').count() === 0, '"להמשיך בלי חשבון" returns Home; the welcome card is gone');
+    await go(p, '#/settings', 600); ok(await p.locator('[data-account-off] a[href="#/account"]').count() === 1, 'Settings always has an account area (honest "לא הופעל")');
+    ok(!(await p.evaluate(() => Object.keys(localStorage).some(k => /auth|sync/.test(k)))), 'no session or sync state was created'); await ctx.close(); }
+
+  G = 'runtime switch: sofitgo-config.js';
+  { const cfg = body => async c => { await c.route('**/sofitgo-config.js', r => r.fulfill({ status: 200, contentType: 'application/javascript', body })); };
+    let x = await mk(); await cfg("window.SOFITGO_CONFIG={supabaseUrl:'https://abcdefgh.supabase.co',publishableKey:'sb_secret_0123456789abcdef'};")(x.ctx);
+    await x.p.goto(STD); await x.p.waitForTimeout(800); ok(await x.p.evaluate(() => !window.FIT30_BACKEND), 'a SECRET key in the config file is ignored (app stays device-only)'); await x.ctx.close();
+    x = await mk(); await cfg("window.SOFITGO_CONFIG={supabaseUrl:'https://evil.example.com',publishableKey:'sb_publishable_abcdefghijkl'};")(x.ctx);
+    await x.p.goto(STD); await x.p.waitForTimeout(800); ok(await x.p.evaluate(() => !window.FIT30_BACKEND), 'a non-Supabase URL is ignored'); await x.ctx.close();
+    x = await mk(); await cfg(`window.SOFITGO_CONFIG={supabaseUrl:'${API}',publishableKey:'${KEY}'};`)(x.ctx);
+    await x.p.goto(STD); await x.p.waitForTimeout(800); await x.p.evaluate(() => localStorage.clear()); await x.p.reload(); await ready(x.p);
+    ok(await x.p.evaluate(() => window.FIT30_BACKEND && window.FIT30_BACKEND.source === 'config'), 'the STANDARD deploy build turns accounts on from the config file (no rebuild)');
+    await x.p.locator('[data-welcome-signup]').click(); await x.p.waitForTimeout(900); await ready(x.p);
+    ok(await x.p.locator('#ac-email').count() === 1 && await x.p.locator('#ac-pw2').count() === 1, 'welcome → הרשמה opens the real form (email, password, confirmation)');
+    await signup(x.p, 'cfg-user@test.invalid', 'דנה'); const cs = await x.p.evaluate(() => window.Account.state());
+    ok(cs.signedIn && /^[0-9a-f-]{36}$/.test(cs.userId), 'sign-up through the config-file build creates a real account on the (local) auth server', cs);
+    await x.p.reload(); await ready(x.p); ok((await x.p.evaluate(() => window.Account.state())).signedIn, 'session restored after reopening the app'); await x.ctx.close(); }
 
   /* ── 2. sign-up, validation, session ── */
   G = 'sign-up and validation';
   let { ctx, p, errs, warns } = await mk();
   await p.goto(APP); await p.waitForTimeout(900); await p.evaluate(() => localStorage.clear()); await p.reload(); await ready(p); await p.waitForTimeout(500);
-  ok(await p.locator('[data-account-prompt]').count() === 1, 'beta build: Home offers sign-up / sign-in (not forced)');
+  ok(await p.locator('[data-welcome] [data-welcome-signup]').count() === 1 && await p.locator('[data-welcome] [data-welcome-login]').count() === 1 && await p.locator('[data-account-prompt]').count() === 0, 'beta build, first launch: welcome with הרשמה / התחברות (not forced; no duplicate prompt)');
+  await p.locator('[data-welcome-login]').click(); await p.waitForTimeout(800); ok(await p.locator('[data-form=login] #ac-email').count() === 1, 'welcome → התחברות opens the login form'); await go(p, '#/', 500);
   await go(p, '#/settings', 600); ok(await p.locator('[data-account-card]').count() === 1 && /לא מחובר/.test(await p.locator('[data-account-card]').innerText()), 'Settings shows the account card with the honest state');
-  await go(p, '#/account/signup', 700); await fill(p, '#ac-email', 'not-an-email'); await fill(p, '#ac-pw', PW); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(500);
+  await go(p, '#/account/signup', 700); await fill(p, '#ac-email', 'alma@test.invalid'); await fill(p, '#ac-pw', PW); await fill(p, '#ac-pw2', PW + 'x'); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(500);
+  ok(/הסיסמאות לא תואמות/.test(await p.locator('[data-acct-error]').innerText().catch(() => '')), 'password confirmation mismatch → Hebrew error, nothing sent');
+  await fill(p, '#ac-email', 'not-an-email'); await fill(p, '#ac-pw', PW); await fill(p, '#ac-pw2', PW); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(500);
   ok(/כתובת האימייל לא תקינה/.test(await p.locator('[data-acct-error]').innerText().catch(() => '')), 'invalid e-mail → Hebrew error, nothing sent');
-  await fill(p, '#ac-email', 'alma@test.invalid'); await fill(p, '#ac-pw', 'short'); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(500);
+  await fill(p, '#ac-email', 'alma@test.invalid'); await fill(p, '#ac-pw', 'short'); await fill(p, '#ac-pw2', 'short'); await p.check('#ac-ok'); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(500);
   ok(/לפחות 8 תווים/.test(await p.locator('[data-acct-error]').innerText().catch(() => '')), 'short password → Hebrew error');
-  await fill(p, '#ac-email', 'alma@test.invalid'); await fill(p, '#ac-pw', PW); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(400);
+  await fill(p, '#ac-email', 'alma@test.invalid'); await fill(p, '#ac-pw', PW); await fill(p, '#ac-pw2', PW); await p.locator('[data-act=signup]').click(); await p.waitForTimeout(400);
   ok(/לאשר את הודעת הפרטיות/.test(await p.locator('[data-acct-error]').innerText().catch(() => '')), 'consent to the privacy notice is required');
   await signup(p, 'alma@test.invalid', 'עלמה');
   let st = await acct(p); A_ID = st.userId;
+  ok(await p.evaluate(() => location.hash) === '#/setup/1', 'new account without a profile → straight into onboarding (setup step 1)');
   ok(st.signedIn && /^[0-9a-f-]{36}$/.test(st.userId) && st.owner === st.userId, 'account created: unique id from the auth server, device data owned by it', st);
   ok(!JSON.stringify(await p.evaluate(() => ({ ...localStorage }))).includes(PW), 'the password is not stored anywhere in localStorage');
   await go(p, '#/', 600); ok(/שלום, עלמה/.test(await p.locator('[data-greeting-text]').innerText()), 'greeting uses the first name given at sign-up');
@@ -105,6 +133,7 @@ const procs = []; /* child servers started by this test; always stopped, also af
     await login(d2.p, 'alma@test.invalid', 'wrong-password-1'); ok(/האימייל או הסיסמה שגויים/.test(await d2.p.locator('[data-acct-error]').innerText().catch(() => '')), 'wrong password → Hebrew error');
     await login(d2.p, 'alma@test.invalid'); await d2.p.waitForTimeout(800);
     const s2 = await acct(d2.p); ok(s2.signedIn && s2.owner === A_ID, 'signed in on device 2', s2);
+    ok(await d2.p.evaluate(() => location.hash) === '#/', 'returning user with a completed profile lands on the main screen (no onboarding again)');
     ok(await d2.p.evaluate(() => [Store.load('profile').weight, Store.load('profile').name, Store.load('tracking').measures[0].weight].join('|')) === '71.5|עלמה|71.2', 'device 2 has the same profile, name and latest measurement');
     await go(d2.p, '#/', 500); ok(/שלום, עלמה/.test(await d2.p.locator('[data-greeting-text]').innerText()), 'greeting restored on device 2');
 

@@ -179,6 +179,33 @@ C.daily = date => { const t = S().load('tracking'); return t.daily[date] || {}; 
 C.setDaily = (date, patch) => { const t = S().load('tracking'); t.daily[date] = Object.assign({}, t.daily[date] || {}, patch); S().save('tracking'); };
 C.measures = () => S().load('tracking').measures.slice().sort((a, b) => a.date < b.date ? -1 : 1);
 C.latestWeight = () => { const m = C.measures().filter(x => x.weight); return m.length ? m[m.length - 1].weight : C.profile().weight; };
+/* M10 · hydration. Daily water stays stored in ml (no data change); everything the user reads is in liters.
+   The suggested target is a transparent ESTIMATE for plain water/drinks, not a prescription:
+   total fluids ≈ weight × 35/30/25 ml (age ≤55 / ≤65 / >65; 30 if age unknown), ~20% of fluids come from food → ×0.8 for drinks,
+   + activity level (פעיל +0.25 L, פעיל מאוד +0.5 L) + today's workout (~0.5 L per hour, min 0.25 L). No weather adjustment
+   (no reliable weather source). Without a weight: general estimate 2 L (women/unknown) or 2.5 L (men) of total fluids.
+   Rounded to 0.25 L and kept within 1.5–4 L. A past day keeps the target that was in force when water was logged. */
+C.fmtL = ml => String(Math.round((+ml || 0) / 10) / 100);
+C.workoutMinutesOn = date => { try { const pl = root.MealPlan && root.Plans && root.MealPlan.planFor(date); if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; return pd && root.Plans.isTraining(pd) && pd.status !== 'skipped' ? Math.round(pd.minutes || 45) : 0; }
+  const n = C.programDay(date); if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) return Math.round(L().estimateMinutes(C.dayDef(n), 'std') || 45); } catch (e) { } return 0; };
+C.waterSuggest = date => {
+  const p = C.profile(), parts = []; let total, est = false;
+  const perKg = p.age == null ? 30 : p.age <= 55 ? 35 : p.age <= 65 ? 30 : 25;
+  if (p.weight > 0) { total = p.weight * perKg; parts.push(`${p.weight} ק״ג × ${perKg} מ״ל${p.age == null ? ' (גיל לא ידוע)' : ''} ≈ ${C.fmtL(total)} ליטר נוזלים בסך הכול`); }
+  else { est = true; total = p.sex === 'm' ? 2500 : 2000; parts.push(`אין משקל בפרופיל — הערכה כללית: ${C.fmtL(total)} ליטר נוזלים ליום`); }
+  let drink = total * 0.8; parts.push(`כ־20% מהנוזלים מגיעים מהאוכל → כ־${C.fmtL(drink)} ליטר לשתייה`);
+  const act = { moderate: 250, vigorous: 500 }[p.activity] || 0; if (act) { drink += act; parts.push(`רמת פעילות: +${C.fmtL(act)} ליטר`); }
+  const wm = C.workoutMinutesOn(date || S().today()); if (wm) { const add = Math.max(250, Math.round(wm / 60 * 500 / 250) * 250); drink += add; parts.push(`אימון היום (כ־${wm} דק׳): +${C.fmtL(add)} ליטר`); }
+  return { ml: Math.min(4000, Math.max(1500, Math.round(drink / 250) * 250)), est, parts };
+};
+C.waterManual = p => { const g = (p || C.profile()).goals || {}; return g.waterMode === 'manual' || (g.waterMode == null && g.water > 0 && g.water !== 3000); /* before M10 the target was always typed by hand; 3000 was the untouched default */ };
+C.waterGoalOn = date => {
+  date = date || S().today(); const dl = C.daily(date);
+  if (dl.waterGoal > 0 && date < S().today()) return { ml: dl.waterGoal, manual: !!dl.waterGoalManual, past: true };
+  const p = C.profile(); if (C.waterManual(p)) return { ml: p.goals.water, manual: true, suggested: C.waterSuggest(date) };
+  const s = C.waterSuggest(date); return { ml: s.ml, manual: false, est: s.est, suggested: s };
+};
+C.addWater = (date, ml) => { const g = C.waterGoalOn(date), v = Math.max(0, (C.daily(date).water || 0) + ml); C.setDaily(date, { water: v, waterGoal: g.ml, waterGoalManual: g.manual }); };
 /* M10: nutrition-only mode — the user chose no workouts for now. A personal plan, once activated, always wins. */
 C.nutritionOnly = () => C.profile().mode === 'nutrition' && !(root.Plans && root.Plans.active());
 C.dailyProgress = date => {
@@ -188,7 +215,7 @@ C.dailyProgress = date => {
   if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; if (pd && root.Plans.isTraining(pd) && pd.status !== 'skipped') tasks.push({ k: 'workout', he: 'אימון', v: pd.status === 'done' ? 1 : pd.status === 'partial' ? 0.5 : 0 }); }
   else if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) { const st = C.status(n); tasks.push({ k: 'workout', he: 'אימון', v: st === 'done' ? 1 : st === 'partial' ? 0.5 : 0 }); }
   ['m1', 'm2', 'snack'].forEach(s => tasks.push({ k: s, he: C.slotNames[s], v: C.slotEntry(date, s) ? 1 : 0 }));
-  tasks.push({ k: 'water', he: 'מים', v: Math.min(1, (dl.water || 0) / g.water) });
+  tasks.push({ k: 'water', he: 'מים', v: Math.min(1, (dl.water || 0) / C.waterGoalOn(date).ml) });
   { const A = root.Activity, tg = A ? A.targetOn(date) : (g.steps > 0 ? g.steps : null), sv = A ? A.day(date).value : dl.steps; /* RC5: no target → no steps task (nothing to fall short of) */
     if (tg) tasks.push({ k: 'steps', he: 'צעדים', v: Math.min(1, (sv || 0) / tg) }); }
   tasks.push({ k: 'sleep', he: 'שינה', v: dl.sleep ? 1 : 0 });

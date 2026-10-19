@@ -25,9 +25,9 @@ function secBasics() {
     <div class="grid2"><label class="field">גיל<input type="number" id="pf-age" inputmode="numeric" min="14" max="100" value="${p.age ?? ''}"></label>
     <label class="field">גובה (ס״מ)<input type="number" id="pf-h" inputmode="numeric" min="120" max="230" value="${p.height ?? ''}"></label>
     <label class="field">משקל נוכחי (${root.UI.U.wl(u.w)})<input type="number" id="pf-w" inputmode="decimal" step="0.1" value="${p.weight != null ? root.UI.U.w(p.weight, u.w) : ''}"></label>
-    <label class="field">משקל יעד (רשות — מוצג במעקב ובבדיקת סבירות; לא משנה את היעד הקלורי)<input type="number" id="pf-tw" inputmode="decimal" step="0.1" value="${p.targetWeight != null ? root.UI.U.w(p.targetWeight, u.w) : ''}"></label></div>
+    <label class="field">משקל יעד (רשות)<input type="number" id="pf-tw" inputmode="decimal" step="0.1" value="${p.targetWeight != null ? root.UI.U.w(p.targetWeight, u.w) : ''}"></label></div>
     <label class="field">מין לצורך הנוסחה (רשות)<select id="pf-sex"><option value="">לא לציין</option><option value="m" ${p.sex === 'm' ? 'selected' : ''}>זכר</option><option value="f" ${p.sex === 'f' ? 'selected' : ''}>נקבה</option></select></label>
-    ${why('גיל, גובה ומשקל משמשים רק לחישוב הערכת הקלוריות והחלבון (נוסחת מיפלין–סנט ג׳ור). מין משנה את הנוסחה בכ־166 קק״ל ביום; בלי לציין — משתמשים בממוצע ומסמנים את ההערכה כפחות מדויקת. משקל יעד הוא שלך — המערכת לא מבטיחה קצב או תוצאה.')}
+    ${why('גיל, גובה ומשקל משמשים רק לחישוב הערכת הקלוריות והחלבון (נוסחת מיפלין–סנט ג׳ור). מין משנה את הנוסחה בכ־166 קק״ל ביום; בלי לציין — משתמשים בממוצע ומסמנים את ההערכה כפחות מדויקת. משקל יעד (רשות) מוצג במעקב ובבדיקת סבירות ולא משנה את היעד הקלורי; הוא שלך — המערכת לא מבטיחה קצב או תוצאה.')}
     <label class="field">רמת פעילות יומית (כולל עבודה, הליכה ואימונים)<select id="pf-act"><option value="">לא נבחר — הנחה: יושבני (1.55)</option>${Object.entries(C.ACTIVITY_HE).map(([k, [t, d]]) => `<option value="${k}" ${p.activity === k ? 'selected' : ''}>${t} — ${d} (${C.PAL[k]})</option>`).join('')}</select></label>
     <p class="tiny faint">רמת הפעילות משפיעה על הערכת הקלוריות בלבד, לא על האימונים. היא מתארת את כל היום — גם את האימונים — ולכן מספר האימונים לא מתווסף אליה בנפרד. הקטגוריות לפי FAO/WHO/UNU (2004).</p>
     ${p.legacy && !p.sex ? `<p class="tiny warn">החישוב הקודם הניח נוסחה לזכר ו־${Math.round(p.legacy.deficit * 100)}% גירעון. הוא נשמר עד שתבחרו אחרת.</p>` : ''}`;
@@ -60,8 +60,19 @@ function secAvailability() {
       <label class="field">זמן מקסימלי (דק׳)<select id="pf-max"><option value="">—</option>${[15, 20, 25, 30, 40, 45, 60, 75, 90].map(m => `<option ${a.maxMin === m ? 'selected' : ''}>${m}</option>`).join('')}</select></label></div>
     ${why('תוכנית חדשה תתוזמן רק בימים שסימנת, ולא יותר מ־6 בשבוע — תמיד נשאר לפחות יום מנוחה. אימון לא יעבור את הזמן המקסימלי; אם מבחן כושר ארוך יותר, זה ייכתב במפורש. אם יש תוכנית פעילה, השינוי יחול עליה רק אחרי "עדכון התוכנית".')}`;
 }
-const availHandlers = { dw: el => { const a = P().availability, d = +el.dataset.v; a.days = a.days.includes(d) ? a.days.filter(x => x !== d) : a.days.concat(d).sort(); if (a.sessions > a.days.length) a.sessions = a.days.length || null; saveP(); root.App.render(); },
-  ses: el => { P().availability.sessions = +el.dataset.v; saveP(); root.App.render(); } };
+/* M10 · no flicker: a day / sessions tap updates only those buttons in place. Before, every tap re-rendered the whole screen
+   (header + logo, navigation, all fields) — visible flicker, lost focus, and on #/profile it discarded typed-but-unsaved values.
+   With an active plan the profile screen shows a change banner that depends on the days, so that case still re-renders. */
+function syncAvail(el) {
+  const box = el.closest('#view') || document, a = P().availability, nd = a.days.length;
+  if (PS().active()) { /* the "profile changed" banner depends on the days → re-render, but keep anything typed and not yet saved */
+    const typed = [...box.querySelectorAll('input[id]:not([type=checkbox]):not([type=radio]), select[id], textarea[id]')].map(i => [i.id, i.value]);
+    root.App.render(); typed.forEach(([id, v]) => { const n = document.getElementById(id); if (n && n.value !== v) n.value = v; }); return; }
+  box.querySelectorAll('[data-act=dw]').forEach(b => b.setAttribute('aria-pressed', String(a.days.includes(+b.dataset.v))));
+  box.querySelectorAll('[data-act=ses]').forEach(b => { const k = +b.dataset.v; b.setAttribute('aria-pressed', String(a.sessions === k)); b.disabled = k > nd; });
+}
+const availHandlers = { dw: el => { const a = P().availability, d = +el.dataset.v; a.days = a.days.includes(d) ? a.days.filter(x => x !== d) : a.days.concat(d).sort(); if (a.sessions > a.days.length) a.sessions = a.days.length || null; saveP(); syncAvail(el); },
+  ses: el => { P().availability.sessions = +el.dataset.v; saveP(); syncAvail(el); } };
 function readTimes(b) { const a = P().availability, pf = b.querySelector('#pf-pref'), mx = b.querySelector('#pf-max'); if (!pf) return null; const pv = pf.value ? +pf.value : null, mv = mx.value ? +mx.value : null; if (pv && mv && pv > mv) return 'הזמן המועדף לא יכול להיות ארוך מהמקסימלי.'; a.prefMin = pv; a.maxMin = mv; saveP(); return null; }
 function secEquipment() {
   const env = P().environment, have = env.equipment;
@@ -79,67 +90,9 @@ const eqHandlers = { eq: el => { const env = P().environment, e = el.dataset.v; 
   pl: el => { P().environment.place = el.dataset.v; saveP(); root.App.render(); },
   addcus: () => { const i = document.getElementById('pf-cus'), v = (i.value || '').trim(); if (!v) return; const env = P().environment; if (!env.custom.includes(v)) env.custom.push(v); saveP(); root.App.render(); },
   rmcus: el => { P().environment.custom.splice(+el.dataset.i, 1); saveP(); root.App.render(); } };
-function secExercisePrefs() {
-  const x = P().exercisePrefs;
-  return `<label class="toggle"><input type="checkbox" id="pf-nojump" ${x.noJump ? 'checked' : ''} data-act="nojump"> בלי תרגילי קפיצה (אימפקט גבוה)</label>
-    <h4>תרגילים מועדפים (${x.fav.length})</h4><div class="chips wrap">${x.fav.map(id => `<span class="pill gl">${esc(root.EX_BY_ID[id].he)}</span>`).join('') || '<span class="tiny faint">—</span>'}</div>
-    <h4>תרגילים שלא לכלול (${x.exclude.length})</h4><div class="chips wrap">${x.exclude.map(id => `<span class="pill bad">${esc(root.EX_BY_ID[id].he)}</span>`).join('') || '<span class="tiny faint">—</span>'}</div>
-    <button class="btn sm" data-act="pickex">בחירת תרגילים</button>${why('מועדפים נבחרים קודם כשיש כמה אפשרויות שוות. תרגילים מוחרגים לא ייכנסו לתוכנית; אם אין להם חלופה, המקום יישאר ריק עם הסבר.')}`;
-}
-const exPrefHandlers = { nojump: el => { P().exercisePrefs.noJump = el.checked; saveP(); },
-  pickex: () => { const x = P().exercisePrefs; const rows = root.EXERCISES.map(e => `<div class="li"><div class="grow small">${esc(e.he)}</div><button class="chip" data-act="fv" data-id="${e.id}" aria-pressed="${x.fav.includes(e.id)}">מועדף</button><button class="chip" data-act="xc" data-id="${e.id}" aria-pressed="${x.exclude.includes(e.id)}">לא לכלול</button></div>`).join('');
-    root.UI.sheet('העדפות תרגילים', `<div class="list">${rows}</div><button class="btn primary" data-act="done">סיום</button>`, {
-      fv: el => { const id = el.dataset.id; x.fav = x.fav.includes(id) ? x.fav.filter(i => i !== id) : x.fav.concat(id); x.exclude = x.exclude.filter(i => i !== id); saveP(); el.setAttribute('aria-pressed', x.fav.includes(id)); el.nextElementSibling.setAttribute('aria-pressed', false); },
-      xc: el => { const id = el.dataset.id; x.exclude = x.exclude.includes(id) ? x.exclude.filter(i => i !== id) : x.exclude.concat(id); x.fav = x.fav.filter(i => i !== id); saveP(); el.setAttribute('aria-pressed', x.exclude.includes(id)); el.previousElementSibling.setAttribute('aria-pressed', false); },
-      done: (el, e, close) => { close(); root.App.render(); } }); } };
-function secMedia() { const m = P().mediaPrefs; return `<label class="toggle"><input type="checkbox" data-act="mloop" ${m.loop ? 'checked' : ''}> חזרה אוטומטית בסרטוני הדגמה</label><label class="toggle"><input type="checkbox" data-act="mauto" ${m.autoplay ? 'checked' : ''}> הפעלה אוטומטית (מושתקת) כשיש סרטון</label>${why('כרגע אין עדיין סרטוני הדגמה בספרייה; ההעדפה תחול כשיתווספו.')}`; }
-const mediaHandlers = { mloop: el => { P().mediaPrefs.loop = el.checked; saveP(); }, mauto: el => { P().mediaPrefs.autoplay = el.checked; saveP(); } };
-
-/* ---------- profile screen ---------- */
-Screens.profile = function () {
-  const p = P(), t = C.targets(), ap = PS().active();
-  const filled = [C.hasBasics(p), !!p.aims.primary, !!p.experience, p.availability.days.length > 0 && !!p.availability.maxMin];
-  return { title: 'פרופיל', back: '#/settings', html: `
-    <section class="card hero"><div class="card-h"><h2>הפרופיל שלי</h2><span class="pill ${filled.every(Boolean) ? 'good' : 'warn'}">${filled.filter(Boolean).length}/4 חלקים הושלמו</span></div>
-      <p class="small muted">אפשר למלא חלק עכשיו ולהשלים אחר כך. הנתונים נשמרים רק במכשיר.</p>
-      <div class="btns"><a class="btn primary" href="#/setup/1">${icon('route')} הגדרה שלב־אחר־שלב</a>${ap ? `<a class="btn" href="#/plan">לתוכנית הפעילה</a>` : ''}</div></section>
-    ${ap ? Screens.syncBanner(ap) : ''}
-    <section class="card" data-sec="photo"><h3>תמונת פרופיל (רשות)</h3><div class="row">${Screens.userAvatar('lg')}<div class="stack tight grow">
-      <p class="tiny muted">${S.load('avatar').src ? 'התמונה שלך מוצגת בברכה במסך הבית.' : 'בלי תמונה מוצג הסמל של SoFitGo.'} התמונה נחתכת לריבוע, מוקטנת ל־256 פיקסלים ונשמרת רק במכשיר הזה. היא לא נכללת בגיבוי, בדיוק כמו תמונות ההתקדמות.</p>
-      <div class="btns"><label class="btn sm" data-photo-pick>${icon('image')} ${S.load('avatar').src ? 'החלפת תמונה' : 'בחירת תמונה'}<input type="file" accept="image/*" id="pf-photo" class="sr-only"></label>${S.load('avatar').src ? '<button class="btn sm ghost" data-act="photoDel">הסרת התמונה</button>' : ''}</div></div></div></section>
-    <section class="card" data-sec="basics"><h3>פרטים אישיים</h3>${secBasics()}<p class="tiny bad" data-err hidden></p><button class="btn" data-act="saveBasics">שמירה</button>
-      ${t ? `<p class="tiny muted">הערכת המערכת: ${t.kcal} קק״ל · ${t.protein} ג׳ חלבון ביום. <a href="#/targets">איך חושב</a></p>${Screens.targetWarnings({ disclaimer: true })}` : ''}</section>
-    <section class="card"><h3>מטרות</h3>${secGoal()}</section>
-    <section class="card"><h3>רמת ניסיון</h3>${secExperience()}</section>
-    <section class="card" data-sec="avail"><h3>זמינות</h3>${secAvailability()}<p class="tiny bad" data-err hidden></p><button class="btn" data-act="saveTimes">שמירת זמנים</button></section>
-    <section class="card"><h3>סביבה וציוד</h3>${secEquipment()}</section>
-    <section class="card"><h3>העדפות תרגילים</h3>${secExercisePrefs()}</section>
-    <section class="card"><h3>העדפות מזון</h3><p class="small muted">ללא חלב / ביצים / עוף, צמחוני, החרגות — במסך ההגדרות.</p><a class="btn sm" href="#/settings">להעדפות המזון</a></section>
-    <section class="card"><h3>מדיה</h3>${secMedia()}</section>
-    ${ap ? `<section class="card"><h3>תאריך התחלה ומשך</h3><p class="small">התוכנית הפעילה: <b>${esc(PG().byId(ap.templateId).he)}</b>, מתחילה ${esc(S.fmtDate(ap.start))}, ${PS().stats(ap).total} ימים. שינוי מסלול או תאריך — דרך ההגדרה שלב־אחר־שלב.</p></section>` : ''}`,
-    handlers: Object.assign({}, goalHandlers, availHandlers, eqHandlers, exPrefHandlers, mediaHandlers, Screens.syncHandlers(), {
-      xp: el => { P().experience = el.dataset.v; saveP(); root.App.render(); },
-      saveBasics: el => { const box = el.closest('section'); const e = readBasics(box); err(box, e); if (!e) { root.UI.toast('נשמר'); root.App.render(); } },
-      saveTimes: el => { const box = el.closest('section'); const e = readTimes(box); err(box, e); if (!e) root.UI.toast('נשמר'); },
-      photoDel: () => { const a = S.load('avatar'), prev = a.src; a.src = null; a.at = new Date().toISOString(); if (S.save('avatar')) root.UI.toast('התמונה הוסרה', 0, { label: 'ביטול', fn: () => { const b = S.load('avatar'); b.src = prev; S.save('avatar'); root.App.render(); } }); root.App.render(); } }),
-    after: v => { const f = v.querySelector('#pf-photo'); if (f) f.addEventListener('change', async () => { const r = await Screens.avatarFromFile(f.files && f.files[0]); root.UI.toast(r === true ? 'התמונה נשמרה' : r === 'save' ? 'השמירה נכשלה — ייתכן שאין מקום באחסון' : 'לא ניתן לקרוא את הקובץ כתמונה'); root.App.render(); }); } };
-};
-/* M9 · profile photo: decode the chosen file, centre-crop to a square (never stretched), downscale to 256 px, JPEG 0.85,
-   store as a data URL in Store 'avatar' (fit30.avatar). Nothing leaves the device. Returns true | 'save' | 'decode'. */
-Screens.avatarFromFile = function (file) {
-  return new Promise(res => {
-    if (!file) { res('decode'); return; }
-    let url; try { url = URL.createObjectURL(file); } catch (e) { res('decode'); return; }
-    const img = new Image();
-    img.onload = () => { try { const w = img.naturalWidth, h = img.naturalHeight, k = Math.min(w, h); if (!k) throw new Error('empty');
-        const s = Math.min(256, k), c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d');
-        x.imageSmoothingQuality = 'high'; x.drawImage(img, (w - k) / 2, (h - k) / 2, k, k, 0, 0, s, s);
-        const a = S.load('avatar'); a.src = c.toDataURL('image/jpeg', 0.85); a.at = new Date().toISOString(); res(S.save('avatar') ? true : 'save');
-      } catch (e) { res('decode'); } finally { URL.revokeObjectURL(url); } };
-    img.onerror = () => { URL.revokeObjectURL(url); res('decode'); };
-    img.src = url;
-  });
-};
+/* M10: the profile screen (#/profile) and its profile-only sections moved to screens_profile.js (on-demand chunk extra.js, first-load budget).
+   The section renderers it shares with the setup flow stay here and are handed over through Screens._pf. */
+Screens._pf = { why, chip, P, saveP, err, secBasics, readBasics, secGoal, goalHandlers, secExperience, secAvailability, availHandlers, readTimes, secEquipment, eqHandlers };
 
 /* ---------- setup flow ---------- */
 const STEPS = ['פרטים וניסיון', 'מטרה', 'ציוד וזמינות', 'מסלול', 'תצוגה מקדימה', 'אישור'];
@@ -156,7 +109,8 @@ Screens.setup = function (arg) {
   let body = '', next = null, nextLabel = 'המשך', disabled = false, extra = {};
   if (k === 1) { body = `<section class="card"><h3>פרטים אישיים</h3>${secBasics()}</section><section class="card"><h3>רמת ניסיון</h3>${secExperience()}</section>`;
     next = b => { const e = readBasics(b); if (e) return e; if (!P().experience) return 'בחרו רמת ניסיון — היא נחוצה לבניית התוכנית.'; return null; };
-    extra = { xp: el => { readBasics(document.getElementById('view')); P().experience = el.dataset.v; saveP(); root.App.render(); } }; }
+    extra = { xp: el => { P().experience = el.dataset.v; saveP(); /* M10: in place — typed fields stay untouched, no re-render */
+      el.parentNode.querySelectorAll('[data-act=xp]').forEach(b => { b.setAttribute('aria-pressed', String(b === el)); b.querySelectorAll(':scope > svg').forEach(s => s.remove()); }); el.insertAdjacentHTML('beforeend', icon('check')); } }; }
   if (k === 2) { body = `<section class="card">${secGoal()}</section>`; next = () => P().aims.primary ? null : 'בחרו מטרה ראשית.'; extra = goalHandlers; }
   if (k === 3 && p.mode === 'nutrition' && !PS().active()) { /* M10: nutrition-only — zero workouts is a valid choice */
     body = `<section class="card" data-nowo-on><h3>בלי אימונים כרגע</h3><p class="small">האפליקציה תציג תפריט, יומן אכילה, מים, צעדים ושינה — בלי אימונים ובלי תזכורות לאימון. כלום לא נמחק, ואפשר להוסיף אימונים בכל רגע.</p><button class="btn ghost" data-act="nowo">${icon('route')} בעצם, אני רוצה גם אימונים</button></section>`;

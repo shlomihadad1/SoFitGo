@@ -53,7 +53,7 @@ Screens.coach = function () {
       planStart: el => { const n2 = +el.dataset.n, d2 = root.Plans.dayOf(ap, n2); root.Run.start(n2, d2.type === 'assess' ? 'test' : (d2.version || 'std'), { id: ap.id, n: n2 }); },
       start: el => root.Run.start(+el.dataset.day, root.Logic.hasVersions(C.dayDef(+el.dataset.day)) ? Screens.selectedVersion.v : 'std'),
       eat: el => { Screens.toggleEat(today, el.dataset.slot); },
-      water: el => { const v = Math.max(0, (C.daily(today).water || 0) + (+el.dataset.ml)); C.setDaily(today, { water: v }); root.App.render(); } } };
+      water: el => { C.addWater(today, +el.dataset.ml); root.App.render(); } } };
 };
 
 /* ---------- Travel & changed plans ---------- */
