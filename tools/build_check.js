@@ -10,7 +10,11 @@ const man = JSON.parse(fs.readFileSync(R('dist/pwa/manifest.webmanifest'), 'utf8
 ok(/rel="manifest"/.test(html) && /apple-touch-icon/.test(html) && /viewport-fit=cover/.test(html), 'html links manifest/icons/viewport');
 const files = fs.readdirSync(R('dist/pwa'), { recursive: true }).filter(f => fs.statSync(R('dist/pwa/' + f)).isFile()); // includes media/
 const all = files.map(f => fs.readFileSync(R('dist/pwa/' + f)).toString('latin1')).join('\n');
-ok(!/(api[_-]?key|secret|password|BEGIN PRIVATE|sk-ant)/i.test(all), 'no secrets in build');
+/* M10: the account client legitimately names the GoTrue request fields (apikey header from the build config, password from the
+   form variable). Only those exact usages are removed before the scan; any literal value is still caught, plus key/JWT checks. */
+const LEGIT = /apikey:\s*CFG\.key|password:\s*pw\b|(weak|same)_password:|nothing secret in the browser|updatePassword|grant_type=password|(['"])password\2,\s*'autocomplete="(new|current)-password"|no password is ever stored|password reset/g;
+ok(!/(api[_-]?key|secret|password|BEGIN PRIVATE|sk-ant)/i.test(all.replace(LEGIT, '')), 'no secrets in build');
+ok(!/sb_secret_[A-Za-z0-9]|sb_publishable_[A-Za-z0-9]|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.|password\s*[:=]\s*["'`][^"'`]|postgres(ql)?:\/\//.test(all.replace(LEGIT, '')), 'standard build: no Supabase key, JWT, literal password or database URL');
 ok(files.every(f => !/\.(map|log|json)$/.test(f) || f === 'manifest.webmanifest'), 'no dev files in build');
 ok(files.filter(f => f.startsWith('media')).every(f => /\.(webp|mp4|webm)$/.test(f)), 'media folder holds only webp/mp4/webm');
 ok(!files.some(f => /fixture|test-clip|test-photo/i.test(f)), 'no test fixtures in build');

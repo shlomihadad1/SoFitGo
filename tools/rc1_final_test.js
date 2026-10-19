@@ -49,9 +49,11 @@ T('4 high targets & restricted profile — every day reported honestly');
 
 T('5 secrets, personal data, separation');
 { const files = []; const walk = d => fs.readdirSync(d).forEach(f => { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else if (/\.(js|html|json|css)$/.test(f)) files.push(p); }); walk(path.join(ROOT, 'src')); walk(path.join(ROOT, 'dist/pwa'));
-  const pat = /(api[_-]?key|secret|bearer\s+[a-z0-9]|sk-[a-z0-9]{10}|ghp_[a-z0-9]{10}|AKIA[0-9A-Z]{12}|privaterelay|@gmail\.com|password\s*[:=])/i; const hit = files.filter(f => pat.test(fs.readFileSync(f, 'utf8')));
+  const pat = /(api[_-]?key|secret|bearer\s+[a-z0-9]|sk-[a-z0-9]{10}|ghp_[a-z0-9]{10}|AKIA[0-9A-Z]{12}|privaterelay|@gmail\.com|password\s*[:=])/i; const LEGIT = /apikey:\s*CFG\.key|password:\s*pw\b|(weak|same)_password:|nothing secret in the browser|updatePassword|grant_type=password|(['"])password\2,\s*'autocomplete="(new|current)-password"|no password is ever stored|password reset/g; /* M10: exact GoTrue field usages only — see build_check.js */
+  const hit = files.filter(f => pat.test(fs.readFileSync(f, 'utf8').replace(LEGIT, '')));
+  ok(!files.some(f => /sb_secret_[A-Za-z0-9]|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.|password\s*[:=]\s*["'`][^"'`]/.test(fs.readFileSync(f, 'utf8').replace(LEGIT, ''))), 'no secret key, JWT or literal password value in source/build');
   ok(hit.length === 0, `no API keys, tokens, passwords or e-mail addresses in ${files.length} source/build files`, hit.map(f => path.relative(ROOT, f)));
-  const KEYS = fs.readFileSync(path.join(ROOT, 'src/js/store.js'), 'utf8').match(/fit30\.\w+/g); ok(KEYS && KEYS.every(k => k.startsWith('fit30.')), 'all app data lives under fit30.* keys in this browser profile only (no server, no accounts)');
+  const KEYS = fs.readFileSync(path.join(ROOT, 'src/js/store.js'), 'utf8').match(/fit30\.\w+/g); ok(KEYS && KEYS.every(k => k.startsWith('fit30.')), 'all app data lives under fit30.* keys (M10: optional beta accounts sync these same sections; nothing else is stored)');
   S.resetAll(); const p = S.load('profile'); ok([p.age, p.height, p.weight, p.sex, p.aims.primary].every(v => v == null), 'a new profile starts empty (no shared or demo data)'); }
 
 fs.mkdirSync(path.join(ROOT, 'dist/reports'), { recursive: true }); fs.writeFileSync(path.join(ROOT, 'dist/reports/rc1-final-test.json'), JSON.stringify({ pass, fail, sections: sec, fails }, null, 1));

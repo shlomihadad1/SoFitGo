@@ -243,7 +243,7 @@ Screens.plan = function () {
       pause: () => root.UI.confirmSheet('השהיית התוכנית', 'בזמן ההשהיה לא יתוזמנו אימונים. בהמשך, כל הימים שנותרו יידחו בהתאם — שום אימון לא יימחק.', 'השהיה', () => { PS().pause(p.id); root.App.render(); }),
       resume: () => { PS().resume(p.id); root.UI.toast('התוכנית ממשיכה'); root.App.render(); },
       cancel: () => root.UI.confirmSheet('ביטול התוכנית', 'התוכנית תסומן "בוטלה". האימונים שבוצעו והיסטוריית השינויים נשמרים. אפשר לבנות תוכנית חדשה בכל עת.', 'ביטול התוכנית', () => { PS().cancel(p.id); root.App.render(); }, true),
-      avail: () => changeSheet(p, 'avail'), equip: () => changeSheet(p, 'equip'), ...Screens.adaptHandlers(p), ...Screens.syncHandlers(), travel: () => Screens.travelSheet(p),
+      avail: () => changeSheet(p, 'avail'), equip: () => changeSheet(p, 'equip'), ...Screens.adaptHandlers(p), ...Screens.syncHandlers(), travel: () => Screens.travelSheet ? Screens.travelSheet(p) : root.App.loadChunk('extra.js').then(() => Screens.travelSheet(p), () => root.UI.toast('לא ניתן לטעון כרגע. נסו שוב.')),
       travelOff: el => root.UI.confirmSheet('ביטול מצב נסיעה', 'התרגילים בטווח יחזרו לתוכנית הרגילה. אימונים שכבר נרשמו נשארים כפי שבוצעו.', 'ביטול', () => { try { root.Signature.Travel.revert(el.dataset.id); root.UI.toast('מצב נסיעה בוטל'); root.App.render(); } catch (e) { root.UI.toast(e.message); } }) } };
 };
 /* ---------- Stage H1: profile ↔ active plan sync ---------- */

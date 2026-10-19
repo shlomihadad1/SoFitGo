@@ -56,3 +56,12 @@
 - **כתובת חדשה מתחילה בלי נתונים.** אפשר להעביר נתונים בגיבוי ושחזור (הגדרות).
 - **תמונות התקדמות** לא נכללות בגיבוי. האפליקציה אומרת את זה כשמגבים.
 - **סרטוני ההדרכה** נטענים מהרשת. בלי חיבור מוצג טקסט.
+
+## M10 Beta (build e11ee266ea) — known issues
+- **Cloud accounts are not live.** The migration has not been applied to Supabase project dvrfzeojctnttdkznuqr and no publishable key is configured. The deployable build stores data on the device only (as in M9).
+- Account, sync and migration flows were verified only against a local emulator (real PostgreSQL + RLS) in Chromium, not against hosted Supabase. Email delivery (confirmation and reset) is untested; on the Free plan the built-in SMTP is heavily rate-limited.
+- No real-iPhone or Safari verification of the M10 changes (keyboard behaviour in particular).
+- Nutrition-only mode: the "אימונים" tab is still visible. Its screens remain usable but are not hidden.
+- Photos (profile and progress) stay on the device and are not synced.
+- Sofit AI remains unavailable (no paid API). The native iOS/Android apps have not been built.
+- Privacy notice and beta terms (#/legal) are drafts with [להשלים] placeholders. Legal review is required.

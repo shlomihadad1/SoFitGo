@@ -59,7 +59,7 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
   ok(!home.next || home.next.k !== 'workout', 'NOW never suggests a workout', home.next);
   await p.reload(); await p.waitForTimeout(800);
   ok(await p.locator('[data-nutrition-only]').count() === 1, 'the choice survives a reload');
-  const bk = await p.evaluate(() => { const o = Store.exportAll(), good = Store.validateBackup(o); o.profile.mode = 'hack'; return { good, bad: Store.validateBackup(o) }; });
+  const bk = await p.evaluate(() => { const o = JSON.parse(JSON.stringify(Store.exportAll())), good = Store.validateBackup(o); o.profile.mode = 'hack'; return { good, bad: Store.validateBackup(o) }; });
   ok(!bk.good && typeof bk.bad === 'string', 'backups keep the mode; an invalid mode value is rejected on restore', bk);
   G = 'nutrition-only: add workouts later';
   await p.locator('[data-add-workouts]').click(); await p.waitForTimeout(600);
