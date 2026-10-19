@@ -65,3 +65,9 @@
 - Photos (profile and progress) stay on the device and are not synced.
 - Sofit AI remains unavailable (no paid API). The native iOS/Android apps have not been built.
 - Privacy notice and beta terms (#/legal) are drafts with [להשלים] placeholders. Legal review is required.
+
+## M10.1 (build a3701822bf)
+- Accounts: the UI and the client are complete, but live sign-up is BLOCKED until the owner approves and applies the SQL and fills `sofitgo-config.js`. Until then, הרשמה/התחברות open an honest "not switched on" screen.
+- Hydration target is an estimate (weight/age/activity/workout). There is no weather or location input, by design.
+- Workout duration explanation (e.g. "22 דק׳") and the wording of "daily target": not re-audited in this release.
+- Safari header stability: tested only in Chromium with simulated safe-area insets (e2e_shell). Needs real-device confirmation.

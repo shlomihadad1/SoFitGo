@@ -1,13 +1,21 @@
-# SoFitGo — M10 Beta · build `e11ee266ea`
+# SoFitGo — M10.1 Beta · build `a3701822bf`
 
 ## מה יש בחבילות
 | קובץ | מה זה |
 |---|---|
-| `SoFitGo-M10-beta-e11ee266ea-deploy.zip` | האתר הבנוי (`index.html` ו־`sw.js` ברמה העליונה). גרסה סטנדרטית: נתונים במכשיר בלבד, בלי חשבונות. |
-| `SoFitGo-M10-beta-e11ee266ea-source.zip` | כל קוד המקור, הבדיקות, `supabase/` (migration, rollback, checks), התיעוד וה־CHANGELOG. ללא סודות. |
+| `SoFitGo-M10.1-beta-a3701822bf-deploy.zip` | האתר הבנוי (`index.html` ו־`sw.js` ברמה העליונה). גרסה סטנדרטית: נתונים במכשיר בלבד, בלי חשבונות. |
+| `SoFitGo-M10.1-beta-a3701822bf-source.zip` | כל קוד המקור, הבדיקות, `supabase/` (migration, rollback, checks), התיעוד וה־CHANGELOG. ללא סודות. |
 
-## בדיקה מהירה ב־iPhone (Safari) — בלי GitHub ובלי חשבון
-1. ב־Netlify: **Add new site → Deploy manually**. גוררים את `…-deploy.zip` (או את התיקייה אחרי פריסה). **צרו אתר חדש**. לא RC4 ולא admirable-lokum.
+## עדכון אתר הבטא הקיים (sprightly-taffy-5379f0)
+1. פותחים את ה־ZIP של הפריסה למחשב. נוצרת תיקייה עם `index.html` ו־`sofitgo-config.js`.
+2. Netlify ← האתר **sprightly-taffy-5379f0** ← Deploys ← גוררים את **התיקייה** לאזור "Drag and drop your site output folder here". לא נוגעים ב־RC4 ולא ב־admirable-lokum.
+3. מוודאים: בכתובת האתר ← הגדרות ← בתחתית "חשבון" מופיע, ובקוד המקור של הדף מופיע `FIT30_BUILD='a3701822bf'`.
+
+## הפעלת חשבונות באתר שכבר עלה (אחרי אישור ה־SQL והרצתו)
+פותחים את `sofitgo-config.js` בתיקייה, ממלאים את `supabaseUrl` (`https://dvrfzeojctnttdkznuqr.supabase.co`) ואת `publishableKey` (מפתח `sb_publishable_…` מ־Project Settings ← API Keys; **לא** מפתח secret), ופורסים שוב את התיקייה. אין צורך בבנייה מחדש.
+
+## בדיקה מהירה ב־iPhone (Safari)
+1. ב־Netlify, או לאתר חדש: **Add new site → Deploy manually**. לא RC4 ולא admirable-lokum.
 2. פותחים את הכתובת החדשה ב־Safari באייפון. אפשר להוסיף למסך הבית דרך שיתוף ← "הוסף למסך הבית".
 3. לבדוק:
    - הגדרה ראשונה: להקליד בשדות ולוודא שכפתור "המשך" לא מכסה אותם;
@@ -17,7 +25,7 @@
 
 ## בדיקה מקומית במחשב
 ```
-unzip SoFitGo-M10-beta-e11ee266ea-deploy.zip -d sofitgo-beta && cd sofitgo-beta && python3 -m http.server 8080
+unzip SoFitGo-M10.1-beta-a3701822bf-deploy.zip -d sofitgo-beta && cd sofitgo-beta && python3 -m http.server 8080
 # פותחים http://localhost:8080
 ```
 
