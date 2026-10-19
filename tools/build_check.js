@@ -14,6 +14,9 @@ const all = files.map(f => fs.readFileSync(R('dist/pwa/' + f)).toString('latin1'
    form variable). Only those exact usages are removed before the scan; any literal value is still caught, plus key/JWT checks. */
 const LEGIT = /apikey:\s*CFG\.key|password:\s*pw\b|(weak|same)_password:|nothing secret in the browser|updatePassword|grant_type=password|(['"])password\2,\s*'autocomplete="(new|current)-password"|no password is ever stored|password reset|'text'\s*:\s*'password'|"text":"password"/g;
 ok(!/(api[_-]?key|secret|password|BEGIN PRIVATE|sk-ant)/i.test(all.replace(LEGIT, '')), 'no secrets in build');
+/* M10.1: the app has no location data, so the shipped bundle must not tell every user about a specific place (was: Manali tips) */
+{ const allU = files.map(f => fs.readFileSync(R('dist/pwa/' + f), 'utf8')).join('\n'); /* UTF-8 here: `all` is latin1 and cannot match Hebrew */
+  const loc = (allU.match(/מנאלי|manali|קולו\b|kullu|בגובה של כ־2,000/gi) || []); ok(loc.length === 0, 'no place-specific (Manali / Kullu / altitude) text anywhere in the shipped app', loc.slice(0, 5)); }
 ok(!/sb_secret_[A-Za-z0-9]|sb_publishable_[A-Za-z0-9]|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.|password\s*[:=]\s*["'`][^"'`]|postgres(ql)?:\/\//.test(all.replace(LEGIT, '')), 'standard build: no Supabase key, JWT, literal password or database URL');
 ok(files.every(f => !/\.(map|log|json)$/.test(f) || f === 'manifest.webmanifest'), 'no dev files in build');
 ok(files.filter(f => f.startsWith('media')).every(f => /\.(webp|mp4|webm)$/.test(f)), 'media folder holds only webp/mp4/webm');

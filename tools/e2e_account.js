@@ -223,12 +223,49 @@ const procs = []; /* child servers started by this test; always stopped, also af
   { await ctl('/__test/confirm_required?on=1'); const d6 = await mk(); await d6.p.goto(APP); await d6.p.waitForTimeout(600); await d6.p.evaluate(() => localStorage.clear()); await d6.p.reload(); await ready(d6.p);
     await signup(d6.p, 'dana@test.invalid', 'דנה'); ok(/נשלח אליך מייל לאישור/.test(await d6.p.locator('[data-acct-info]').innerText().catch(() => '')) && !(await acct(d6.p)).signedIn, 'sign-up says "check your e-mail", not signed in');
     await login(d6.p, 'dana@test.invalid'); ok(/לאשר את כתובת האימייל/.test(await d6.p.locator('[data-acct-error]').innerText().catch(() => '')) && await d6.p.locator('[data-act=resend]').count() === 1, 'unconfirmed → explanation + resend');
+    { const d7 = await mk(); await d7.p.goto(APP); await d7.p.waitForTimeout(600); await d7.p.evaluate(() => localStorage.clear()); await d7.p.reload(); await ready(d7.p);
+      await signup(d7.p, 'alma@test.invalid'); const t7 = { err: await d7.p.locator('[data-acct-error]').innerText().catch(() => ''), info: await d7.p.locator('[data-acct-info]').innerText().catch(() => '') };
+      ok(/כבר קיים חשבון/.test(t7.err) && !/נשלח אליך מייל/.test(t7.info), 'confirmation ON (hosted behaviour): repeat sign-up of a registered e-mail → "account already exists", never a false "mail sent"', t7); await d7.ctx.close(); }
     await ctl('/__test/confirm?email=dana%40test.invalid'); await login(d6.p, 'dana@test.invalid'); ok((await acct(d6.p)).signedIn, 'after confirming, sign-in works'); await ctl('/__test/confirm_required?on=0'); await d6.ctx.close(); }
 
   G = 'beta switch';
   { await su(`update public.app_config set value = 'false' where key = 'beta_open'`); const d7 = await mk(); await d7.p.goto(APP); await d7.p.waitForTimeout(600); await d7.p.evaluate(() => localStorage.clear()); await d7.p.reload(); await ready(d7.p);
     await login(d7.p, 'bina@test.invalid', 'New-pass-2026'); ok(!(await acct(d7.p)).signedIn && /הבטא מושהית/.test(await d7.p.locator('[data-acct-error]').innerText().catch(() => '')), 'beta paused by the owner → sign-in refused with a clear message');
     await su(`update public.app_config set value = 'true' where key = 'beta_open'`); await d7.ctx.close(); }
+
+  /* ── the complete first-time journey, through the real UI (local auth server + real PostgreSQL RLS) ── */
+  G = 'journey: new user → onboarding → reload → logout → login → data restored';
+  { const j = await mk(); const q = j.p; await q.goto(APP); await q.waitForTimeout(700); await q.evaluate(() => localStorage.clear()); await q.reload(); await ready(q); await q.waitForTimeout(400);
+    ok(await q.locator('[data-welcome-signup]').count() === 1, 'first screen: welcome with הרשמה');
+    await q.locator('[data-welcome-signup]').click(); await q.waitForTimeout(800); await ready(q);
+    await fill(q, '#ac-name', 'יעל'); await fill(q, '#ac-email', 'journey@test.invalid'); await fill(q, '#ac-pw', PW); await fill(q, '#ac-pw2', PW);
+    await q.locator('[data-act=pwShow]').first().click(); ok(await q.evaluate(() => document.getElementById('ac-pw').type === 'text' && document.getElementById('ac-pw2').type === 'text'), 'show-password reveals both fields');
+    await q.locator('[data-act=pwShow]').first().click(); ok(await q.evaluate(() => document.getElementById('ac-pw').type === 'password'), 'and hides them again');
+    await q.check('#ac-ok'); await q.locator('[data-act=signup]').click();
+    ok(await waitFor(q, () => location.hash === '#/setup/1', null, 8000), 'sign-up → onboarding step 1');
+    const uid = (await acct(q)).userId;
+    await q.waitForTimeout(400); await q.fill('#pf-age', '29'); await q.fill('#pf-h', '165'); await q.fill('#pf-w', '58'); await q.fill('#pf-tw', '55');
+    await q.locator('[data-act=xp][data-v=beginner]').click(); await q.locator('[data-act=next]').click(); await q.waitForTimeout(500);
+    await q.locator('[data-act=gp]').first().click(); await q.waitForTimeout(300); await q.locator('[data-act=next]').click(); await q.waitForTimeout(500);
+    for (const d of [0, 2, 4]) await q.locator(`[data-act=dw][data-v="${d}"]`).click();
+    await q.locator('[data-act=ses][data-v="3"]').click(); await q.selectOption('#pf-max', '45'); await q.locator('[data-act=next]').click(); await q.waitForTimeout(500);
+    await q.locator('[data-act=tpl]:not([disabled])').first().click(); await q.waitForTimeout(300); await q.locator('[data-act=next]').click(); await q.waitForTimeout(900);
+    await q.locator('[data-act=next]').click(); await q.waitForTimeout(900); await q.locator('[data-act=next]').click(); await q.waitForTimeout(900);
+    ok(await q.evaluate(() => location.hash === '#/plan' && !!Plans.active()), 'onboarding completed → plan screen with an active plan');
+    ok(await waitFor(q, () => Account.state().status === 'synced' && !Account.state().unsynced.length, null, 10000), 'everything synced to the server (status "synced")', await acct(q));
+    const srv = await su(`select string_agg(section, ',' order by section) from public.user_state where user_id = '${uid}'`);
+    ok(/plans/.test(srv.out) && /profile/.test(srv.out), 'server holds the profile and the plan for THIS account', srv.out);
+    const pAge = await su(`select data->>'age' || '|' || (data->'availability'->>'sessions') from public.user_state where user_id = '${uid}' and section = 'profile'`);
+    ok(pAge.out === '29|3', 'server copy has the onboarding answers (age 29, 3 sessions)', pAge.out);
+    await q.reload(); await ready(q); await q.waitForTimeout(600);
+    ok((await acct(q)).signedIn && await q.evaluate(() => Store.load('profile').age === 29 && !!Plans.active()), 'reload: still signed in, profile and plan intact');
+    await go(q, '#/', 500); ok(await q.locator('[data-welcome]').count() === 0, 'returning user is not shown the welcome again');
+    await go(q, '#/account', 700); await q.locator('[data-act=logout]').click(); await waitFor(q, () => !Account.state().signedIn, null, 6000); await q.waitForTimeout(400);
+    await go(q, '#/', 500); ok(await q.locator('[data-welcome]').count() === 1 && await q.evaluate(() => Store.load('profile').age == null && !Plans.active()), 'logout: device cleared, welcome shown again');
+    await login(q, 'journey@test.invalid'); await q.waitForTimeout(1200);
+    ok(await q.evaluate(() => location.hash) === '#/', 'login of a completed account → main screen (no onboarding again)');
+    ok(await q.evaluate(() => Store.load('profile').age === 29 && Store.load('profile').targetWeight === 55 && !!Plans.active() && JSON.stringify(Store.load('profile').availability.days) === '[0,2,4]'), 'data restored from the server: profile, target weight, training days, plan');
+    await j.ctx.close(); }
 
   G = 'account deletion';
   await go(p, '#/account', 700); await p.locator('[data-act=delete]').click(); await p.waitForTimeout(300); await fill(p, '#del-ok', 'מחיקה'); await p.locator('.sheet [data-act=yes]').click(); await waitFor(p, () => !Account.state().signedIn, null, 6000); await p.waitForTimeout(500);

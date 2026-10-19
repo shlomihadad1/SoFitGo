@@ -22,7 +22,7 @@ function verify(tok) { const [h, p, s] = String(tok).split('.'); if (!s) return 
   const c = JSON.parse(Buffer.from(p.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()); if (c.exp * 1000 < Date.now()) return { bad: 'expired', c }; return { c }; }
 const hashPw = pw => { const salt = crypto.randomBytes(16).toString('hex'); return 'scrypt$' + salt + '$' + crypto.scryptSync(pw, salt, 32).toString('hex'); };
 const checkPw = (pw, h) => { const [, salt, k] = String(h).split('$'); return !!k && crypto.timingSafeEqual(Buffer.from(k, 'hex'), crypto.scryptSync(pw, salt, 32)); };
-const userJson = u => ({ id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email, email_confirmed_at: u.email_confirmed_at, user_metadata: u.raw_user_meta_data || {}, created_at: u.created_at });
+const userJson = u => ({ id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email, email_confirmed_at: u.email_confirmed_at, user_metadata: u.raw_user_meta_data || {}, identities: [{ provider: 'email', user_id: u.id }], created_at: u.created_at }); /* real users have one identity (see the repeat sign-up case) */
 async function session(u) { const now = Math.floor(Date.now() / 1000), rt = crypto.randomBytes(24).toString('hex');
   await sql(`insert into auth.refresh_tokens (token, user_id) values (${lit(rt)}, ${lit(u.id)});`);
   return { access_token: sign({ sub: u.id, role: 'authenticated', aud: 'authenticated', email: u.email, iat: now, exp: now + JWT_EXP, session_id: rt.slice(0, 8) }), token_type: 'bearer', expires_in: JWT_EXP, expires_at: now + JWT_EXP, refresh_token: rt, user: userJson(u) }; }
@@ -51,7 +51,10 @@ async function handle(req, res, body) {
     const email = String(J.email || '').trim().toLowerCase(), pw = String(J.password || '');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return authErr(res, 400, 'email_address_invalid', 'Unable to validate email address: invalid format');
     if (pw.length < 8) return authErr(res, 422, 'weak_password', 'Password should be at least 8 characters.');
-    if (await getUser(`email = ${lit(email)}`)) return authErr(res, 422, 'user_already_exists', 'User already registered');
+    { const ex = await getUser(`email = ${lit(email)}`); /* like hosted Supabase: with e-mail confirmation ON a repeat sign-up is NOT an error
+         (no account enumeration) — it returns an obfuscated user with an EMPTY identities list and sends no mail. Confirmation OFF → 422. */
+      if (ex && CONFIRM) return send(res, 200, { id: '00000000-0000-4000-8000-' + String(Date.now()).slice(-12).padStart(12, '0'), aud: 'authenticated', role: 'authenticated', email, phone: '', confirmation_sent_at: new Date().toISOString(), app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: {}, identities: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString(), is_anonymous: false });
+      if (ex) return authErr(res, 422, 'user_already_exists', 'User already registered'); }
     const meta = JSON.stringify(J.data || {}), ins = await sql(`insert into auth.users (email, encrypted_password, email_confirmed_at, raw_user_meta_data) values (${lit(email)}, ${lit(hashPw(pw))}, ${CONFIRM ? 'null' : 'now()'}, ${dq(meta)}::jsonb) returning row_to_json(users);`);
     if (ins.err) return send(res, 500, { code: 500, msg: 'Database error saving new user' }); const nu = JSON.parse(ins.out);
     return send(res, 200, CONFIRM ? Object.assign(userJson(nu), { confirmation_sent_at: new Date().toISOString() }) : await session(nu));

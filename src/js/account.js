@@ -84,6 +84,9 @@ async function signUp(email, pw, firstName) {
   const name = String(firstName || '').replace(/\s+/g, ' ').trim().slice(0, 30);
   const r = await http('/auth/v1/signup?redirect_to=' + encodeURIComponent(appUrl()), { method: 'POST', auth: false, body: { email: email.trim(), password: pw, data: name ? { first_name: name } : {} } });
   if (r && r.access_token) { setSession(r); const next = await afterLogin(); adoptName(); return { session: true, next }; }
+  /* M10.1 (found against the real project): with e-mail confirmation ON, Supabase answers a sign-up for an ALREADY REGISTERED e-mail with
+     a placeholder user whose identities list is empty, and sends no e-mail. Never report "mail sent" in that case. */
+  const u = r && (r.user || r); if (u && Array.isArray(u.identities) && u.identities.length === 0) throw Object.assign(new ApiError('request', 422, 'user_already_exists'), { code: 'user_already_exists', he: HE.user_already_exists });
   return { session: false, confirm: true }; /* e-mail confirmation required: the link brings the user back signed in */
 }
 async function signIn(email, pw) {

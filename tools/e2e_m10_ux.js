@@ -168,12 +168,14 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
   const wtxt = await p.evaluate(() => document.querySelector('#view').innerText);
   ok(!/מנאלי|2,000|גובה של/.test(wtxt), 'workout screen has no city/altitude-specific tip (location is unknown)');
   ok(await p.evaluate(() => !PROGRAM.GENERAL_RULES.some(r => /מנאלי|גובה|מזג|חום/.test(r))), 'general workout rules contain no city, altitude or weather claim');
+  ok(await p.evaluate(() => PROGRAM.GENERAL_RULES.some(r => /קצב מתון/.test(r) && /שותים מים/.test(r))), 'the general safety tip is shown instead');
+  ok(await p.evaluate(() => !/מנאלי|manali|קולו\b|kullu/i.test(JSON.stringify([NUTRI, PROGRAM, window.PROGRAMS || null, window.EXERCISES || null]))), 'no Manali/Kullu text in any workout, recipe, menu or program data shown to users');
   for (const h of ['#/', '#/day/1', '#/nutrition', '#/progress', '#/settings']) await go(p, h, 400);
   ok(await p.evaluate(() => window.__geo) === 0, 'the app never asks for the device location');
   allErrs.push(...errs); await ctx.close();
 
   /* ── onboarding: field alignment, no flicker, values kept, full journey ── */
-  for (const [w, h] of [[320, 640], [390, 844], [820, 1180]]) {
+  for (const [w, h] of [[320, 640], [360, 740], [390, 844], [430, 932], [768, 1024], [820, 1180]]) {
     const c = await b.newContext({ ...devices['iPhone 13'], viewport: { width: w, height: h }, locale: 'he-IL', serviceWorkers: 'block' }); const q = await c.newPage();
     await q.goto(URL0); await q.waitForTimeout(600); await q.evaluate(() => { localStorage.clear(); }); await q.reload(); await q.waitForTimeout(600);
     await q.evaluate(() => { location.hash = '#/setup/1'; }); await q.waitForTimeout(600);
@@ -183,6 +185,11 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
     ok(al.rowTop1 < 1 && al.rowTop2 < 1, 'age/height and current/target weight inputs start on the same line', al);
     ok(new Set(al.widths).size === 1 && new Set(al.heights).size === 1, 'all four inputs have the same width and height', al);
     ok(!al.overflow && al.rtl === 'rtl', 'no sideways scroll; right-to-left', al);
+    const order = await q.evaluate(() => { const a = document.getElementById('pf-age').getBoundingClientRect(), hh = document.getElementById('pf-h').getBoundingClientRect(); return a.left > hh.left; });
+    ok(order, 'RTL order: age on the right, height on the left');
+    const cov = await q.evaluate(() => { const nav = document.querySelector('.setup-nav'), out = []; for (const id of ['pf-age', 'pf-h', 'pf-w', 'pf-tw']) { const el = document.getElementById(id); el.scrollIntoView({ block: 'center' }); const a = el.getBoundingClientRect(), n = nav.getBoundingClientRect(); if (!(n.bottom <= a.top || n.top >= a.bottom)) out.push(id); } return out; });
+    ok(!cov.length, 'the sticky Continue bar never covers a field that is scrolled into view', cov);
+    if (w === 320 || w === 390 || w === 820) { await q.evaluate(() => document.getElementById('pf-age').scrollIntoView({ block: 'center' })); await q.screenshot({ path: `dist/reports/m101-fields-${w}.png` }); }
     await c.close();
   }
   ({ ctx, p, errs } = await mk());
@@ -229,6 +236,26 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
   await go(p, '#/profile', 1200);
   await p.fill('#pf-age', '41'); await p.locator('[data-act=dw][data-v="1"]').click(); await p.waitForTimeout(400);
   ok(await p.evaluate(() => document.getElementById('pf-age').value) === '41', 'an unsaved age is kept when a workout day is toggled (was lost before M10)');
+  allErrs.push(...errs); await ctx.close();
+
+  /* ── Bug D: a single action never logs a recipe twice ── */
+  ({ ctx, p, errs } = await mk());
+  await p.goto(URL0); await p.waitForTimeout(600);
+  await p.evaluate(() => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 176, weight: 80, startWeight: 80, sex: 'm' }); Store.save('profile'); localStorage.setItem('fit30.welcomeDone', '1'); });
+  await p.reload(); await p.waitForTimeout(700);
+  G = 'Bug D: no accidental duplicate food records';
+  const rid = await p.evaluate(() => NUTRI.RECIPES.find(r => !Core.conflicts(r, null).length).id);
+  const cnt = () => p.evaluate(id => Core.entries(Store.today()).filter(e => e.rid === id).length, rid);
+  await go(p, '#/recipe/' + rid, 900);
+  await p.locator('[data-act=logNow]').dblclick(); await p.waitForTimeout(700);
+  const d1 = { n: await cnt(), sheet: await p.locator('[data-dup-warning]').count() };
+  ok(d1.n === 1, 'double-tap on "רישום כנאכל היום" → exactly ONE record', d1);
+  ok(d1.sheet === 1, 'the second tap asks "המנה כבר רשומה היום" instead of adding silently', d1);
+  await p.locator('.sheet [data-act=no]').click(); await p.waitForTimeout(300); ok(await cnt() === 1, '"לא להוסיף" keeps one record');
+  await p.locator('[data-act=logNow]').click(); await p.waitForTimeout(500); await p.locator('.sheet [data-act=again]').click(); await p.waitForTimeout(500);
+  const d2 = await p.evaluate(id => { const es = Core.entries(Store.today()).filter(e => e.rid === id); return { n: es.length, rep: es.filter(e => e.repeat).length, kcal: Math.round(Core.eatenTotals(Store.today()).k), sum: Math.round(Core.entries(Store.today()).reduce((a, e) => a + (e.k || 0), 0)) }; }, rid);
+  ok(d2.n === 2 && d2.rep === 1, 'a real second serving stays possible (explicit "כן, אכלתי מנה נוספת")', d2);
+  ok(d2.kcal === d2.sum, 'daily total equals the sum of the records (nothing double-counted)', d2);
   allErrs.push(...errs); await ctx.close();
 
   G = 'errors'; ok(!allErrs.length, 'no page errors', allErrs);

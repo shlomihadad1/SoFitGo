@@ -224,7 +224,7 @@ const R = [
   equip: ['סיר גדול'],
   ing: [i('chicken_breast', 220), i('noodles', 110), i('cabbage', 100), i('carrot', 60), i('spinach', 60), i('onion', 50), i('oil', 6)],
   steps: ['לחמם שמן, לטגן בצל, שום וג׳ינג׳ר.', 'להוסיף עוף ברצועות ל־4 דק׳, ואז 700 מ״ל מים, מלח ופלפל; לבשל 12 דק׳.', 'להוסיף ירקות ל־4 דק׳.', 'לבשל אטריות בנפרד ולהוסיף לקערה; לימון וצ׳ילי.'],
-  subs: ['אטריות ← 70 ג׳ אורז.'], notes: 'מנה נפוצה מאוד במנאלי בזכות הקהילה הטיבטית.' },
+  subs: ['אטריות ← 70 ג׳ אורז.'], notes: 'מנה טיבטית מסורתית.' /* M10.1: no assumption about where the user is */ },
 { id: 'chicken_momos', he: 'מומו עוף מאודים עם מרק', en: 'Steamed Chicken Momos', meal: 'm2', tags: ['chicken', 'local'], cost: 2, prep: 35, cook: 15,
   equip: ['סיר אידוי/מסננת מעל סיר', 'מערוך'],
   ing: [i('maida', 120), i('chicken_mince', 240), i('cabbage', 80), i('onion', 50), i('oil', 5), i('tomato', 80), i('cucumber', 100)],
@@ -321,7 +321,7 @@ const R = [
   equip: ['מחבת עמוקה', 'טאווה'],
   ing: [i('mushroom', 150), i('peas', 90), i('soya', 60), i('onion', 60), i('tomato', 100), i('oil', 9), i('atta', 105), i('kala_chana', 30)],
   steps: ['להשרות סויה, לסחוט; לבשל מראש קאלה צ׳אנה (או להשתמש בשאריות).', 'לטגן בצל, ג׳ינג׳ר־שום ותבלינים; להוסיף עגבנייה ל־5 דק׳.', 'להוסיף פטריות פרוסות ל־5 דק׳, ואז אפונה, סויה, צ׳אנה ומעט מים; לבשל 10 דק׳.', 'להכין 3 רוטי.'],
-  subs: ['פטריות ← כרובית.'], notes: 'ללא מוצרי חלב, ביצים ועוף. פטריות זמינות במנאלי ובקולו.' },
+  subs: ['פטריות ← כרובית.'], notes: 'ללא מוצרי חלב, ביצים ועוף.' /* M10.1: removed a local-availability claim */ },
 { id: 'soya_keema_roti', he: 'קימה סויה ואפונה עם רוטי', en: 'Soya Keema Matar with Roti', meal: 'm2', tags: ['veg', 'vegan', 'quick'], cost: 1, prep: 10, cook: 20,
   equip: ['מחבת עמוקה', 'טאווה'],
   ing: [i('soya', 80), i('peas', 90), i('onion', 70), i('tomato', 100), i('oil', 9), i('atta', 105), i('cucumber', 100)],
@@ -373,7 +373,7 @@ const FLEX = [
   { id: 'flex_thali', he: 'תאלי מלא במסעדה (כולל מתוק)', range: [900, 1300], p: [20, 30] },
   { id: 'flex_chole_bhature', he: 'צ׳ולה בהטורה (2 בהטורה)', range: [900, 1300], p: [20, 30] },
   { id: 'flex_momo_fried', he: '10 מומו מטוגנים + תוקפה', range: [1000, 1400], p: [40, 55] },
-  { id: 'flex_cafe_pizza', he: 'פיצה בינונית בקפה (אולד מנאלי)', range: [900, 1400], p: [35, 50] },
+  { id: 'flex_cafe_pizza', he: 'פיצה בינונית בבית קפה' /* M10.1: no place name */, range: [900, 1400], p: [35, 50] },
   { id: 'flex_custom', he: 'ארוחה לבחירתי (מזינים ערכים)', range: null, p: null }
 ];
 
