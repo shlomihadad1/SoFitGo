@@ -51,7 +51,7 @@ function judge(s, r) {
   if (s.blockedExit !== undefined && r.code === s.blockedExit) return { status: 'BLOCKED', why: (r.txt.match(/BLOCKED: (.*)/) || [])[1] || 'precondition missing' };
   if (r.sig === 'SIGKILL') return { status: 'FAIL', why: `timeout after ${s.timeout}s`, fails: [] };
   let pass = 0, fail = 0;
-  if (s.parse === 'count') { pass = (r.txt.match(/^PASS/mg) || []).length; fail = (r.txt.match(/^FAIL/mg) || []).length; }
+  if (s.parse === 'count') { const ls = r.txt.split('\n'); fail = ls.filter(l => /\bFAIL\b/.test(l)).length; pass = ls.filter(l => !/\bFAIL\b/.test(l) && /\bPASS\b/.test(l)).length; } /* artcheck prints PASS/FAIL at the END of each line */
   else { const m = [...r.txt.matchAll(/pass (\d+) fail (\d+)/gi)].pop(); if (m) { pass = +m[1]; fail = +m[2]; } }
   const fails = r.txt.split('\n').filter(l => /^FAIL\b|^ - |crashed|Error:/.test(l)).slice(0, 12).map(l => l.slice(0, 400));
   if (r.code === 0 && fail === 0 && pass > 0) return { status: 'PASS', pass, fail };
