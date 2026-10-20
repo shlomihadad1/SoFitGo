@@ -12,7 +12,7 @@ const files = fs.readdirSync(R('dist/pwa'), { recursive: true }).filter(f => fs.
 const all = files.map(f => fs.readFileSync(R('dist/pwa/' + f)).toString('latin1')).join('\n');
 /* M10: the account client legitimately names the GoTrue request fields (apikey header from the build config, password from the
    form variable). Only those exact usages are removed before the scan; any literal value is still caught, plus key/JWT checks. */
-const LEGIT = /apikey:\s*CFG\.key|password:\s*pw\b|(weak|same)_password:|nothing secret in the browser|updatePassword|grant_type=password|(['"])password\2,\s*'autocomplete="(new|current)-password"|no password is ever stored|password reset|'text'\s*:\s*'password'|"text":"password"|input\[type="password"\]/g;
+const LEGIT = /apikey:\s*CFG\.key|password:\s*pw\b|(weak|same)_password:|nothing secret in the browser|updatePassword|grant_type=password|(['"])password\2,\s*'autocomplete="(new|current)-password"|no password is ever stored|password reset|'text'\s*:\s*'password'|"text":"password"|input\[type="?password"?\]/g;
 ok(!/(api[_-]?key|secret|password|BEGIN PRIVATE|sk-ant)/i.test(all.replace(LEGIT, '')), 'no secrets in build');
 /* M10.1: the app has no location data, so the shipped bundle must not tell every user about a specific place (was: Manali tips) */
 { const allU = files.map(f => fs.readFileSync(R('dist/pwa/' + f), 'utf8')).join('\n'); /* UTF-8 here: `all` is latin1 and cannot match Hebrew */
