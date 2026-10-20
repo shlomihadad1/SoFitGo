@@ -136,7 +136,7 @@ main#view { padding-block: 14px calc(var(--nav-h) + 28px + env(safe-area-inset-b
 
 /* forms */
 label.field { display: flex; flex-direction: column; gap: 5px; font-size: .88em; color: var(--muted); min-width: 0; }
-input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="url"], input[type="number"], input[type="date"], input[type="time"], select, textarea { background: var(--surface-2); border: 1px solid var(--line-control); border-radius: var(--r-sm); min-height: var(--tap); padding: 8px 12px; color: var(--text); font-size: var(--fs-input); width: 100%; min-width: 0; }
+input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="password"] /* M10.3: was missing — Safari drew password fields with its native dark style (solid black) */, input[type="tel"], input[type="url"], input[type="number"], input[type="date"], input[type="time"], select, textarea { background: var(--surface-2); border: 1px solid var(--line-control); border-radius: var(--r-sm); min-height: var(--tap); padding: 8px 12px; color: var(--text); font-size: var(--fs-input); width: 100%; min-width: 0; }
 textarea { min-height: 80px; resize: vertical; }
 input[type="number"] { direction: ltr; text-align: right; }
 .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tap); cursor: pointer; }

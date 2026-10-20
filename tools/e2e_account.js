@@ -267,6 +267,32 @@ const procs = []; /* child servers started by this test; always stopped, also af
     ok(await q.evaluate(() => Store.load('profile').age === 29 && Store.load('profile').targetWeight === 55 && !!Plans.active() && JSON.stringify(Store.load('profile').availability.days) === '[0,2,4]'), 'data restored from the server: profile, target weight, training days, plan');
     await j.ctx.close(); }
 
+  /* ── M10.3: the hosted mailer refuses (2 e-mails/hour, team-only) — honest messages, no account created ── */
+  G = 'e-mail sending refused by the server';
+  { await ctl('/__test/confirm_required?on=1'); const m = await mk(); const q = m.p; await q.goto(APP); await q.waitForTimeout(600); await q.evaluate(() => localStorage.clear()); await q.reload(); await ready(q);
+    const errTxt = () => q.locator('[data-acct-error]').innerText().catch(() => ''), infoTxt = () => q.locator('[data-acct-info]').innerText().catch(() => '');
+    await ctl('/__test/mail_fail?mode=rate'); await signup(q, 'ratelimited@test.invalid');
+    let t = { err: await errTxt(), info: await infoTxt() };
+    ok(/הגיע למגבלת השליחה/.test(t.err) && /החשבון לא נוצר/.test(t.err) && !/נשלח אליך/.test(t.info), '429 over_email_send_rate_limit on sign-up → "the account was NOT created, no e-mail sent" (never "mail sent")', t);
+    ok((await su(`select count(*) from auth.users where email = 'ratelimited@test.invalid'`)).out === '0', 'no user row was created');
+    ok(!(await acct(q)).signedIn && await q.evaluate(() => location.hash.startsWith('#/account')), 'stays on the sign-up form, nothing faked');
+    await ctl('/__test/mail_fail?mode=blocked'); await signup(q, 'outsider@test.invalid'); t = { err: await errTxt() };
+    ok(/לא מורשה לשלוח לכתובת הזו/.test(t.err) && /החשבון לא נוצר/.test(t.err), 'address not authorised by the beta mailer → clear Hebrew explanation', t);
+    await ctl('/__test/mail_fail?mode=rate'); await go(q, '#/account/forgot', 700); await fill(q, '#ac-email', 'alma@test.invalid'); await q.locator('[data-act=forgot]').click(); await q.waitForTimeout(800);
+    t = { err: await errTxt(), info: await infoTxt() }; ok(/לא נשלח מייל/.test(t.err) && !/נשלח אליה קישור/.test(t.info), 'password reset refused → "no e-mail was sent" (no false success)', t);
+    await ctl('/__test/mail_fail?mode='); await signup(q, 'ratelimited@test.invalid'); t = { err: await errTxt(), info: await infoTxt() };
+    ok(!t.err && /נשלח אליך מייל לאישור/.test(t.info) && (await su(`select count(*) from auth.users where email = 'ratelimited@test.invalid'`)).out === '1', 'when the mailer accepts again, the same address signs up normally — exactly one user', t);
+    await ctl('/__test/confirm_required?on=0'); await m.ctx.close(); }
+
+  G = 'password fields look and work like the other fields';
+  { const m = await mk(); const q = m.p; await q.goto(APP); await q.waitForTimeout(600); await q.evaluate(() => localStorage.clear()); await q.reload(); await ready(q); await go(q, '#/account/signup', 800); await ready(q); await q.evaluate(() => App.render()); await q.waitForTimeout(200);
+    const cs = await q.evaluate(() => { const g = id => { const c = getComputedStyle(document.getElementById(id)); return { bg: c.backgroundColor, border: c.borderTopColor + ' ' + c.borderTopWidth, h: Math.round(document.getElementById(id).getBoundingClientRect().height), pad: c.paddingInlineStart, color: c.color, radius: c.borderTopLeftRadius }; }; return { email: g('ac-email'), pw: g('ac-pw'), pw2: g('ac-pw2') }; });
+    ok(JSON.stringify(cs.pw) === JSON.stringify(cs.email) && JSON.stringify(cs.pw2) === JSON.stringify(cs.email), 'password + confirmation fields have the same background, border, height, padding, text colour and radius as the e-mail field', cs);
+    await fill(q, '#ac-pw', 'Abc-12345'); await q.locator('[data-act=pwShow]').first().click();
+    ok(await q.evaluate(() => document.getElementById('ac-pw').value === 'Abc-12345' && document.getElementById('ac-pw').type === 'text'), 'typing works and "הצגת הסיסמה" shows the typed text');
+    ok(await q.evaluate(() => { const st = document.querySelector('style').textContent; return /input\[type="password"\]/.test(st) || /input\[type=password\]/.test(st); }), 'the shipped stylesheet styles input[type=password] explicitly (WebKit draws unstyled password inputs black in dark mode)');
+    await m.ctx.close(); }
+
   G = 'account deletion';
   await go(p, '#/account', 700); await p.locator('[data-act=delete]').click(); await p.waitForTimeout(300); await fill(p, '#del-ok', 'מחיקה'); await p.locator('.sheet [data-act=yes]').click(); await waitFor(p, () => !Account.state().signedIn, null, 6000); await p.waitForTimeout(500);
   ok((await su(`select (select count(*) from auth.users where id = '${A_ID}') || ',' || (select count(*) from public.user_state where user_id = '${A_ID}') || ',' || (select count(*) from public.bug_reports where user_id = '${A_ID}')`)).out === '0,0,0', 'account, data and bug reports deleted on the server');

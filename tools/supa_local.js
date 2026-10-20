@@ -9,7 +9,7 @@
 const http = require('http'), crypto = require('crypto'), { execFile } = require('child_process'), fs = require('fs'), path = require('path');
 const PORT = +(process.argv[2] || 54321), DB = process.env.SUPA_DB || 'sofitgo_local', KEY = 'sb_publishable_LOCALTESTKEY_not_a_secret';
 const PG = ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', DB, '-v', 'ON_ERROR_STOP=1', '-Atq', '-X'];
-const SECRET = crypto.randomBytes(32); let JWT_EXP = +(process.env.SUPA_JWT_EXP || 3600); let CONFIRM = process.env.SUPA_CONFIRM === '1';
+const SECRET = crypto.randomBytes(32); let JWT_EXP = +(process.env.SUPA_JWT_EXP || 3600); let CONFIRM = process.env.SUPA_CONFIRM === '1'; let MAILFAIL = ''; /* '', 'rate' or 'blocked' — reproduces the hosted mailer's refusals */
 const TABLES = ['profiles', 'user_state', 'bug_reports', 'app_config'], RPCS = ['delete_my_account'];
 let offline = false; /* test hook: simulate a network failure (requests are dropped) */
 const lit = s => "'" + String(s).replace(/'/g, "''") + "'";
@@ -38,6 +38,7 @@ async function handle(req, res, body) {
   if (p.startsWith('/__test/')) { /* test-only controls, local emulator only */
     if (p === '/__test/offline') { offline = u.searchParams.get('on') === '1'; return send(res, 200, { offline }); }
     if (p === '/__test/jwt_exp') { JWT_EXP = +u.searchParams.get('s'); return send(res, 200, { JWT_EXP }); }
+    if (p === '/__test/mail_fail') { MAILFAIL = u.searchParams.get('mode') || ''; return send(res, 200, { MAILFAIL }); }
     if (p === '/__test/confirm_required') { CONFIRM = u.searchParams.get('on') === '1'; return send(res, 200, { CONFIRM }); }
     if (p === '/__test/confirm') { await sql(`update auth.users set email_confirmed_at = now() where email = ${lit(u.searchParams.get('email'))};`); return send(res, 200, {}); }
     if (p === '/__test/sql') { const r = await sql(body); return send(res, r.err ? 500 : 200, r); }
@@ -47,6 +48,10 @@ async function handle(req, res, body) {
   const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   let J = null; try { J = body ? JSON.parse(body) : {}; } catch (e) { return send(res, 400, { code: 'PGRST102', message: 'Empty or invalid json' }); }
   /* ── Auth (GoTrue v2 subset) ── */
+  /* hosted behaviour (verified 2026-10-20): when the mailer refuses, the request fails and NO user is created */
+  const mailRefusal = () => MAILFAIL === 'rate' ? authErr(res, 429, 'over_email_send_rate_limit', 'email rate limit exceeded') : MAILFAIL === 'blocked' ? authErr(res, 400, 'email_address_not_authorized', 'Email address not authorized') : null;
+  if (p === '/auth/v1/signup' && req.method === 'POST' && CONFIRM && MAILFAIL) return mailRefusal();
+  if ((p === '/auth/v1/recover' || p === '/auth/v1/resend') && req.method === 'POST' && MAILFAIL) return mailRefusal();
   if (p === '/auth/v1/signup' && req.method === 'POST') {
     const email = String(J.email || '').trim().toLowerCase(), pw = String(J.password || '');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return authErr(res, 400, 'email_address_invalid', 'Unable to validate email address: invalid format');

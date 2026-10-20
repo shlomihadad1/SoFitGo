@@ -37,6 +37,23 @@ const HE = {
   email_address_invalid: 'כתובת האימייל לא תקינה.', validation_failed: 'כתובת האימייל או הסיסמה לא תקינות.', signup_disabled: 'ההרשמה סגורה כרגע — הבטא פתוחה בהזמנה בלבד.',
   over_email_send_rate_limit: 'נשלחו יותר מדי מיילים לאחרונה. נסו שוב בעוד כמה דקות.', over_request_rate_limit: 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.',
   same_password: 'הסיסמה החדשה זהה לקודמת.', otp_expired: 'הקישור פג תוקף או כבר נוצל. בקשו קישור חדש.', email_address_not_authorized: 'שליחת מייל לכתובת הזו לא מאושרת בשרת הבטא.' };
+/* M10.3 · e-mail sending failures, worded for what actually happened (checked against the hosted project: a sign-up refused with
+   429 over_email_send_rate_limit creates NO user; the built-in Supabase mailer allows 2 e-mails/hour per project and only to team
+   addresses). Never "mail sent" unless the server accepted the request. */
+const MAIL_HE = {
+  signup: { rate: 'לא ניתן לשלוח כרגע מייל אישור — שרת המיילים של הבטא הגיע למגבלת השליחה שלו. החשבון לא נוצר ולא נשלח מייל. אפשר לנסות שוב מאוחר יותר.',
+    blocked: 'שרת המיילים של הבטא עדיין לא מורשה לשלוח לכתובת הזו. החשבון לא נוצר ולא נשלח מייל.', fail: 'שליחת מייל האישור נכשלה בשרת. החשבון לא הושלם ולא נשלח מייל. נסו שוב מאוחר יותר.' },
+  recover: { rate: 'לא ניתן לשלוח כרגע קישור לאיפוס — שרת המיילים של הבטא הגיע למגבלת השליחה. לא נשלח מייל; נסו שוב מאוחר יותר.',
+    blocked: 'שרת המיילים של הבטא עדיין לא מורשה לשלוח לכתובת הזו. לא נשלח מייל.', fail: 'שליחת קישור האיפוס נכשלה בשרת. לא נשלח מייל; נסו שוב מאוחר יותר.' },
+  resend: { rate: 'לא ניתן לשלוח שוב כרגע — שרת המיילים של הבטא הגיע למגבלת השליחה. נסו שוב מאוחר יותר.',
+    blocked: 'שרת המיילים של הבטא עדיין לא מורשה לשלוח לכתובת הזו.', fail: 'השליחה החוזרת נכשלה בשרת. נסו שוב מאוחר יותר.' } };
+function mailErr(e, what) {
+  const m = MAIL_HE[what]; if (!e || e.he) return e;
+  if (e.code === 'over_email_send_rate_limit') e.he = m.rate;
+  else if (e.code === 'email_address_not_authorized') e.he = m.blocked;
+  else if (e.status >= 500 || /sending .*email|smtp/i.test(e.message || '')) e.he = m.fail;
+  return e;
+}
 function message(e) {
   if (!e) return ''; if (e.kind === 'network') return 'אין חיבור לשרת. בדקו את החיבור לאינטרנט ונסו שוב.'; if (e.kind === 'unavailable') return 'חשבונות לא זמינים בגרסה הזו.';
   if (e.kind === 'paused') return 'הבטא מושהית כרגע. הנתונים במכשיר נשמרים, ונמשיך כשהיא תחזור.';
@@ -82,7 +99,7 @@ async function guardOpen() { await loadConfig(); if (remoteCfg && remoteCfg.beta
 async function signUp(email, pw, firstName) {
   const v = validate(email, pw); if (v) throw Object.assign(new ApiError('request', 0, 'client'), { he: v }); await guardOpen();
   const name = String(firstName || '').replace(/\s+/g, ' ').trim().slice(0, 30);
-  const r = await http('/auth/v1/signup?redirect_to=' + encodeURIComponent(appUrl()), { method: 'POST', auth: false, body: { email: email.trim(), password: pw, data: name ? { first_name: name } : {} } });
+  let r; try { r = await http('/auth/v1/signup?redirect_to=' + encodeURIComponent(appUrl()), { method: 'POST', auth: false, body: { email: email.trim(), password: pw, data: name ? { first_name: name } : {} } }); } catch (e) { throw mailErr(e, 'signup'); }
   if (r && r.access_token) { setSession(r); const next = await afterLogin(); adoptName(); return { session: true, next }; }
   /* M10.1 (found against the real project): with e-mail confirmation ON, Supabase answers a sign-up for an ALREADY REGISTERED e-mail with
      a placeholder user whose identities list is empty, and sends no e-mail. Never report "mail sent" in that case. */
@@ -96,8 +113,8 @@ async function signIn(email, pw) {
 }
 /* the first name given at sign-up (user metadata) fills an empty profile name — only once the device data belongs to this account */
 function adoptName() { const fn = sess && sess.user && sess.user.first_name; if (!fn || sync.owner !== uid()) return; const p = S.load('profile'); if (!p.name) { p.name = String(fn).slice(0, 30); S.save('profile'); } }
-const recover = email => { const v = validate(email); if (v) return Promise.reject(Object.assign(new ApiError('request', 0, 'client'), { he: v })); return http('/auth/v1/recover?redirect_to=' + encodeURIComponent(appUrl()), { method: 'POST', auth: false, body: { email: email.trim() } }); };
-const resend = email => http('/auth/v1/resend', { method: 'POST', auth: false, body: { type: 'signup', email: String(email).trim() } });
+const recover = email => { const v = validate(email); if (v) return Promise.reject(Object.assign(new ApiError('request', 0, 'client'), { he: v })); return http('/auth/v1/recover?redirect_to=' + encodeURIComponent(appUrl()), { method: 'POST', auth: false, body: { email: email.trim() } }).catch(e => { throw mailErr(e, 'recover'); }); };
+const resend = email => http('/auth/v1/resend', { method: 'POST', auth: false, body: { type: 'signup', email: String(email).trim() } }).catch(e => { throw mailErr(e, 'resend'); });
 const updatePassword = pw => { if (String(pw).length < 8) return Promise.reject(Object.assign(new ApiError('request', 0, 'client'), { he: 'הסיסמה צריכה להכיל לפחות 8 תווים.' })); return http('/auth/v1/user', { method: 'PUT', body: { password: pw } }); };
 /* e-mail link return (captured by main.js): #access_token=…&refresh_token=…&expires_in=…&type=signup|recovery|invite|magiclink, or #error=… */
 async function consumeRedirect() {
