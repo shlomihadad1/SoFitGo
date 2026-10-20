@@ -20,8 +20,8 @@ const lsPeek = k => { try { return localStorage.getItem(k); } catch (e) { return
 Screens.waterBlock = function (date) {
   const w = C.daily(date).water || 0, wg = C.waterGoalOn(date), left = Math.max(0, wg.ml - w);
   return `<div class="stack tight" data-water><div class="row between"><span class="row">${icon('drop')} <b>מים</b></span><span class="num" data-water-total><bdi>${C.fmtL(w)}</bdi> מתוך <bdi>${C.fmtL(wg.ml)}</bdi> ליטר</span></div>${meter(w, wg.ml, 'gl')}
-    <div class="row between tiny muted"><span data-water-left>${left ? `נותרו <bdi>${C.fmtL(left)}</bdi> ליטר` : 'הגעת ליעד היום'}</span><a href="#/settings" data-water-goal-kind>${wg.manual ? 'יעד שקבעת' : wg.est ? 'הצעה כללית (הערכה)' : 'הצעה אישית (הערכה)'}</a></div>
-    <div class="btns"><button class="btn sm" data-act="water" data-ml="250">+250 מ״ל</button><button class="btn sm" data-act="water" data-ml="500">+500 מ״ל</button><button class="btn sm" data-act="water" data-ml="750">+750 מ״ל</button><button class="btn sm ghost" data-act="water" data-ml="-250" aria-label="הפחת 250 מ״ל">−250 מ״ל</button></div></div>`;
+    <div class="row between tiny muted"><span data-water-left>${left ? `נותרו <bdi>${C.fmtL(left)}</bdi> ליטר` : w > wg.ml ? `הגעת ליעד · <bdi>${C.fmtL(w - wg.ml)}</bdi> ליטר מעל היעד` : 'הגעת ליעד היום'}</span><a href="#/settings" data-water-goal-kind>${wg.manual ? 'יעד שקבעת' : wg.est ? 'הצעה כללית (הערכה)' : 'הצעה אישית (הערכה)'}</a></div>
+    <div class="btns"><button class="btn sm" data-act="water" data-ml="250" aria-label="הוספת 0.25 ליטר">+0.25 ל׳</button><button class="btn sm" data-act="water" data-ml="500" aria-label="הוספת 0.5 ליטר">+0.5 ל׳</button><button class="btn sm" data-act="water" data-ml="750" aria-label="הוספת 0.75 ליטר">+0.75 ל׳</button><button class="btn sm ghost" data-act="water" data-ml="-250" aria-label="הפחתת 0.25 ליטר">−0.25 ל׳</button></div></div>`;
 };
 Screens.welcomeVisible = () => !lsPeek('fit30.welcomeDone') && !lsPeek('fit30.auth') && !C.hasBasics(C.profile()) && !root.Plans.active();
 Screens.welcomeCard = function () {
@@ -165,7 +165,7 @@ Screens.nowModel = function (date) {
   } else { const m = done.find(d => ['m1', 'm2', 'snack'].includes(d.k) && !d.ok);
     if (m) { const r = L.recipe(plan[m.k].rid); next = { k: m.k, he: `${C.slotNames[m.k]}: ${r.he}`, btn: `<button class="btn primary" data-act="eat" data-slot="${m.k}">סמן שאכלתי</button>` };
       small = { he: 'אכלת רק חלק? אפשר לסמן כמות ביומן — גם חצי מנה נספרת.', href: '#/nutrition', link: 'ליומן התזונה' }; }
-    else if (water < wgoal) { next = { k: 'water', he: `מים: ${C.fmtL(water)} מתוך ${C.fmtL(wgoal)} ליטר`, btn: `<button class="btn primary" data-act="water" data-ml="250">+250 מ״ל</button>` }; small = { he: 'כוס אחת עכשיו מספיקה כצעד הבא.' }; } }
+    else if (water < wgoal) { next = { k: 'water', he: `מים: ${C.fmtL(water)} מתוך ${C.fmtL(wgoal)} ליטר`, btn: `<button class="btn primary" data-act="water" data-ml="250" aria-label="הוספת 0.25 ליטר">+0.25 ל׳</button>` }; small = { he: 'כוס אחת עכשיו מספיקה כצעד הבא.' }; } }
   return { done, next, small };
 };
 Screens.nowCard = function (date, opts) {

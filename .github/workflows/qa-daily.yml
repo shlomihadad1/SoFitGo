@@ -1,0 +1,81 @@
+# SoFitGo QA — daily full run (08:00 India time), manual runs, and a quick run on pull requests / pushes.
+# Free tier only: GitHub-hosted ubuntu runner + a PostgreSQL 16 service container. No paid services, no AI model, no deploy step.
+# Live checks against the real Supabase project run ONLY when the repository variable QA_LIVE is "1" AND the test-account secrets
+# exist; otherwise the report marks them BLOCKED. Secrets are never printed (tools/live_check.js prints no credentials).
+name: QA daily
+
+on:
+  schedule:
+    - cron: "30 2 * * *"        # 02:30 UTC = 08:00 IST (GitHub may start scheduled runs a few minutes late)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "full or quick"
+        default: "full"
+        required: false
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "54329"
+      PGUSER: postgres
+      QA_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event_name == 'workflow_dispatch' && inputs.mode || 'quick' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install test tooling (esbuild, Playwright)
+        run: npm install --no-audit --no-fund
+      - name: Install browsers (Chromium + WebKit engine; WebKit is not Safari)
+        run: npx playwright install --with-deps chromium webkit
+      - name: PostgreSQL client
+        run: sudo apt-get install -y postgresql-client >/dev/null
+      - name: Run QA agents
+        id: qa
+        continue-on-error: true
+        env:
+          QA_LIVE: ${{ vars.QA_LIVE }}
+          SOFITGO_SUPABASE_URL: ${{ vars.SOFITGO_SUPABASE_URL }}
+          SOFITGO_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOFITGO_SUPABASE_PUBLISHABLE_KEY }}
+          LIVE_A_EMAIL: ${{ secrets.LIVE_A_EMAIL }}
+          LIVE_A_PASSWORD: ${{ secrets.LIVE_A_PASSWORD }}
+          LIVE_B_EMAIL: ${{ secrets.LIVE_B_EMAIL }}
+          LIVE_B_PASSWORD: ${{ secrets.LIVE_B_PASSWORD }}
+        run: node tools/qa/run_qa.js --mode "$QA_MODE" --out dist/reports/qa
+      - name: Summary
+        if: always()
+        run: cat dist/reports/qa/summary.md >> "$GITHUB_STEP_SUMMARY" || echo "no report produced" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report and logs (14 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report
+          path: |
+            dist/reports/qa/
+            dist/reports/*.png
+          retention-days: 14
+      - name: Fail the job if a check failed
+        if: steps.qa.outcome == 'failure'
+        run: exit 1
