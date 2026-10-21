@@ -60,7 +60,7 @@ function confirmSwap(date, slot, rid, done, o) {
   const gm = root.Gate ? root.Gate.checkMeal(nr, null) : { ok: !C.conflicts(nr, null).length, issues: [] };
   if (!gm.ok) { root.UI.toast('המנה לא תואמת להגבלות התזונה שלך'); return done && done(false); }
   const nu = U(), m1 = L.recipeMacros(nr), base = o.base, empty = o.empty;
-  const sc = !empty && C.plan(date).source === 'plan' && slot !== 'extra' && m1.k ? Math.max(0.6, Math.min(1.8, Math.round(base.k / m1.k * 20) / 20)) : 1, m2 = L.recipeMacros(nr, sc);
+  const sc = !empty && !!C.plan(date).source && slot !== 'extra' && m1.k ? Math.max(0.6, Math.min(1.8, Math.round(base.k / m1.k * 20) / 20)) : 1, m2 = L.recipeMacros(nr, sc);
   const t = C.targets(), day0 = C.plannedTotals(date, 'selected'), cur = slot === 'extra' && !C.plan(date).extra.on ? { k: 0, p: 0, c: 0, f: 0 } : base;
   const day1 = { k: Math.round(day0.k - cur.k + m2.k), p: Math.round(day0.p - cur.p + m2.p) }, eaten = C.eatenTotals(date);
   const gapP = t ? t.protein - day1.p : 0, free = ['m1', 'm2', 'snack'].filter(k => k !== slot && !C.slotEntry(date, k) && C.plan(date)[k].rid && !C.plan(date)[k].off);

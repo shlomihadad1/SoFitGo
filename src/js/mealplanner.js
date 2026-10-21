@@ -185,5 +185,21 @@
   /* stand-alone generation (tests, previews) */
   function generate(params, start, days, seed) { const dates = []; for (let i = 0; i < days; i++) dates.push(S().addDays(start, i)); return genRange(params, dates, { i: 0, use: {}, last: {}, prevProt: null }, seed || 'preview'); }
 
-  root.MealPlan = { VERSION, pool, generate, currentParams, ensure, menus, planFor, forDate, pending, previewChange, applyChange, summarize, firstOpenDate, gapOf };
+  /* Default daily menu (no active personal plan): generated from the user's CURRENT targets and preferences with the same engine,
+     in deterministic 14-day blocks. Today's menu is stored when computed, so once a day is past it stays as it was shown. */
+  const autoMemo = new Map();
+  function autoFor(date) {
+    const pr = C().profile(); if (pr.menuMode === 'fixed') return null;
+    const nu = S().load('nutrition'), snap = nu.auto && nu.auto[date], today = S().today();
+    if (date < today) return snap || null; /* history: what was computed then, or the authored menu for days never computed */
+    const params = currentParams(); if (!params.kcal || !params.protein) return null;
+    const ed = Math.floor(Date.parse(date + 'T12:00:00Z') / 864e5), a0 = ed - (ed % 14), anchor = new Date(a0 * 864e5).toISOString().slice(0, 10);
+    const key = JSON.stringify([anchor, params.kcal, params.protein, params.prefs, params.meals, params.maxPrep, params.dislike, N().RECIPES.length, (nu.favorites || []).length]);
+    let g = autoMemo.get(key); if (!g) { if (autoMemo.size > 40) autoMemo.clear(); g = generate(params, anchor, 14, 'auto' + anchor); autoMemo.set(key, g); }
+    const d = g.days.find(x => x.date === date); if (!d) return null;
+    const out = { planId: null, auto: true, slots: d.slots, off: d.off, gap: d.gap, totals: d.totals, target: d.target, notes: g.notes };
+    if (date === today) { const js = JSON.stringify(out); if (!snap || JSON.stringify(snap) !== js) { nu.auto = nu.auto || {}; nu.auto[date] = JSON.parse(js); const ks = Object.keys(nu.auto).sort(); ks.slice(0, Math.max(0, ks.length - 120)).forEach(k => delete nu.auto[k]); S().save('nutrition'); } }
+    return out;
+  }
+  root.MealPlan = { VERSION, autoFor, pool, generate, currentParams, ensure, menus, planFor, forDate, pending, previewChange, applyChange, summarize, firstOpenDate, gapOf };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -31,6 +31,24 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     ok(!r.tot.length, `[${lbl}] add-on is off by default and the planned total = breakfast + lunch + dinner exactly`, r.tot);
   }
 
+  G = 'targets (nutrition engine)';
+  for (const [lbl, pf] of [['m80', { sex: 'm', weight: 80, height: 176, age: 34 }], ['f60', { sex: 'f', weight: 60, height: 163, age: 30 }], ['f75', { sex: 'f', weight: 75, height: 165, age: 45 }], ['m100', { sex: 'm', weight: 100, height: 182, age: 40 }]]) {
+    const r = await p.evaluate(pf => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, pf, { startWeight: pf.weight }); Store.save('profile');
+      const t = Core.targets(), T = Store.today(); let inT = 0, gapShown = 0, bad = [], dup = 0;
+      for (let i = 0; i < 30; i++) { const d = Store.addDays(T, i), pl = Core.plan(d), x = Core.plannedTotals(d, 'base'), okK = x.k >= t.kcal * 0.93 && x.k <= t.kcal * 1.07, okP = x.p >= t.protein - 0.5;
+        if (pl.source !== 'auto') bad.push([d, 'source ' + pl.source]); if (okK && okP) inT++; else if (pl.gap) gapShown++; else bad.push([d, x.k, x.p]);
+        const ids = ['m1', 'm2', 'snack'].map(k => pl[k].rid).filter(Boolean); if (new Set(ids).size !== ids.length) dup++; }
+      return { kcal: t.kcal, protein: t.protein, inT, gapShown, bad, dup }; }, pf);
+    ok(!r.bad.length && r.inT + r.gapShown === 30 && r.inT >= 23, `[${lbl}] default menu built from the user's targets (${r.kcal} kcal / ${r.protein} g): ${r.inT}/30 days within ±7% kcal and protein met; the rest show the real gap (${r.gapShown})`, r);
+    ok(!r.dup, `[${lbl}] no dish repeated within a day`, r.dup);
+  }
+  { const r = await p.evaluate(() => { const pr = Store.load('profile'); pr.prefs = Object.assign(pr.prefs || {}, { meals: 2 }); Store.save('profile'); const pl = Core.plan(Store.today()); return { off: !!pl.snack.off, n: ['m1', 'm2', 'snack'].filter(k => pl[k].rid && !pl[k].off).length }; });
+    ok(r.off && r.n === 2, 'the number of meals follows the user setting (2 meals → 2 meals, nothing invented)', r); }
+  { const r = await p.evaluate(() => { const T = Store.today(), y = Store.addDays(T, -1), nu = Store.load('nutrition'); Core.plan(T);
+      nu.auto = nu.auto || {}; nu.auto[y] = JSON.parse(JSON.stringify(nu.auto[T])); Store.save('nutrition'); const before = JSON.stringify(Core.plan(y));
+      const pr = Store.load('profile'); pr.weight = 70; Store.save('profile'); const after = JSON.stringify(Core.plan(y)); return { same: before === after, src: Core.plan(y).source }; });
+    ok(r.same && r.src === 'auto', 'a past day keeps the menu it was shown with after the targets change', r); }
+  await reset();
   G = 'screen structure';
   await reset(); await go('#/nutrition'); await p.waitForTimeout(500);
   const scr = await p.evaluate(() => { const box = document.querySelector('[data-day-meals]'), cards = [...box.querySelectorAll('.slot')], pl = Core.plan(Store.today());
@@ -38,7 +56,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
       cards: cards.map((c, i) => { const k = ['m1', 'm2', 'snack'][i], s = pl[k], r = Logic.recipe(s.rid), m = Core.slotMacros(s), t = c.innerText;
         return { k, h: c.querySelector('h3').innerText, he: r.he, ing: c.querySelectorAll('[data-meal-detail] .ing, [data-meal-detail] > div > *').length, steps: c.querySelectorAll('[data-meal-steps] li').length, want: r.steps.length, kcal: t.includes(m.k + ' קק״ל'), prot: t.includes('חלבון ' + m.p) }; }),
       extraCard: !!document.querySelector('[data-act=extraOn]'), extraEyebrow: cards.some(c => /נשנוש חלבון|תוספת/.test(c.querySelector('.eyebrow').innerText)) }; });
-  ok(JSON.stringify(scr.names) === JSON.stringify(['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב קלה']), 'the day shows ארוחת בוקר / ארוחת צהריים / ארוחת ערב קלה', scr.names);
+  ok(JSON.stringify(scr.names) === JSON.stringify(['ארוחת בוקר', 'ארוחה עיקרית', 'ארוחת ביניים']), 'meal types of the model: ארוחת בוקר / ארוחה עיקרית / ארוחת ביניים', scr.names);
   ok(!/ארוחה ראשונה|ארוחה שנייה/.test(scr.txt), 'no "ארוחה ראשונה / ארוחה שנייה" anywhere on the screen');
   ok(!scr.extraCard && !scr.extraEyebrow, 'no protein add-on card / mandatory add-on in the day before the user adds one');
   ok(scr.cards.every(c => c.h === c.he && c.ing >= 2 && c.steps === c.want && c.want >= 2 && c.kcal && c.prot), 'each meal is a full dish: name, ingredients with amounts, all preparation steps, kcal and protein', scr.cards);
