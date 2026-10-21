@@ -59,17 +59,18 @@ const SEED = () => { Store.resetAll(); localStorage.clear(); const pr = Store.lo
   await go(p, '#/coach', 900);
   const co = await p.evaluate(() => { const r = document.querySelector('[data-coach-screen]'), ch = document.querySelector('[data-chat]'), img = r && r.querySelector('img');
     return { shown: !!r, method: (document.querySelector('[data-coach-method]') || {}).textContent, say: (document.querySelector('[data-coach-say]') || {}).innerText, next: (Screens.nowModel(Store.today()).next || {}).he,
-      chat: ch && ch.dataset.chat, inDis: ch && ch.querySelector('input').disabled, btnDis: ch && ch.querySelector('button').disabled, text: document.querySelector('main').innerText,
+      chat: ch && ch.dataset.chat, method2: (document.querySelector('[data-ask-method]') || {}).textContent, text: document.querySelector('main').innerText,
       img: img ? { nw: img.naturalWidth, w: img.getBoundingClientRect().width, dpr: devicePixelRatio, src: img.getAttribute('src') } : null }; });
   ok(co.shown && co.say && co.next && co.say.includes(co.next), 'coach message is built from the same rule as the NOW card (next step quoted)', co);
   ok(/לא צ׳אט AI/.test(co.method), 'labelled "rule-based, not an AI chat"', co.method);
-  ok(co.chat === 'unavailable' && co.inDis && co.btnDis, 'chat input and send button are disabled with the reason shown', co);
+  ok(co.chat === 'local' && /לא<\/b>? צ׳אט בינה מלאכותית|לא צ׳אט בינה מלאכותית/.test(co.method2.replace(/\s+/g, ' ')), 'M11.2: "ask Sofit" = fixed topics computed from local data, labelled "not an AI chat"', co.method2);
   ok(!/online|מחוברת|אונליין|מקוונת/i.test(co.text) && /לא דיאטנית, לא רופאה/.test(co.text), 'no "online"/live-AI claim; no professional credentials claimed');
   ok(co.img && co.img.src === 'sofit-avatar-192.webp' && co.img.nw >= co.img.w * co.img.dpr, 'uses the existing approved Sofit avatar, not upscaled', co.img);
   const before = await p.evaluate(() => localStorage.getItem('fit30.workouts') + localStorage.getItem('fit30.nutrition') + localStorage.getItem('fit30.plans'));
   await p.evaluate(() => document.querySelectorAll('.toast').forEach(t => t.remove())); /* toasts from the earlier mark/unmark (6 s) are not caused by this tap */
-  await p.locator('[data-chat] button').click({ force: true }).catch(() => null); await p.waitForTimeout(200);
-  ok(await p.evaluate(() => localStorage.getItem('fit30.workouts') + localStorage.getItem('fit30.nutrition') + localStorage.getItem('fit30.plans')) === before && await p.locator('.toast').count() === 0, 'tapping the disabled send button does nothing (no fake reply, no toast)');
+  await p.fill('#ask-q', 'מה דעתך על מניות טסלה?'); await p.locator('[data-chat] [data-act=ask]').click(); await p.waitForTimeout(250);
+  ok(await p.locator('[data-ask-a=none]').count() === 1 && /אין לי תשובה מבוססת/.test(await p.locator('[data-ask-a=none]').innerText()), 'an off-topic question gets "no grounded answer" — nothing invented');
+  ok(await p.evaluate(() => localStorage.getItem('fit30.workouts') + localStorage.getItem('fit30.nutrition') + localStorage.getItem('fit30.plans')) === before, 'asking changes no data and stores no conversation');
   await go(p, '#/'); await p.locator('[data-coach-link]').click(); await p.waitForTimeout(500);
   ok(await p.evaluate(() => location.hash) === '#/coach', 'tapping Sofit in the NOW card opens the coach screen');
 

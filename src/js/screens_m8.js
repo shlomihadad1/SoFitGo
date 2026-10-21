@@ -14,6 +14,7 @@ const Screens = root.Screens;
    upscaled. A larger hero needs a higher-resolution approved Sofit image (see the M8 asset inventory). */
 /* screen-specific styles live with the screens (on-demand chunk), using the tokens from styles.css */
 (function () { if (document.getElementById('m8-css')) return; const st = document.createElement('style'); st.id = 'm8-css'; st.textContent =
+  '.coach-say .btns{flex-wrap:wrap}.coach-say .btns .btn{white-space:normal;height:auto;min-height:40px;max-width:100%;text-align:start;line-height:1.3;padding-block:8px}.coach-say p{overflow-wrap:anywhere}.chat-on{gap:8px;flex-wrap:nowrap}.chat-on input{flex:1;min-width:0}.ask-q{align-self:flex-start;background:var(--surface-3);border-radius:var(--r) var(--r) 4px var(--r);padding:6px 10px}.coach-say.warn{border-color:var(--warn,#c96)}' +
   '.coach-hero{display:grid;grid-template-columns:64px minmax(0,1fr);gap:var(--sp-4);align-items:center}' +
   '.coach-hero img,.coach-av-ph{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--line-strong);background:var(--surface-2)}' +
   '.coach-say{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r) var(--r) var(--r) 4px;padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)}' +
@@ -22,6 +23,15 @@ const Screens = root.Screens;
   document.head.appendChild(st); })();
 
 /* ---------- Sofit coach ---------- */
+const askLog = []; let askBusy = false; /* M11.2: this screen's conversation — memory only, cleared on reload, never stored */
+function askPush(q) { const A = root.CoachAsk; if (!A || askBusy) return; q = String(q || '').trim(); if (!q) { root.UI.toast('כתבו שאלה או בחרו נושא'); return; }
+  const item = { q, a: null, busy: true, err: null, by: A.provider.label }; askLog.push(item); if (askLog.length > 10) askLog.shift(); askBusy = true; root.App.render();
+  A.provider.ask(q).then(a => { item.a = a; }, e => { item.err = 'לא הצלחתי לענות על זה כרגע. נסו שוב, או בחרו נושא מהרשימה.'; try { console.warn('coach', e); } catch (x) { } })
+    .then(() => { item.busy = false; askBusy = false; if (location.hash === '#/coach') { root.App.render(); setTimeout(() => { const l = document.querySelectorAll('[data-ask-turn]'); if (l.length) l[l.length - 1].scrollIntoView({ block: 'nearest' }); }, 30); } }); }
+function actBtn(x) { if (x.href) return `<a class="btn sm secondary" href="${x.href}">${esc(x.label)}</a>`;
+  return `<button class="btn sm${x.act === 'coachRun' ? ' primary' : ''}" data-act="${x.act}" ${Object.entries(x.data || {}).map(([k, v]) => `data-${k}="${esc(String(v))}"`).join(' ')}>${esc(x.label)}</button>`; }
+function askTurn(x) { const a = x.a;
+  return `<div class="stack tight" data-ask-turn><div class="ask-q small" data-ask-q><b>את/ה:</b> ${esc(x.q)}</div>${x.busy ? `<div class="coach-say" data-ask-busy aria-busy="true"><p class="muted">רגע…</p></div>` : x.err ? `<div class="coach-say warn" data-ask-err role="alert"><p>${esc(x.err)}</p></div>` : `<div class="coach-say${a.safety ? ' warn' : ''}" data-ask-a="${a.id}">${a.lines.map(l => `<p>${esc(l)}</p>`).join('')}${a.chat ? `<p class="tiny" data-ask-chatctx>${esc(a.chat)}</p>` : ''}${(a.acts || []).length ? `<div class="btns">${a.acts.map(actBtn).join('')}</div>` : ''}<span class="tiny faint">${esc(x.by)}${a.src ? ' · מבוסס על: ' + esc(a.src) : ''}</span></div>`}</div>`; }
 function coachLines(today) {
   const m = Screens.nowModel(today), done = m.done.filter(d => d.ok).length, total = m.done.length;
   const lines = [];
@@ -45,15 +55,25 @@ Screens.coach = function () {
       <p class="tiny faint">ההודעה נבנית מהתוכנית ומהיומן שבמכשיר הזה, לפי כללים קבועים — אותם כללים של כרטיס "עכשיו" בבית. שום דבר לא נשלח לשרת.</p></section>
     <section class="card"><h3>היום עד עכשיו</h3><div class="chips now-done">${m.done.map(d => `<span class="chip" data-done="${d.k}" aria-pressed="${d.ok}">${d.ok ? '✓ ' : d.part ? '◐ ' : ''}${esc(d.he)}</span>`).join('')}</div></section>
     <section class="card"><h3>במה אפשר להיעזר</h3><div class="btns">${link('#/planb', 'Plan B — משהו לא מסתדר', 'info')}${link('#/travel', 'נסיעה / שינוי בלו״ז', 'route')}${link('#/fridge', 'מה לאכול ממה שיש', 'food')}${ap ? link('#/review', 'סיכום שבועי', 'chart') : ''}${link('#/explain', 'למה התוכנית בנויה ככה?', 'info')}</div></section>
-    <section class="card" data-chat="unavailable"><h3>שאלה ל־${esc(name)}</h3>
-      <div class="chat-off"><input type="text" disabled aria-disabled="true" placeholder="צ׳אט עדיין לא זמין" aria-label="צ׳אט — לא זמין"><button class="btn" disabled aria-disabled="true">שליחה</button></div>
-      <p class="small muted">אין עדיין צ׳אט. תשובות אמיתיות דורשות שירות בינה מלאכותית אמיתי, והחלטה על עלות ופרטיות עוד פתוחה. עד אז לא מוצגות כאן תשובות — גם לא לדוגמה.</p></section>
+    <section class="card" data-chat="local"><h3>שאלו את ${esc(name)}</h3>
+      <p class="tiny muted" data-ask-method>תשובות מקומיות לפי נושא, מחושבות מהנתונים שלך במכשיר הזה. זה <b>לא</b> צ׳אט בינה מלאכותית: שאלה שאין לה נושא מתאים לא מקבלת תשובה מומצאת. שום דבר לא נשלח, והשיחה לא נשמרת.</p>
+      <div class="chips wrap" role="group" aria-label="הצעות מהירות">${(root.CoachAsk ? root.CoachAsk.TOPICS : []).map(t => `<button class="chip" data-act="askT" data-t="${t.id}">${esc(t.he)}</button>`).join('')}</div>
+      <div class="ask-log stack" data-ask-log aria-live="polite">${askLog.length ? askLog.map(askTurn).join('') : `<p class="small muted" data-ask-empty>עוד אין שיחה. בחרו הצעה למעלה או כתבו שאלה — למשל "יש לי 20 דקות", "חלופה לסקוואט", "מה לאכול עכשיו".</p>`}</div>
+      <div class="chat-on row"><input type="text" id="ask-q" maxlength="120" placeholder="שאלה ל־${esc(name)}…" aria-label="שאלה ל־${esc(name)}" ${askBusy ? 'disabled' : ''}><button class="btn primary" data-act="ask" ${askBusy ? 'disabled' : ''}>שליחה</button></div>
+      <details class="more" data-coach-ctx><summary>מה ${esc(name)} יודעת עליך</summary><p class="tiny muted">רק מה ששמור באפליקציה. מה שכותבים בשיחה משמש לתשובה אחת ולא נשמר — לעדכון קבוע, ערכו כאן:</p>
+        <div class="list">${(root.CoachAsk ? root.CoachAsk.context() : []).map(c => `<div class="li"><div class="grow"><div class="s">${esc(c.k)}</div><div class="t${c.v ? '' : ' muted'}">${c.v ? esc(c.v) : 'לא הוזן'}</div></div><a class="btn sm ghost" href="${c.h}">${c.v ? 'עריכה' : 'הוספה'}</a></div>`).join('')}</div></details></section>
     <section class="card"><h3>מה ${esc(name)} לא עושה</h3><ul class="bul small"><li>לא דיאטנית, לא רופאה ולא מטפלת, ולא נותנת אבחנה או טיפול.</li><li>לא משנה את התוכנית בלי שתאשרו.</li><li>בלי אשמה ובלי "עונש": דילוג, מנוחה וגרסה קצרה הם בחירות לגיטימיות.</li><li>כאב חד, סחרחורת או לחץ בחזה — עוצרים ופונים לגורם רפואי. <a href="#/planb">הנחיות עצירה</a></li></ul></section>`,
     handlers: {
       planStart: el => { const n2 = +el.dataset.n, d2 = root.Plans.dayOf(ap, n2); root.Run.start(n2, d2.type === 'assess' ? 'test' : (d2.version || 'std'), { id: ap.id, n: n2 }); },
       start: el => root.Run.start(+el.dataset.day, root.Logic.hasVersions(C.dayDef(+el.dataset.day)) ? Screens.selectedVersion.v : 'std'),
       eat: el => { Screens.toggleEat(today, el.dataset.slot); },
-      water: el => { C.addWater(today, +el.dataset.ml); root.App.render(); } } };
+      water: el => { C.addWater(today, +el.dataset.ml); root.UI.toast('נוספו ' + C.fmtL(+el.dataset.ml) + ' ל׳'); root.App.render(); },
+      askT: el => { const t = (root.CoachAsk.TOPICS.find(x => x.id === el.dataset.t) || {}).he; if (t) askPush(t); },
+      coachRun: el => { const pn = el.dataset.plan; if (pn && ap) root.Run.start(+pn, el.dataset.v, { id: ap.id, n: +pn }); else root.Run.start(+el.dataset.day, el.dataset.v); },
+      coachSwap: el => { const r = root.Logic.recipe(el.dataset.rid); if (!r) return; root.UI.confirmSheet('החלפת מנה', `להחליף את ${C.slotNames[el.dataset.slot]} של היום ב"${r.he}"? אפשר לחזור למנה המקורית במסך התזונה.`, 'החלפה', () => {
+        C.setPlanSlot(today, el.dataset.slot, { rid: r.id, ov: null, scale: 1, auto: false }); askLog.push({ q: 'החלפה: ' + r.he, a: { id: 'done', lines: [`הוחלף ונשמר בתפריט של היום: ${C.slotNames[el.dataset.slot]} — ${r.he}.`], acts: [{ href: '#/nutrition', label: 'לתפריט' }] }, by: 'פעולה באפליקציה' }); root.UI.toast('הארוחה הוחלפה'); root.App.render(); }); },
+      ask: () => { const i = document.getElementById('ask-q'); const q = (i && i.value || '').trim(); if (i) i.value = ''; askPush(q); } },
+    after: v => { const i = v.querySelector('#ask-q'); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = i.value.trim(); i.value = ''; askPush(q); } }); } };
 };
 
 /* ---------- Travel & changed plans ---------- */
