@@ -52,7 +52,7 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   await p.evaluate(() => document.querySelectorAll('.sheet-bg').forEach(x => x.remove()));
 
   G = 'rebalance (explicit)';
-  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Core.normPrefs({}); pr.nutritionDislike = []; pr.targets = { protein: 210 }; Store.save('profile'); }); /* a manual protein target the menu cannot reach → a real gap */
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Core.normPrefs({}); pr.nutritionDislike = []; pr.targets = { protein: 300 }; Store.save('profile'); }); /* a manual protein target the menu cannot reach → a real gap */
   const targets1 = await p.evaluate(() => JSON.stringify([Core.profile().targets, Core.profile().aims, Core.targets()]));
   await go('#/nutrition', 800); await p.locator('[data-act=swapMeal][data-slot=m2]').click(); await p.locator('.sheet [data-meal-opts]').waitFor();
   await p.locator('.sheet [data-act=sort][data-s=light]').click(); await p.waitForTimeout(250);

@@ -34,8 +34,8 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   ok(!(await p.locator('main').innerText()).includes('חסרים'), 'no shortfall warning when base meets target');
   ok(!(await p.locator('main').innerText()).includes('יעד החלבון הושג'), 'target not shown as achieved before eating');
   // raise the protein target: shortfall must now be shown
-  await p.evaluate(() => { const pr = Store.load('profile'); pr.targets = { protein: 200 }; Store.save('profile'); }); await go('#/'); await go('#/nutrition');
-  ok((await p.locator('main').innerText()).includes('חסרים'), 'shortfall shown when target above base');
+  await p.evaluate(() => { const pr = Store.load('profile'); pr.targets = { protein: 320 }; Store.save('profile'); }); await go('#/'); await go('#/nutrition'); /* the menu is now built for the target; 320 g is beyond realistic portions → a real gap */
+  ok((await p.locator('main').innerText()).includes('חסרים'), 'shortfall shown when target above what the menu can reach');
   await p.locator('[data-act=pickExtra]').first().click(); await p.waitForTimeout(250); /* P0: the add-on is offered only as an optional recommendation when protein is short */
   await p.evaluate(() => { const pr = Store.load('profile'); pr.targets = null; Store.save('profile'); }); await go('#/'); await go('#/nutrition');
   const ex = await indepSlot(today, 'extra');
@@ -79,6 +79,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   await go('#/progress'); ok(await p.locator('.chart .bar').count() >= 1, 'kcal chart reflects eaten food');
 
   G = 'preferences';
+  await p.evaluate(() => { const pr = Store.load('profile'); pr.menuMode = 'fixed'; Store.save('profile'); }); /* this group checks the authored 30-day menu's preference adaptation */
   await go('#/settings'); await p.locator('#pf-d').check(); await p.locator('[data-act=savePrefs]').click(); await p.waitForTimeout(400);
   ok((await p.locator('.sheet').innerText()).includes('מנות שהוחלפו'), 'preference change shows summary');
   await p.locator('.sheet [data-x]').click();
@@ -97,6 +98,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   ok(await p.evaluate(() => { for (let d = 2; d <= 30; d++) { const date = Core.dateOfDay(d); for (const s of ['m1', 'm2', 'snack']) { const pl = Core.plan(date)[s]; if (Logic.recipeIngredients(Logic.recipe(pl.rid), pl.ov).some(x => x.f === 'peanuts')) return false; } } return true; }), 'custom excluded food removed from plan');
   await p.locator('[data-act=unexclude][data-f=peanuts]').click(); await p.waitForTimeout(200); await p.locator('[data-act=savePrefs]').click(); await p.waitForTimeout(300); await p.locator('.sheet [data-x]').click();
 
+  await p.evaluate(() => { const pr = Store.load('profile'); delete pr.menuMode; Store.save('profile'); });
   G = 'workouts';
   await go('#/day/3');
   const segs = await p.locator('.seg [data-v] small').allInnerTexts();

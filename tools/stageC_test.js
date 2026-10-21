@@ -151,7 +151,10 @@ setUser(); { activate('general_60'); const ex = S.exportAll(); ok(!!ex.plans.lis
 
 T('classic program unchanged');
 setUser(); { const s = S.load('profile'); s.startDate = NOW; s.prefs = Object.assign(C.normPrefs(s.prefs), { cuisines: ['international'] }); S.save('profile'); /* the authored 30-day menu = 'מגוון בינלאומי'; the default user gets the Israeli–Mediterranean mix (checked below) */
+  for (let i = 0; i < 30; i++) { const d = S.addDays(NOW, i), p0 = C.plan(d); ok(p0.source === 'auto' || !C.targets(), 'day ' + (i + 1) + ' without a personal plan: menu built from the targets'); }
+  C.profile().menuMode = 'fixed'; /* the authored menu stays available (history, menuMode 'fixed') */
   for (let i = 0; i < 30; i++) { const d = S.addDays(NOW, i), p = C.plan(d); ok(p.source === 'classic' && p.m1.rid === N.MENU[i][0] && p.m2.rid === N.MENU[i][1] && p.snack.rid === N.MENU[i][2], 'day ' + (i + 1) + ' uses the fixed 30-day menu without a personal plan'); }
+  delete C.profile().menuMode;
   s.prefs = C.normPrefs({}); S.save('profile'); let ind = 0; for (let i = 0; i < 30; i++) { const p = C.plan(S.addDays(NOW, i)); ['m1', 'm2', 'snack'].forEach(k => { if (['indian', 'himachali'].includes(C.cuisineOf(L.recipe(p[k].rid)))) ind++; }); }
   ok(ind === 0, 'default user (no cuisine chosen): no Indian dish in the 30-day menu (' + ind + ')'); }
 

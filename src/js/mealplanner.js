@@ -36,7 +36,8 @@
       out[k].forEach(c => { c.cuOk = cset.has(C().cuisineOf(c.r)); c.cuMain = C().cuisineMainOk(c.r, params.prefs); });
       const explicit = (params.prefs.cuisines || []).length || (params.prefs.region && params.prefs.region.consent && params.prefs.region.group);
       const need = explicit ? min : params.kcal > 3200 ? 1e9 : (k === 'extra' ? 2 : 6); /* very high energy targets need the whole library's capacity */ /* default mix: only when the pool stays rich enough for variety and targets; otherwise all safe dishes, scored */
-      if (ok.length >= need) out[k] = ok; else if (k !== 'extra' && explicit) out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
+      const ind = C().CUISINE_GROUPS.indian ? new Set(C().CUISINE_GROUPS.indian.codes) : new Set(), nonInd = explicit ? [] : out[k].filter(c => !ind.has(C().cuisineOf(c.r)));
+      if (ok.length >= need) out[k] = ok; else if (!explicit && nonInd.length >= Math.min(need, 3)) out[k] = nonInd; /* default mix too small (e.g. no dairy): widen to other non-default cuisines before the Indian-heavy original menu */ else if (k !== 'extra' && explicit) out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
     if (params.maxPrep) SLOTS3.forEach(k => { const quick = out[k].filter(c => c.min <= params.maxPrep); if (quick.length >= 3) out[k] = quick; else out.notes.push(`אין מספיק מנות ל"${C().slotNames[k]}" שמוכנות תוך ${params.maxPrep} דק׳ — נכללו גם מנות ארוכות יותר.`); });
     return out;
   }
@@ -185,21 +186,32 @@
   /* stand-alone generation (tests, previews) */
   function generate(params, start, days, seed) { const dates = []; for (let i = 0; i < days; i++) dates.push(S().addDays(start, i)); return genRange(params, dates, { i: 0, use: {}, last: {}, prevProt: null }, seed || 'preview'); }
 
-  /* Default daily menu (no active personal plan): generated from the user's CURRENT targets and preferences with the same engine,
-     in deterministic 14-day blocks. Today's menu is stored when computed, so once a day is past it stays as it was shown. */
-  const autoMemo = new Map();
+  /* Default daily menu (no active personal plan): generated from the user's targets and preferences with the same engine, in
+     deterministic 14-day blocks. History: the parameters in force are kept as dated segments (nutrition.autoSeg) written ONLY when the
+     user's targets/preferences actually change (profile save) — never while rendering — so a past day is rebuilt with the parameters
+     it was shown with, and a change affects today and later only. */
+  const autoMemo = new Map(); let baseline = null;
+  const pkey = q => JSON.stringify([q.kcal, q.protein, q.prefs, q.meals, q.maxPrep, q.dislike]);
+  function paramsOn(date) { const nu = S().load('nutrition'), seg = nu.autoSeg, today = S().today();
+    if (date < today && nu.autoSince && date < nu.autoSince) return null; /* days before this engine was in use keep the menu they had */
+    if (!seg || !seg.length || date >= today) return currentParams();
+    let cur = null; seg.forEach(x => { if (x.from <= date) cur = x.params; }); return cur || seg[0].params; }
   function autoFor(date) {
     const pr = C().profile(); if (pr.menuMode === 'fixed') return null;
-    const nu = S().load('nutrition'), snap = nu.auto && nu.auto[date], today = S().today();
-    if (date < today) return snap || null; /* history: what was computed then, or the authored menu for days never computed */
-    const params = currentParams(); if (!params.kcal || !params.protein) return null;
-    const ed = Math.floor(Date.parse(date + 'T12:00:00Z') / 864e5), a0 = ed - (ed % 14), anchor = new Date(a0 * 864e5).toISOString().slice(0, 10);
-    const key = JSON.stringify([anchor, params.kcal, params.protein, params.prefs, params.meals, params.maxPrep, params.dislike, N().RECIPES.length, (nu.favorites || []).length]);
+    const params = paramsOn(date); if (!params || !params.kcal || !params.protein) return null;
+    if (!baseline) baseline = currentParams();
+    const nu = S().load('nutrition'), ed = Math.floor(Date.parse(date + 'T12:00:00Z') / 864e5), a0 = ed - (ed % 14), anchor = new Date(a0 * 864e5).toISOString().slice(0, 10);
+    const key = JSON.stringify([anchor, pkey(params), N().RECIPES.length, (nu.favorites || []).length]);
     let g = autoMemo.get(key); if (!g) { if (autoMemo.size > 40) autoMemo.clear(); g = generate(params, anchor, 14, 'auto' + anchor); autoMemo.set(key, g); }
     const d = g.days.find(x => x.date === date); if (!d) return null;
-    const out = { planId: null, auto: true, slots: d.slots, off: d.off, gap: d.gap, totals: d.totals, target: d.target, notes: g.notes };
-    if (date === today) { const js = JSON.stringify(out); if (!snap || JSON.stringify(snap) !== js) { nu.auto = nu.auto || {}; nu.auto[date] = JSON.parse(js); const ks = Object.keys(nu.auto).sort(); ks.slice(0, Math.max(0, ks.length - 120)).forEach(k => delete nu.auto[k]); S().save('nutrition'); } }
-    return out;
+    return { planId: null, auto: true, slots: d.slots, off: d.off, gap: d.gap, totals: d.totals, target: d.target, notes: g.notes };
   }
-  root.MealPlan = { VERSION, autoFor, pool, generate, currentParams, ensure, menus, planFor, forDate, pending, previewChange, applyChange, summarize, firstOpenDate, gapOf };
+  /* record a parameter change (called after the profile is saved) */
+  function noteParams() { const np = currentParams(); if (!np.kcal) return; const nu = S().load('nutrition'), seg = nu.autoSeg || [], today = S().today(), last = seg[seg.length - 1];
+    if (!last) { if (!baseline || !baseline.kcal || pkey(baseline) === pkey(np)) { baseline = np; return; } nu.autoSeg = [{ from: '2000-01-01', params: baseline }, { from: today, params: np }]; }
+    else if (pkey(last.params) === pkey(np)) return; else if (last.from === today) last.params = np; else seg.push({ from: today, params: np }), nu.autoSeg = seg;
+    baseline = np; S().save('nutrition'); }
+  function hook() { const st = root.Store; if (st && !st._autoWrap) { const sv = st.save; st.save = function (k) { const r = sv.apply(this, arguments);
+        if (k === 'profile' || k === 'nutrition') { try { const nu = st.load('nutrition'); if (!nu.autoSince) { nu.autoSince = st.today(); sv.call(st, 'nutrition'); } if (k === 'profile') noteParams(); } catch (e) { /* never block a save */ } } return r; }; st._autoWrap = true; } }
+  root.MealPlan = { VERSION, autoFor, hook, pool, generate, currentParams, ensure, menus, planFor, forDate, pending, previewChange, applyChange, summarize, firstOpenDate, gapOf };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -44,10 +44,13 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   }
   { const r = await p.evaluate(() => { const pr = Store.load('profile'); pr.prefs = Object.assign(pr.prefs || {}, { meals: 2 }); Store.save('profile'); const pl = Core.plan(Store.today()); return { off: !!pl.snack.off, n: ['m1', 'm2', 'snack'].filter(k => pl[k].rid && !pl[k].off).length }; });
     ok(r.off && r.n === 2, 'the number of meals follows the user setting (2 meals → 2 meals, nothing invented)', r); }
-  { const r = await p.evaluate(() => { const T = Store.today(), y = Store.addDays(T, -1), nu = Store.load('nutrition'); Core.plan(T);
-      nu.auto = nu.auto || {}; nu.auto[y] = JSON.parse(JSON.stringify(nu.auto[T])); Store.save('nutrition'); const before = JSON.stringify(Core.plan(y));
-      const pr = Store.load('profile'); pr.weight = 70; Store.save('profile'); const after = JSON.stringify(Core.plan(y)); return { same: before === after, src: Core.plan(y).source }; });
-    ok(r.same && r.src === 'auto', 'a past day keeps the menu it was shown with after the targets change', r); }
+  { const r = await p.evaluate(() => { const T = Store.today(), y = Store.addDays(T, -1), nu = Store.load('nutrition'); nu.autoSince = Store.addDays(T, -5); Store.save('nutrition');
+      const days = [-3, -1, 0, 1, 5].map(i => Store.addDays(T, i)), before = days.map(d => JSON.stringify(['m1', 'm2', 'snack'].map(k => [Core.plan(d)[k].rid, Core.plan(d)[k].ov])));
+      const pr = Store.load('profile'); pr.weight = 62; pr.startWeight = 62; Store.save('profile');
+      const after = days.map(d => JSON.stringify(['m1', 'm2', 'snack'].map(k => [Core.plan(d)[k].rid, Core.plan(d)[k].ov]))), kc = days.map(d => Core.plannedTotals(d, 'base').k);
+      return { pastSame: before[0] === after[0] && before[1] === after[1], futureChanged: before[2] !== after[2] && before[3] !== after[3], src: Core.plan(y).source, seg: (Store.load('nutrition').autoSeg || []).length, kc, t: Core.targets().kcal }; });
+    ok(r.pastSame && r.src === 'auto', 'past days keep the menu they were shown with after the targets change', r);
+    ok(r.futureChanged && r.seg === 2, 'today and later days are rebuilt for the new targets', r); }
   await reset();
   G = 'screen structure';
   await reset(); await go('#/nutrition'); await p.waitForTimeout(500);

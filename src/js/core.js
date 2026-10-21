@@ -492,4 +492,5 @@ C.applyPrefs = prefs => {
   S().save('nutrition'); return out;
 };
 root.Core = C;
+if (root.MealPlan && root.MealPlan.hook) root.MealPlan.hook(); /* nutrition engine: record target/preference changes so past days keep their menu */
 })(typeof window !== 'undefined' ? window : globalThis);

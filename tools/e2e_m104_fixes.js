@@ -37,7 +37,7 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   ok(miss.every(x => x.miss), 'every remaining other-cuisine dish is flagged to the user (no silent fallback)', miss.filter(x => !x.miss).slice(0, 5));
   ok(isr.every(x => x.conf === 0), 'no meal conflicts with restrictions');
   await go(p, '#/nutrition', 800);
-  ok(await p.locator('[data-cuisine-swap], [data-cuisine-miss]').count() >= 1, 'today\'s menu shows why a dish changed ("הותאם להעדפת המטבח")');
+  ok(await p.locator('[data-cuisine-swap], [data-cuisine-miss]').count() >= 1 || await p.evaluate(() => { const pl = Core.plan(Store.today()), pf = Core.normPrefs(Core.profile().prefs); return pl.source === 'auto' && ['m1', 'm2', 'snack'].filter(k => pl[k].rid).every(k => Core.cuisineAllowed(Logic.recipe(pl[k].rid), pf)); }), 'today\'s menu follows the chosen cuisine (built for it, or a changed dish is labelled)');
   ok(await p.locator('[data-cuisine-prompt]').count() === 0, 'no "choose a cuisine" prompt once chosen');
   /* Indian only → menu is Indian */
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['indian'] }); delete pr.prefs.cuisineMain; Store.save('profile'); });

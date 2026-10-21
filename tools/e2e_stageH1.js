@@ -19,7 +19,7 @@ const res = []; let G = ''; const ok = (c, m, info) => res.push({ g: G, ok: !!c,
   const reload = async () => { await p.reload(); await p.waitForTimeout(450); };
 
   G = 'P0: restricted foods (classic day 31+)';
-  await seed({ prefs: { exclude: ['peanuts'] }, kinds: { peanuts: 'allergy' } }); await reload(); await p.evaluate(() => Core.applyPrefs());
+  await seed({ prefs: { exclude: ['peanuts'] }, kinds: { peanuts: 'allergy' }, p: { menuMode: 'fixed' } }); await reload(); await p.evaluate(() => Core.applyPrefs()); /* the authored 30-day menu (still used for history and menuMode 'fixed') is guarded */
   { let leak = 0, guarded = 0; for (const d of ['2026-11-18', '2026-11-21', '2026-12-10', '2027-01-15']) { await go('#/nutrition/' + d);
       leak += await p.evaluate(d => ['m1', 'm2', 'snack'].filter(k => { const s = Core.plan(d)[k]; return s.rid && Logic.recipeIngredients(Logic.recipe(s.rid), s.ov).some(x => Core.blockedFoods().has(x.f)); }).length, d);
       guarded += await p.locator('[data-guard]').count(); }
