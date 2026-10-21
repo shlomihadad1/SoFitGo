@@ -27,7 +27,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   const base3 = (await indepSlot(today, 'm1')).k + (await indepSlot(today, 'm2')).k + (await indepSlot(today, 'snack')).k;
   const shownBase = await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'));
   ok(Math.abs(shownBase.k - base3) <= 2, `day without add-on: planned = 3 meals (${shownBase.k} vs ${Math.round(base3)})`);
-  ok((await p.locator('main').innerText()).includes('לא נבחרה — לא נכללת'), 'add-on shown as not included');
+  ok(!(await p.locator('[data-act=extraOn]').count()) && !/ארוחה ראשונה/.test(await p.locator('main').innerText()), 'add-on not shown as a meal and not counted until added');
   const tgt = await p.evaluate(() => Core.targets().protein);
   const bp = (await indepSlot(today, 'm1')).p + (await indepSlot(today, 'm2')).p + (await indepSlot(today, 'snack')).p;
   ok(bp >= tgt, `base menu reaches protein target without add-on (${bp.toFixed(1)} ≥ ${tgt})`);
@@ -36,8 +36,8 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   // raise the protein target: shortfall must now be shown
   await p.evaluate(() => { const pr = Store.load('profile'); pr.targets = { protein: 200 }; Store.save('profile'); }); await go('#/'); await go('#/nutrition');
   ok((await p.locator('main').innerText()).includes('חסרים'), 'shortfall shown when target above base');
+  await p.locator('[data-act=pickExtra]').first().click(); await p.waitForTimeout(250); /* P0: the add-on is offered only as an optional recommendation when protein is short */
   await p.evaluate(() => { const pr = Store.load('profile'); pr.targets = null; Store.save('profile'); }); await go('#/'); await go('#/nutrition');
-  await p.locator('[data-act=extraOn]').click(); await p.waitForTimeout(250);
   const ex = await indepSlot(today, 'extra');
   const withEx = await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'));
   ok(Math.abs(withEx.k - (base3 + ex.k)) <= 2, `day with add-on: planned includes it (${withEx.k})`);

@@ -49,7 +49,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   ok((banner > 0) === !!(after.gap && (after.gap.p || after.gap.kLow || after.gap.kHigh)), 'gap banner on screen ⇔ gap on the day');
   /* TD-22 wording: force a large shortfall on a future day, open it, check the banner says "after your changes" */
   const day2 = await p.evaluate(() => Store.addDays(Store.today(), 2));
-  await p.evaluate(d => { const light = NUTRI.RECIPES.filter(r => r.meal !== 'snack').map(r => ({ id: r.id, k: Logic.recipeMacros(r).k })).sort((a, b) => a.k - b.k)[0].id; Core.setPlanSlot(d, 'm2', { rid: light }); }, day2);
+  await p.evaluate(d => { const light = NUTRI.RECIPES.filter(r => r.meal === 'm2' && !r.est).map(r => ({ id: r.id, k: Logic.recipeMacros(r).k })).sort((a, b) => a.k - b.k)[0].id; Core.setPlanSlot(d, 'm2', { rid: light }); }, day2);
   await p.reload(); await p.waitForTimeout(500); await go('#/nutrition/' + day2);
   const bannerTxt = (await p.locator('[data-menu-gap]').allInnerTexts()).join(' ');
   ok(/אחרי השינויים בתפריט של היום/.test(bannerTxt) && /חסרות כ־/.test(bannerTxt), 'the gap banner is on screen and worded "after your changes"', bannerTxt.slice(0, 160));

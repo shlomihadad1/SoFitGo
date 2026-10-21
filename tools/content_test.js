@@ -93,8 +93,8 @@ for (let i = 0; i < 30; i++) {
   const cBase = C.plannedTotals(date, 'base'), cSel = C.plannedTotals(date, 'selected');
   ok(Math.abs(cBase.k - base.k) <= 2 && Math.abs(cBase.p - base.p) <= 0.3, `day ${i + 1} base = 3 meals only`);
   ok(Math.abs(cSel.k - base.k) <= 2, `day ${i + 1} add-on not counted until selected`);
-  C.setExtraOn(date, true); const on = C.plannedTotals(date, 'selected');
-  ok(Math.abs(on.k - (base.k + ex.k)) <= 2 && Math.abs(on.p - (base.p + ex.p)) <= 0.3, `day ${i + 1} add-on counted when selected`);
+  C.setExtraOn(date, true); const on = C.plannedTotals(date, 'selected'), exS = C.slotMacros(C.plan(date).extra); /* P0: the suggestion shown (never repeating a protein food of the day) is what gets counted */
+  ok(Math.abs(on.k - (base.k + exS.k)) <= 2 && Math.abs(on.p - (base.p + exS.p)) <= 0.3, `day ${i + 1} add-on counted when selected`);
   C.setExtraOn(date, false); ok(Math.abs(C.plannedTotals(date, 'selected').k - base.k) <= 2, `day ${i + 1} add-on removed → back to base`);
   menuRows.push({ day: i + 1, menu: m, adjusted: Object.keys(adj).length > 0, base: { k: Math.round(base.k), p: +base.p.toFixed(1) }, withAddOn: { k: Math.round(base.k + ex.k), p: +(base.p + ex.p).toFixed(1) }, proteinGap: Math.round(tg.protein - base.p) });
 }

@@ -90,7 +90,13 @@ C.streak = () => {
 };
 /* nutrition */
 C.menuIndex = date => { const n = C.programDay(date); return ((Math.max(1, n) - 1) % 30); };
-C.slotNames = { m1: 'ארוחה ראשונה', m2: 'ארוחה שנייה', snack: 'ארוחת ביניים', extra: 'תוספת חלבון (רשות)' };
+/* P0 menu structure: the day is shown as real meals — breakfast (m1 recipes), lunch = the main cooked meal (m2), a light dinner
+   (snack recipes) — plus an optional protein snack that appears only when the user adds it (never a meal of its own). */
+C.slotNames = { m1: 'ארוחת בוקר', m2: 'ארוחת צהריים', snack: 'ארוחת ערב קלה', extra: 'נשנוש חלבון (רשות)' };
+/* main protein foods of a dish as planned (dairy/legume/protein groups) — used so an add-on never repeats what the day already has */
+C.protFoods = s => { if (!s || !s.rid) return []; const r = L().recipe(s.rid); return r ? L().recipeIngredients(r, s.ov).map(x => x.f).filter(f => ['protein', 'legume', 'dairy'].includes(N().FOODS[f].grp)) : []; };
+C.extraFoods = r => r.ing.map(x => x.f).filter(f => ['protein', 'legume', 'dairy'].includes(N().FOODS[f].grp));
+C.extraRepeats = (r, p) => { const day = new Set(['m1', 'm2', 'snack'].filter(k => p[k] && !p[k].off && !p[k].missing).flatMap(k => C.protFoods(p[k]))); return C.extraFoods(r).some(f => day.has(f)); };
 /* where a date's default menu comes from: the personal plan's generated menu (Stage C) or the fixed 30-day menu */
 C.planSource = date => { const g = root.MealPlan && root.MealPlan.forDate(date); return g ? { kind: 'plan', gen: g } : { kind: 'classic', i: C.menuIndex(date) }; };
 C.plan = (date, opt) => {
@@ -106,7 +112,8 @@ C.plan = (date, opt) => {
     defOv = k => { const a = adj[k]; if (!a) return null; const r = L().recipe(def[k]); const o = {}; Object.keys(a).forEach(idx => { o[idx] = { f: r.ing[idx].f, g: a[idx] }; }); return o; }; }
   const out = {};
   ['m1', 'm2', 'snack', 'extra'].forEach(k => {
-    const o0 = ov[k] || {}, o = src.kind === 'plan' && o0.auto === 'pref' ? {} : o0; /* automatic preference fixes were made for the classic menu; a personal plan builds its own menu from the same preferences */
+    const o1 = ov[k] || {}, o0 = o1.rid && (L().recipe(o1.rid) || {}).meal !== k ? {} : o1; /* P0: a stored dish of another meal type (e.g. a snack saved as lunch by an older build) is not shown in this meal */
+    const o = src.kind === 'plan' && o0.auto === 'pref' ? {} : o0; /* automatic preference fixes were made for the classic menu; a personal plan builds its own menu from the same preferences */
     const rid = o.rid || def[k], same = rid === def[k];
     const eff = o.ov != null ? o.ov : (same ? defOv(k) : null);
     out[k] = { rid, scale: o.scale || 1, ov: eff, adjusted: same && o.ov == null && !!adj[k], auto: o.auto || false, from: o.from || null, cuisine: o.cuisine || false, /* M10.4: a stored fix made only for the cuisine preference */
@@ -139,6 +146,11 @@ C.plan = (date, opt) => {
     else out[k] = Object.assign({}, s0, { rid: null, ov: null, missing: true, blockedNone: why, guardKind: kind, from: s0.rid });
   });
   out.extra.optional = true; out.extra.on = !!(ov.extra && ov.extra.on); // optional add-on: counted only when the user selects it
+  /* P0: the suggested add-on must not repeat a protein food the day's meals already contain (no "cottage + cottage add-on");
+     a user-chosen add-on is kept as chosen. */
+  if (!(opt && opt.raw) && date >= S().today() && out.extra.rid && !(ov.extra && ov.extra.rid) && !C.slotEntry(date, 'extra') && C.extraRepeats(L().recipe(out.extra.rid), out)) {
+    const alt = N().RECIPES.filter(r => r.meal === 'extra' && !C.conflicts(r, null).length && !C.extraRepeats(r, out)).sort((a, b) => ((C.rotOf(date) * 7 + a.id.length) % 13) - ((C.rotOf(date) * 7 + b.id.length) % 13))[0];
+    if (alt) Object.assign(out.extra, { rid: alt.id, ov: null, scale: 1, def: alt.id }); }
   if (src.kind === 'plan') { out.source = 'plan'; out.planId = src.gen.planId; out.gap = src.gen.gap; if (src.gen.off && src.gen.off.snack && !(ov.snack && ov.snack.rid)) out.snack.off = true; ['m1', 'm2', 'snack', 'extra'].forEach(k => { if (!src.gen.slots[k] && !(ov[k] && ov[k].rid) && !(k === 'snack' && out.snack.off)) out[k].missing = true; });
     /* TD-22 (RC4): the gap is re-checked on the day AS IT IS NOW — after a meal swap, a portion change or a guard replacement —
        with the same rule (MealPlan.gapOf) and the same sum the screen shows (C.plannedTotals 'base'). For an unedited day this
