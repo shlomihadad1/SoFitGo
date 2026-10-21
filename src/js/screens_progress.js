@@ -118,12 +118,9 @@ Screens.settings = function () {
       ${s.est ? '<p class="tiny">להצעה אישית: <a href="#/profile">משקל וגיל בפרופיל</a>.</p>' : ''}
       <p class="tiny faint">ההצעה היא הערכה כללית ולא הוראה רפואית. אנשים עם הגבלת נוזלים (למשל במחלת לב או כליות) — לפי הנחיית הרופא/ה. עדיף לשתות לאורך היום ולא כמות גדולה בבת אחת; צמא וצבע שתן בהיר הם מדד טוב. היעד עוסק בשתייה בלבד — האוכל מוסיף נוזלים משלו.</p></div>`; })()}<button class="btn" data-act="saveGoals">שמירה</button></section>
     <section class="card"><h2>העדפות תזונה</h2>
-      ${(() => { const pf = C.normPrefs(p.prefs), cs = pf.cuisines || [], G = C.CUISINE_GROUPS; return `
-      <div class="stack tight" data-cuisine><h3>העדפות מטבח</h3>
-        <p class="tiny muted">אילו מטבחים להציע בתפריט? אפשר לבחור כמה. <b>המיקום שלך לא משפיע על הבחירה</b>. הגבלות התזונה שלמטה תמיד קודמות להעדפת המטבח.</p>
-        <div class="chips wrap" role="group" aria-label="מטבחים">${Object.entries(G).map(([k, g]) => `<button class="chip" data-act="cuis" data-v="${k}" aria-pressed="${cs.includes(k)}">${esc(g.he)}</button>`).join('')}</div>
-        <label class="field">מטבח מועדף (יוצע ראשון)<select id="pf-cmain"><option value="">ללא העדפה</option>${Object.entries(G).filter(([k]) => k !== 'international').map(([k, g]) => `<option value="${k}" ${pf.cuisineMain === k ? 'selected' : ''}>${esc(g.he)}</option>`).join('')}</select></label>
-        <p class="tiny faint">מנות אהובות (⭐) ומנות "לא אוהב/ת" מסמנים במסך המתכון. מנה שסומנה "לא אוהב/ת" לא תוצע.${!cs.length ? ' כרגע לא נבחר מטבח, ולכן התפריט הבסיסי של 30 היום נשאר כפי שנכתב (רובו מנות הודיות).' : ''}</p></div>
+      <div class="stack tight" data-cuisine><h3>העדפות מטבח</h3><div data-fp-slot><p class="small muted">טוען…</p></div></div>
+      ${(() => { setTimeout(() => root.App.loadChunk('extra.js').then(() => { const el = document.querySelector('[data-fp-slot]'); if (el && root.FoodPrefs) root.FoodPrefs.mount(el, 'settings'); }, () => { const el = document.querySelector('[data-fp-slot]'); if (el) el.innerHTML = '<p class="small warn">העדפות המטבח נטענות עם חיבור לאינטרנט בפעם הראשונה.</p>'; }), 0); return ''; })()}
+      ${(() => { const pf = C.normPrefs(p.prefs); return `
       <label class="switch"><span>ללא מוצרי חלב</span><input type="checkbox" id="pf-d" ${!pf.dairy ? 'checked' : ''}></label>
       <label class="switch"><span>ללא ביצים</span><input type="checkbox" id="pf-e" ${!pf.egg ? 'checked' : ''}></label>
       <label class="switch"><span>ללא עוף</span><input type="checkbox" id="pf-c" ${!pf.chicken ? 'checked' : ''}></label>
@@ -189,10 +186,8 @@ Screens.settings = function () {
       exclude: () => { const v = document.getElementById('pf-add').value; if (!v) return; const pf = C.normPrefs(p.prefs); if (!pf.exclude.includes(v)) pf.exclude.push(v); p.prefs = pf; S.save('profile'); root.App.render(); root.UI.toast('נוסף לרשימה — לחצו "שמירה והתאמת התפריט"'); },
       undislike: el => { p.nutritionDislike = (p.nutritionDislike || []).filter(x => x !== el.dataset.id); S.save('profile'); const ap = root.Plans.active(); if (ap && root.MealPlan.pending(ap)) root.MealPlan.applyChange(ap, 'עדכון מנות לא אהובות'); root.UI.toast('המנה חזרה לאפשרויות'); root.App.render(); },
       unexclude: el => { const pf = C.normPrefs(p.prefs); pf.exclude = pf.exclude.filter(f => f !== el.dataset.f); p.prefs = pf; S.save('profile'); root.App.render(); root.UI.toast('הוסר — לחצו "שמירה והתאמת התפריט"'); },
-      cuis: el => { el.setAttribute('aria-pressed', String(el.getAttribute('aria-pressed') !== 'true')); }, /* in place — saved with "שמירה" */
       savePrefs: () => { const pf = C.normPrefs(p.prefs); const g = id => document.getElementById(id);
-        { const cs = [...document.querySelectorAll('[data-act=cuis][aria-pressed=true]')].map(b => b.dataset.v), main = g('pf-cmain') ? g('pf-cmain').value : '';
-          if (cs.length) pf.cuisines = cs; else delete pf.cuisines; if (main) pf.cuisineMain = main; else delete pf.cuisineMain; } /* M10.4: absent when not chosen, so existing plans see no change */ Object.assign(pf, { dairy: !g('pf-d').checked, egg: !g('pf-e').checked, chicken: !g('pf-c').checked, fish: !g('pf-fi').checked, meat: !g('pf-m').checked, veg: g('pf-v').checked, vegan: g('pf-vg').checked, meals: +g('pf-meals').value === 2 ? 2 : 3, maxPrep: g('pf-prep').value ? +g('pf-prep').value : null });
+        /* cuisine / region are saved live by FoodPrefs (one state for chips, favourite and region) */ Object.assign(pf, { dairy: !g('pf-d').checked, egg: !g('pf-e').checked, chicken: !g('pf-c').checked, fish: !g('pf-fi').checked, meat: !g('pf-m').checked, veg: g('pf-v').checked, vegan: g('pf-vg').checked, meals: +g('pf-meals').value === 2 ? 2 : 3, maxPrep: g('pf-prep').value ? +g('pf-prep').value : null });
         [['pf-soy', 'soya'], ['pf-pn', 'peanuts']].forEach(([id, f]) => { pf.exclude = pf.exclude.filter(x => x !== f); if (g(id).checked) pf.exclude.push(f); });
         if (g('pf-gf') && g('pf-gf').checked) pf.glutenFree = true; else delete pf.glutenFree;
         p.restrictionKinds = Object.assign({}, p.restrictionKinds || {}); document.querySelectorAll('[data-rk]').forEach(el => { if (el.value) p.restrictionKinds[el.dataset.rk] = el.value; else delete p.restrictionKinds[el.dataset.rk]; });

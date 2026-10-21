@@ -167,7 +167,7 @@ Screens.exercise = function (id) {
     ${(() => { const demo = `<div class="demo" data-fig="${id}"><span class="tag pill">אנימציית איור · ${e.view === 'front' ? 'מבט מלפנים' : 'מבט מהצד'}</span><span class="phase" data-phase>תנוחת התחלה</span></div>`;
       const v = root.Media.exVideo(id);
       return v ? root.Media.player(v, { label: 'סרטון הדגמה: ' + e.he, caption: 'סרטון הדגמה', fallback: demo }) + '<p class="tiny faint">אנימציית האיור מוצגת למטה בלחיצה על "התחלה"/"סיום".</p>'
-        : demo + `<div class="mstatus" data-media-status="missing">${icon('info')}<span>אין עדיין סרטון הדגמה לתרגיל הזה — מוצגת אנימציית איור (לא צילום).</span></div>`; })()}
+        : demo + `<div class="mstatus" data-media-status="missing">${icon('info')}<span>הדגמה באנימציית איור (תנוחת התחלה וסיום) והוראות ביצוע מלאות למטה. אין סרטון צילום לתרגיל הזה — לא מוצג סרטון שלא נבדק.</span></div>`; })()}
     <div class="seg" role="group" aria-label="הצגה"><button data-act="figmode" data-m="anim" aria-pressed="true">הנפשה</button><button data-act="figmode" data-m="A" aria-pressed="false">התחלה</button><button data-act="figmode" data-m="B" aria-pressed="false">סיום</button></div>
     <section class="card"><div><h1>${esc(e.he)}</h1><span class="muted ltr">${esc(e.en)}</span></div>
       <div class="kv"><span>${esc(root.EX_CATS[e.cat])}</span><span>שרירים: <b>${esc(e.muscles)}</b></span></div>

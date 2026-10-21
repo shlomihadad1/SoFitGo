@@ -111,7 +111,15 @@ Screens.setup = function (arg) {
     next = b => { const e = readBasics(b); if (e) return e; if (!P().experience) return 'בחרו רמת ניסיון — היא נחוצה לבניית התוכנית.'; return null; };
     extra = { xp: el => { P().experience = el.dataset.v; saveP(); /* M10: in place — typed fields stay untouched, no re-render */
       el.parentNode.querySelectorAll('[data-act=xp]').forEach(b => { b.setAttribute('aria-pressed', String(b === el)); b.querySelectorAll(':scope > svg').forEach(s => s.remove()); }); el.insertAdjacentHTML('beforeend', icon('check')); } }; }
-  if (k === 2) { body = `<section class="card">${secGoal()}</section>`; next = () => P().aims.primary ? null : 'בחרו מטרה ראשית.'; extra = goalHandlers; }
+  if (k === 2) { const pf = C.normPrefs(p.prefs), ck = (id, on, t) => `<label class="switch"><span>${t}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}></label>`;
+    /* global onboarding: optional food basics, skippable; nothing chosen = varied Israeli–Mediterranean default, never inferred from location */
+    body = `<section class="card">${secGoal()}</section><section class="card" data-ob-food><h3>אוכל (רשות)</h3><p class="small muted">אפשר לדלג ולשנות בכל זמן בהגדרות.</p><div data-fp-slot><p class="small muted">טוען…</p></div>
+      ${ck('ob-veg', pf.veg, 'צמחוני')}${ck('ob-vegan', pf.vegan, 'טבעוני')}${ck('ob-d', !pf.dairy, 'בלי מוצרי חלב')}${ck('ob-e', !pf.egg, 'בלי ביצים')}${ck('ob-gf', pf.glutenFree, 'בלי גלוטן')}${ck('ob-pn', (pf.exclude || []).includes('peanuts'), 'בלי בוטנים')}</section>`;
+    setTimeout(() => root.App.loadChunk('extra.js').then(() => { const el = document.querySelector('[data-ob-food] [data-fp-slot]'); if (el && root.FoodPrefs) root.FoodPrefs.mount(el, 'onboarding'); }, () => { const el = document.querySelector('[data-ob-food] [data-fp-slot]'); if (el) el.innerHTML = ''; }), 0);
+    next = b => { if (!P().aims.primary) return 'בחרו מטרה ראשית.'; const q = id => b.querySelector('#' + id).checked, f = C.normPrefs(C.profile().prefs);
+      Object.assign(f, { veg: q('ob-veg'), vegan: q('ob-vegan'), dairy: !q('ob-d'), egg: !q('ob-e') }); if (q('ob-gf')) f.glutenFree = true; else delete f.glutenFree; f.exclude = f.exclude.filter(x => x !== 'peanuts').concat(q('ob-pn') ? ['peanuts'] : []);
+      P().prefs = f; saveP(); C.applyPrefs(f); return null; };
+    extra = goalHandlers; }
   if (k === 3 && p.mode === 'nutrition' && !PS().active()) { /* M10: nutrition-only — zero workouts is a valid choice */
     body = `<section class="card" data-nowo-on><h3>בלי אימונים כרגע</h3><p class="small">האפליקציה תציג תפריט, יומן אכילה, מים, צעדים ושינה — בלי אימונים ובלי תזכורות לאימון. כלום לא נמחק, ואפשר להוסיף אימונים בכל רגע.</p><button class="btn ghost" data-act="nowo">${icon('route')} בעצם, אני רוצה גם אימונים</button></section>`;
     nextLabel = 'סיום — תזונה בלבד';

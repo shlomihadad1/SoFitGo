@@ -72,7 +72,7 @@ done('recipes');
 /* ── 3. 30-day menus: base vs add-on vs eaten ── */
 T('menus');
 const menuRows = [];
-S.resetAll(); const pr = seedUser(S.load('profile')); pr.startDate = S.today(); S.save('profile');
+S.resetAll(); const pr = seedUser(S.load('profile')); pr.startDate = S.today(); pr.prefs = Object.assign(C.normPrefs(pr.prefs), { cuisines: ['international'] }); /* checks the authored 30-day menu = 'מגוון בינלאומי' */ S.save('profile');
 const tg = C.targets();
 ok(N.MENU.length === 30 && N.EXTRA_DAY.length === 30, '30 menus');
 ok(new Set(N.MENU.map(m => m.join())).size === 30, 'all 30 menus differ');
@@ -117,10 +117,10 @@ const combos = [{ dairy: false }, { egg: false }, { chicken: false }, { veg: tru
   { dairy: false, egg: false }, { egg: false, chicken: false }, { dairy: false, chicken: false }, { exclude: ['peanuts'] }, { exclude: ['soya'] }, { veg: true, exclude: ['soya'] }, { veg: true, dairy: false, exclude: ['peanuts', 'soya'] }];
 const prefRows = [];
 for (const c of combos) {
-  S.resetAll(); const p2 = seedUser(S.load('profile')); p2.startDate = S.addDays(S.today(), -2); S.save('profile');
+  S.resetAll(); const p2 = seedUser(S.load('profile')); p2.startDate = S.addDays(S.today(), -2); p2.prefs = Object.assign(C.normPrefs(p2.prefs), { cuisines: ['international'] }); S.save('profile');
   const yday = S.addDays(S.today(), -1), pastBefore = JSON.stringify(C.plan(yday));
   C.eatSlot(S.today(), 'm1', 1); const eatenSnap = JSON.stringify(C.entries(S.today()));
-  const pf = C.normPrefs(c); p2.prefs = pf; S.save('profile');
+  const pf = C.normPrefs(Object.assign({ cuisines: ['international'] }, c)); p2.prefs = pf; S.save('profile');
   const res = C.applyPrefs(pf); const blocked = C.blockedFoods(pf);
   /* Stage H1 (approved spec change): a meal with no valid replacement is shown EMPTY with an explanation — it no longer
      keeps the forbidden recipe. Previously: "remaining conflicts === reported unresolved". Now: 0 conflicts remain and
@@ -134,7 +134,7 @@ for (const c of combos) {
   // replaced meals keep their own recomputed values
   const d5 = C.dateOfDay(5); ['m1', 'm2', 'snack'].forEach(slot => { const s = C.plan(d5)[slot]; if (!s.rid) { ok(!!s.blockedNone, `${JSON.stringify(c)}: empty ${slot} carries an explanation (H1)`); return; } ok(Math.abs(C.slotMacros(s).k - indep(L.recipeIngredients(L.recipe(s.rid), s.ov)).k * s.scale) <= 2, `${JSON.stringify(c)}: recomputed ${slot}`); });
   // revert: turning all prefs back on restores the original menu
-  const pfAll = C.normPrefs({}); p2.prefs = pfAll; S.save('profile'); C.applyPrefs(pfAll);
+  const pfAll = C.normPrefs({ cuisines: ['international'] }); p2.prefs = pfAll; S.save('profile'); C.applyPrefs(pfAll);
   let restored = true; const nuR = S.load('nutrition'); for (let n = 4; n <= 30; n++) { const dd = C.dateOfDay(n), pl = C.plan(dd); const m = N.MENU[n - 1]; const st = nuR.plan[dd] || {}; if (pl.m1.rid !== m[0] || pl.m2.rid !== m[1] || pl.snack.rid !== m[2] || st.m1 || st.m2 || st.snack || pl.m1.changed || pl.m2.changed || pl.snack.changed) restored = false; }
   ok(restored, `${JSON.stringify(c)}: reverting preferences restores original menu`);
   const distinct = new Set(); for (let n = 3; n <= 30; n++) { /* variety measured on re-applied prefs */ }

@@ -106,7 +106,8 @@ C.plan = (date, opt) => {
     defOv = k => { const a = adj[k]; if (!a) return null; const r = L().recipe(def[k]); const o = {}; Object.keys(a).forEach(idx => { o[idx] = { f: r.ing[idx].f, g: a[idx] }; }); return o; }; }
   const out = {};
   ['m1', 'm2', 'snack', 'extra'].forEach(k => {
-    const o = ov[k] || {}, rid = o.rid || def[k], same = rid === def[k];
+    const o0 = ov[k] || {}, o = src.kind === 'plan' && o0.auto === 'pref' ? {} : o0; /* automatic preference fixes were made for the classic menu; a personal plan builds its own menu from the same preferences */
+    const rid = o.rid || def[k], same = rid === def[k];
     const eff = o.ov != null ? o.ov : (same ? defOv(k) : null);
     out[k] = { rid, scale: o.scale || 1, ov: eff, adjusted: same && o.ov == null && !!adj[k], auto: o.auto || false, from: o.from || null, cuisine: o.cuisine || false, /* M10.4: a stored fix made only for the cuisine preference */
       changed: !same || o.ov != null || (o.scale && o.scale !== 1), def: def[k] };
@@ -121,15 +122,18 @@ C.plan = (date, opt) => {
     const o = ov[k] || {}, s0 = out[k], userChose = !!(o.rid && !o.auto) || (o.ov != null && !o.auto);
     if (!s0.rid || C.slotEntry(date, k)) { if (s0.rid) avoid.push(s0.rid); return; }
     const cs = C.conflicts(L().recipe(s0.rid), s0.ov);
+    if (!cs.length && src.kind === 'plan') { avoid.push(s0.rid); return; } /* personal plans: the generator already applied cuisine & dislikes (keeps variety, counts, targets) */
     if (!cs.length) { /* M10.4: cuisine preference / "לא אוהב/ת" — only for dishes the user did not choose; restrictions are handled below */
       const pfNow = C.normPrefs(C.profile().prefs), r0 = L().recipe(s0.rid);
       if (userChose || (C.cuisineAllowed(r0, pfNow) && !((C.profile().nutritionDislike) || []).includes(s0.rid))) { avoid.push(s0.rid); return; }
-      const rc = C.resolveSlot(s0.rid, s0.ov, k, pfNow, avoid);
-      if (rc.action === 'meal') { out[k] = Object.assign({}, s0, { rid: rc.rid, ov: rc.ov, scale: 1, adjusted: false, auto: 'cuisine', from: s0.rid, changed: true, disliked: !!rc.disliked, cuisineMiss: !!rc.cuisineMiss }); avoid.push(rc.rid); }
+      const rc = C.resolveSlot(s0.rid, s0.ov, k, pfNow, avoid, C.rotOf(date));
+      if (rc.action === 'meal') { /* P0 fix: size the replacement to the energy of the dish it replaces, so the day keeps its calories/protein (0.6–1.8×, 0.05 steps) */
+        const sc = C.matchScale(C.slotMacros(s0), L().recipeMacros(L().recipe(rc.rid), 1, rc.ov));
+        out[k] = Object.assign({}, s0, { rid: rc.rid, ov: rc.ov, scale: sc, adjusted: false, auto: 'cuisine', from: s0.rid, changed: true, disliked: !!rc.disliked, cuisineMiss: !!rc.cuisineMiss }); avoid.push(rc.rid); }
       else { if (rc.cuisineMiss) out[k].cuisineMiss = true; avoid.push(s0.rid); }
       return; }
     if (userChose) { s0.conflict = C.conflictText(cs); s0.conflictKind = C.worstKind(cs.map(c => c.f)); avoid.push(s0.rid); return; }
-    const res = C.resolveSlot(s0.rid, s0.ov, k, C.normPrefs(C.profile().prefs), avoid); /* M10.4: same restrictions as before (current profile), plus cuisine/dislikes as soft order */
+    const res = C.resolveSlot(s0.rid, s0.ov, k, C.normPrefs(C.profile().prefs), avoid, C.rotOf(date)); /* M10.4: same restrictions as before (current profile), plus cuisine/dislikes as soft order */
     const why = C.conflictText(cs), kind = C.worstKind(cs.map(c => c.f));
     if (res.action === 'ing' || res.action === 'meal') { out[k] = Object.assign({}, s0, { rid: res.rid, ov: res.ov, scale: 1, adjusted: false, auto: 'guard', from: s0.rid, guardWhy: why, guardKind: kind, changed: true }); avoid.push(res.rid); }
     else out[k] = Object.assign({}, s0, { rid: null, ov: null, missing: true, blockedNone: why, guardKind: kind, from: s0.rid });
@@ -165,7 +169,8 @@ C.unlocked = {};
 C.locked = date => C.isPast(date) && !C.unlocked[date];
 C.setPlanSlot = (date, slot, patch) => {
   const nu = S().load('nutrition'); nu.plan[date] = nu.plan[date] || {};
-  nu.plan[date][slot] = Object.assign({}, nu.plan[date][slot] || {}, patch);
+  const cur = nu.plan[date][slot] || {}; /* choosing a dish (rid) starts a fresh entry: an old automatic fix (auto/from/cuisine) must not stick to the user's choice */
+  nu.plan[date][slot] = 'rid' in patch ? Object.assign(cur.on != null ? { on: cur.on } : {}, patch) : Object.assign({}, cur, patch);
   return S().save('nutrition') || (S().storageOKAtStart ? false : 'memory'); /* M11.3: false = the write failed (Store rolled the change back); 'memory' = no storage on this browser, kept for this session */
 };
 C.addEntry = (date, e) => { const nu = S().load('nutrition'); nu.log[date] = nu.log[date] || { entries: [] }; e.id = e.id || ('e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); e.at = new Date().toISOString(); nu.log[date].entries.push(e); S().save('nutrition'); return e; };
@@ -360,13 +365,24 @@ C.subFor = (ing, prefs) => {
 C.CUISINE_GROUPS = { israeli: { he: 'ישראלי', codes: ['israeli', 'middle_eastern', 'moroccan'] }, mediterranean: { he: 'ים־תיכוני', codes: ['mediterranean', 'greek', 'italian', 'middle_eastern'] },
   western: { he: 'מערבי', codes: ['american', 'international', 'italian', 'mexican'] }, indian: { he: 'הודי', codes: ['indian', 'himachali'] }, asian: { he: 'אסייתי', codes: ['asian', 'tibetan'] }, international: { he: 'מגוון בינלאומי', codes: null } };
 C.cuisineOf = r => (root.CATALOG && root.CATALOG.recipeFacts ? root.CATALOG.recipeFacts(r).cuisine : r.cuisine) || 'indian';
-C.cuisineSet = prefs => { const cs = ((prefs && prefs.cuisines) || []).filter(k => C.CUISINE_GROUPS[k]); if (!cs.length || cs.includes('international')) return null; return new Set(cs.flatMap(k => C.CUISINE_GROUPS[k].codes)); };
+/* P0 fix: with no choice the menu used to stay the original (mostly Indian) 30-day menu. Default now = Israeli + Mediterranean + Western;
+   Indian only when chosen (or 'international' = everything). Location never decides this. */
+C.DEFAULT_CUISINES = ['israeli', 'mediterranean', 'western'];
+C.cuisineChoice = prefs => { const pf = prefs || C.normPrefs(C.profile().prefs), cs = (pf.cuisines || []).filter(k => C.CUISINE_GROUPS[k]), rg = pf.region;
+  return cs.length ? cs : rg && rg.consent && rg.group && C.CUISINE_GROUPS[rg.group] ? [rg.group] : C.DEFAULT_CUISINES; }; /* explicit choice > regional match (consent only) > default */
+C.cuisineSet = prefs => { const cs = C.cuisineChoice(prefs); if (cs.includes('international')) return null; return new Set(cs.flatMap(k => C.CUISINE_GROUPS[k].codes)); };
 C.cuisineAllowed = (r, prefs) => { const s = C.cuisineSet(prefs); return !s || s.has(C.cuisineOf(r)); };
 C.cuisineMainOk = (r, prefs) => !!(prefs && prefs.cuisineMain && C.CUISINE_GROUPS[prefs.cuisineMain] && C.CUISINE_GROUPS[prefs.cuisineMain].codes && C.CUISINE_GROUPS[prefs.cuisineMain].codes.includes(C.cuisineOf(r)));
 /* returns {action:'ok'|'ing'|'meal'|'none', rid, ov, conflicts, cuisineMiss?}. Restrictions always win: a cuisine is only preferred
    among dishes that are already safe; if no safe dish of the chosen cuisine exists, a safe dish of another cuisine is used and
    flagged (cuisineMiss) — never the other way round. */
-C.resolveSlot = (rid, ov, mealType, prefs, avoid) => {
+/* portion for a replacement dish: keep the replaced meal's protein (and at least its energy), but never more than +15% energy; 0.6–1.8×, 0.05 steps */
+C.matchScale = (a, b) => { if (!(a.k > 0 && b.k > 0)) return 1; let sc = Math.max(a.k / b.k, b.p > 0 ? a.p / b.p : 0); sc = Math.min(sc, a.k * 1.15 / b.k); return Math.max(0.6, Math.min(1.8, Math.round(sc * 20) / 20)); };
+/* variety: replacements rotate through the closest few candidates by date, so a week is not the same dish every day */
+C.rotOf = date => Math.floor(Date.parse(date + 'T12:00:00Z') / 864e5);
+const rotate = (arr, rot) => { if (rot == null || arr.length < 2) return arr; const best = arr[0].pscore || 0, near = arr.filter(o => (o.pscore || 0) <= best + 1.5).length; /* only near-equivalent dishes take turns */
+  const k = Math.min(5, Math.max(1, near)), i = rot % k; return arr.slice(i, k).concat(arr.slice(0, i), arr.slice(k)); };
+C.resolveSlot = (rid, ov, mealType, prefs, avoid, rot) => {
   const r = L().recipe(rid), cs = C.conflicts(r, ov, prefs), cuOk = C.cuisineAllowed(r, prefs), disliked = ((C.profile().nutritionDislike) || []).includes(rid);
   if (!cs.length && cuOk && !disliked) return { action: 'ok', rid, ov };
   if (!cs.length) { /* safe, but not the chosen cuisine or marked "לא אוהב/ת" */ /* safe but not the chosen cuisine → look for a safe dish of the chosen cuisine */
@@ -375,25 +391,28 @@ C.resolveSlot = (rid, ov, mealType, prefs, avoid) => {
        swapped for a dish of the chosen cuisine (swapping it for another other-cuisine dish would change nothing for the user) */
     const cands = L().swapCandidates(r, N().RECIPES).filter(o => !o.r.est && !dis.has(o.r.id) && (!avoid || !avoid.includes(o.r.id)) && (disliked || C.cuisineAllowed(o.r, prefs)))
       .map(o => Object.assign(o, { cu: C.cuisineAllowed(o.r, prefs), pscore: Math.abs(o.m.k - baseM.k) / 100 + Math.max(0, baseM.p - o.m.p) / 4 + (C.cuisineAllowed(o.r, prefs) ? 0 : 1000) - (C.cuisineMainOk(o.r, prefs) ? 1.5 : 0) })).sort((a, z) => a.pscore - z.pscore);
-    for (const o of cands) { const c2 = C.conflicts(o.r, null, prefs), extra = o.cu ? {} : { cuisineMiss: true }; if (!c2.length) return Object.assign({ action: 'meal', rid: o.r.id, ov: null, conflicts: [], cuisine: true, disliked }, extra);
+    const okC = cands.filter(o => o.cu), restC = cands.filter(o => !o.cu);
+    for (const o of rotate(okC, rot).concat(restC)) { const c2 = C.conflicts(o.r, null, prefs), extra = o.cu ? {} : { cuisineMiss: true }; if (!c2.length) return Object.assign({ action: 'meal', rid: o.r.id, ov: null, conflicts: [], cuisine: true, disliked }, extra);
       if (c2.every(c => c.side)) { const nov = {}; let ok = true; c2.forEach(c => { const sub = C.subFor({ f: c.f, g: c.g }, prefs); if (sub) nov[c.idx] = sub; else ok = false; }); if (ok) return Object.assign({ action: 'meal', rid: o.r.id, ov: nov, conflicts: [], cuisine: true, disliked }, extra); } }
     return { action: 'ok', rid, ov, cuisineMiss: !cuOk, dislikedKept: disliked };
   }
+  let ingRes = null;
   if (cs.every(c => c.side)) {
     const nov = Object.assign({}, ov || {}); let ok = true;
     cs.forEach(c => { const sub = C.subFor({ f: c.f, g: c.g }, prefs); if (sub) nov[c.idx] = sub; else ok = false; });
-    if (ok) return { action: 'ing', rid, ov: nov, conflicts: cs };
+    if (ok) { ingRes = { action: 'ing', rid, ov: nov, conflicts: cs }; if (C.cuisineAllowed(r, prefs) && !((C.profile().nutritionDislike) || []).includes(rid)) return ingRes; } /* fixed in place only when the dish itself is still wanted */
   }
   const baseM = L().recipeMacros(r, 1, ov);
   const disR = new Set((C.profile().nutritionDislike) || []);
   const cands = L().swapCandidates(r, N().RECIPES).filter(o => !o.r.est && (!avoid || !avoid.includes(o.r.id)))
     .map(o => Object.assign(o, { pscore: Math.abs(o.m.k - baseM.k) / 100 + Math.max(0, baseM.p - o.m.p) / 4 + (C.cuisineAllowed(o.r, prefs) ? 0 : 1000) + (disR.has(o.r.id) ? 5000 : 0) - (C.cuisineMainOk(o.r, prefs) ? 1.5 : 0) })).sort((a, z) => a.pscore - z.pscore); /* M10.4: chosen cuisine first, any SAFE dish after; a "לא אוהב/ת" dish only if nothing else is safe */
-  for (const o of cands) {
+  const good = cands.filter(o => o.pscore < 1000), tryList = list => { for (const o of list) {
     const c2 = C.conflicts(o.r, null, prefs);
     if (!c2.length) return { action: 'meal', rid: o.r.id, ov: null, conflicts: cs };
     if (c2.every(c => c.side)) { const nov = {}; let ok = true; c2.forEach(c => { const sub = C.subFor({ f: c.f, g: c.g }, prefs); if (sub) nov[c.idx] = sub; else ok = false; }); if (ok) return { action: 'meal', rid: o.r.id, ov: nov, conflicts: cs }; }
-  }
-  return { action: 'none', rid, ov, conflicts: cs };
+  } return null; };
+  /* order: a safe dish of the wanted cuisines > the same dish with a substitute > a safe dish of another cuisine */
+  return tryList(rotate(good, rot)) || ingRes || tryList(cands.filter(o => o.pscore >= 1000)) || { action: 'none', rid, ov, conflicts: cs };
 };
 /* Per-day protein top-up used after preference changes: raises lean protein portions in the day's 3 base meals
    (same rules as the authored base menu: no eggs/egg whites/roti/bread/oil; ≤ cap per food; ≤2450 kcal), then simple carbs if <2200 kcal. */
@@ -435,12 +454,14 @@ C.applyPrefs = prefs => {
         if (cur.prev) nu.plan[date][slot] = cur.prev; else { const keepOn = cur.on; delete nu.plan[date][slot]; if (slot === 'extra' && keepOn) nu.plan[date].extra = { on: true }; }
       }
       const p = C.plan(date, { raw: true })[slot]; out.checked++; if (!p.rid) return;
-      const res = C.resolveSlot(p.rid, p.ov, slot, prefs, used);
+      const res = C.resolveSlot(p.rid, p.ov, slot, prefs, used, C.rotOf(date));
       if (res.action === 'ok') { used.push(p.rid); return; }
       if (res.action === 'none') { out.none.push({ date, n, slot, name: L().recipe(p.rid).he, why: C.conflictText(res.conflicts) }); used.push(p.rid); return; }
       nu.plan[date] = nu.plan[date] || {};
       const prev = nu.plan[date][slot] ? JSON.parse(JSON.stringify(nu.plan[date][slot])) : null;
-      nu.plan[date][slot] = { rid: res.rid, ov: res.ov, scale: res.action === 'meal' ? 1 : p.scale, auto: 'pref', prev, on: slot === 'extra' ? p.on : undefined, from: p.rid, cuisine: res.cuisine ? (res.disliked ? 'disliked' : 'cuisine') : undefined };
+      let sc = res.action === 'meal' ? 1 : p.scale;
+      if (res.action === 'meal' && res.cuisine) sc = C.matchScale(C.slotMacros(p), L().recipeMacros(L().recipe(res.rid), 1, res.ov)); /* P0 fix: cuisine swaps keep the meal's energy and protein */
+      nu.plan[date][slot] = { rid: res.rid, ov: res.ov, scale: sc, auto: 'pref', prev, on: slot === 'extra' ? p.on : undefined, from: p.rid, cuisine: res.cuisine ? (res.disliked ? 'disliked' : 'cuisine') : undefined };
       out[res.action]++; used.push(res.rid);
     });
     // protein top-up for the 3 base meals when replacements lowered the day below target

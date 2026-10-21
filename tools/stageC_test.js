@@ -74,7 +74,9 @@ for (const [tid, len] of lengths) {
   ok(protOk / dates.length >= 0.95, `${L_}: protein target met on ≥95% of days (${protOk}/${dates.length})`);
   ok(withinK / dates.length >= 0.85, `${L_}: calories within ±7% on ≥85% of days (${withinK}/${dates.length})`);
 }
-ok(varietyRows.find(r => r.plan === 'annual').distinct >= 80, 'annual plan uses ≥80 different dishes');
+{ /* default user = Israeli/Mediterranean/Western mix (no Indian by default): variety is measured against the dishes that mix allows */
+  const allowedN = N.RECIPES.filter(r => !r.est && ['m1', 'm2', 'snack', 'extra'].includes(r.meal) && C.cuisineAllowed(r, C.normPrefs({}))).length, d = varietyRows.find(r => r.plan === 'annual').distinct;
+  ok(d >= Math.min(80, Math.floor(allowedN * 0.8)), `annual plan uses ≥80% of the dishes of the default cuisine mix (${d} of ${allowedN})`); }
 /* menus are seeded by the (random) plan id — the quality bar must hold for any seed, not just the one this run drew */
 setUser(); { const prm = MP.currentParams(), t = C.targets(); let worstK = 30, worstP = 30;
   for (let s = 0; s < 60; s++) { const g = MP.generate(prm, NOW, 30, 'robust' + s); worstK = Math.min(worstK, g.days.filter(d => Math.abs(d.totals.k - t.kcal) <= t.kcal * 0.07).length); worstP = Math.min(worstP, g.days.filter(d => d.totals.p >= t.protein - 0.5).length); }
@@ -148,8 +150,10 @@ setUser(); { activate('general_60'); const ex = S.exportAll(); ok(!!ex.plans.lis
   const old = JSON.parse(js); delete old.plans.list[old.plans.active].nutrition; S.resetAll(); S.importAll(old); ok(C.plan(NOW).source === 'plan' && !!PS.active().nutrition, 'plan from an older backup gets menu settings on first use'); }
 
 T('classic program unchanged');
-setUser(); { const s = S.load('profile'); s.startDate = NOW; S.save('profile');
-  for (let i = 0; i < 30; i++) { const d = S.addDays(NOW, i), p = C.plan(d); ok(p.source === 'classic' && p.m1.rid === N.MENU[i][0] && p.m2.rid === N.MENU[i][1] && p.snack.rid === N.MENU[i][2], 'day ' + (i + 1) + ' uses the fixed 30-day menu without a personal plan'); } }
+setUser(); { const s = S.load('profile'); s.startDate = NOW; s.prefs = Object.assign(C.normPrefs(s.prefs), { cuisines: ['international'] }); S.save('profile'); /* the authored 30-day menu = 'מגוון בינלאומי'; the default user gets the Israeli–Mediterranean mix (checked below) */
+  for (let i = 0; i < 30; i++) { const d = S.addDays(NOW, i), p = C.plan(d); ok(p.source === 'classic' && p.m1.rid === N.MENU[i][0] && p.m2.rid === N.MENU[i][1] && p.snack.rid === N.MENU[i][2], 'day ' + (i + 1) + ' uses the fixed 30-day menu without a personal plan'); }
+  s.prefs = C.normPrefs({}); S.save('profile'); let ind = 0; for (let i = 0; i < 30; i++) { const p = C.plan(S.addDays(NOW, i)); ['m1', 'm2', 'snack'].forEach(k => { if (['indian', 'himachali'].includes(C.cuisineOf(L.recipe(p[k].rid)))) ind++; }); }
+  ok(ind === 0, 'default user (no cuisine chosen): no Indian dish in the 30-day menu (' + ind + ')'); }
 
 /* data for the report: 30-day table for the default profile */
 setUser(); const plR = activate('habits_30'); const tR = C.targets(); const table = datesOf(plR).slice(0, 30).map((d, i) => { const p = C.plan(d), slot = k => ({ id: p[k].rid, he: L.recipe(p[k].rid).he, k: Math.round(C.slotMacros(p[k]).k), p: C.slotMacros(p[k]).p }), b = C.plannedTotals(d, 'base'), w = C.plannedTotals(d, 'withExtra');

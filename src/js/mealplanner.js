@@ -34,7 +34,9 @@
     const cset = C().cuisineSet(params.prefs);
     if (cset) SLOTS3.concat('extra').forEach(k => { const ok = out[k].filter(c => cset.has(C().cuisineOf(c.r))), min = k === 'extra' ? 1 : 3;
       out[k].forEach(c => { c.cuOk = cset.has(C().cuisineOf(c.r)); c.cuMain = C().cuisineMainOk(c.r, params.prefs); });
-      if (ok.length >= min) out[k] = ok; else if (k !== 'extra') out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
+      const explicit = (params.prefs.cuisines || []).length || (params.prefs.region && params.prefs.region.consent && params.prefs.region.group);
+      const need = explicit ? min : params.kcal > 3200 ? 1e9 : (k === 'extra' ? 2 : 6); /* very high energy targets need the whole library's capacity */ /* default mix: only when the pool stays rich enough for variety and targets; otherwise all safe dishes, scored */
+      if (ok.length >= need) out[k] = ok; else if (k !== 'extra' && explicit) out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
     if (params.maxPrep) SLOTS3.forEach(k => { const quick = out[k].filter(c => c.min <= params.maxPrep); if (quick.length >= 3) out[k] = quick; else out.notes.push(`אין מספיק מנות ל"${C().slotNames[k]}" שמוכנות תוך ${params.maxPrep} דק׳ — נכללו גם מנות ארוכות יותר.`); });
     return out;
   }

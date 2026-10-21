@@ -7,7 +7,7 @@ const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/
    service worker for offline use; the single-file artifact inlines it. Keeps the first-load budget (700 KB) intact. */
 const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/screens_help.js'];
 /* RC5: second on-demand chunk for screens that are not needed on first load (precached for offline like help.js) */
-const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js', 'src/js/meal_options.js', 'src/js/sync_tools.js', 'src/js/gate.js', 'src/js/gate_ui.js'];
+const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js', 'src/js/meal_options.js', 'src/js/sync_tools.js', 'src/js/gate.js', 'src/js/gate_ui.js', 'src/js/food_prefs_ui.js'];
 /* M10: accounts + sync + legal drafts — loaded only when the user opens the account screen or already has a session */
 const ACCOUNT = ['src/js/account.js', 'src/js/screens_account.js'];
 /* M10: backend configuration comes from the environment at build time (never from files in the repository).
@@ -44,7 +44,9 @@ const hash = crypto.createHash('sha1').update(cssSrc + jsSrc + read('src/js/debu
 let esb = null; try { esb = require('esbuild'); } catch (e) { /* esbuild not installed → unminified build */ }
 const minJs = (code, f) => esb && !process.env.FIT30_NOMIN ? `/* ${f} */` + esb.transformSync(code, { loader: 'js', minifyWhitespace: true, minifySyntax: true, legalComments: 'none', charset: 'utf8', target: 'esnext' }).code : `/* ${f} */\n` + code;
 const css = esb && !process.env.FIT30_NOMIN ? esb.transformSync(cssSrc, { loader: 'css', minifyWhitespace: true, charset: 'utf8' }).code : cssSrc;
-const js = JS.map(f => minJs(read(f), f)).join('\n');
+/* first-load budget: recipe media records with no media at all are dropped from the shipped copy (Media.* treats a missing record as "none") */
+const slim = (f, t) => f === 'src/data/media.js' ? t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}') : t;
+const js = JS.map(f => minJs(slim(f, read(f)), f)).join('\n');
 const lazyJs = LAZY.map(f => minJs(read(f), f)).join('\n');
 const extraJs = EXTRA.map(f => minJs(read(f), f)).join('\n');
 const accountJs = ACCOUNT.map(f => minJs(read(f), f)).join('\n');

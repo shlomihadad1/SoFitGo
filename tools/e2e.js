@@ -22,6 +22,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   const today = await p.evaluate(() => Store.today());
 
   G = 'nutrition';
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* these flows test the original adjusted 30-day menu = 'מגוון בינלאומי'; the new default is covered by e2e_food_global */
   await go('#/nutrition');
   const base3 = (await indepSlot(today, 'm1')).k + (await indepSlot(today, 'm2')).k + (await indepSlot(today, 'snack')).k;
   const shownBase = await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'));
@@ -157,6 +158,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   ok(ed.rid === eatenRid && Math.abs(ed.k - eatenK * 0.5) <= 1, `edit portion after swap uses eaten recipe (${ed.k} vs ${eatenK * 0.5})`);
 
   G = 'recipe day context';
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* the original (adjusted) 30-day menu = 'מגוון בינלאומי'; the default is now Israeli–Mediterranean */
   const adjSlot = await p.evaluate(() => { const st = Store.load('profile').startDate; for (let n = 1; n <= 30; n++) { const d = Store.addDays(st, n - 1), pl = Core.plan(d); for (const k of ['m1', 'm2', 'snack']) if (pl[k].adjusted) return { d, k, rid: pl[k].rid, m: Core.slotMacros(pl[k]), b: Logic.recipeMacros(Logic.recipe(pl[k].rid)) }; } return null; });
   ok(!!adjSlot, 'found a day with an adjusted (BASE_ADJ) slot');
   await go('#/nutrition/' + adjSlot.d);

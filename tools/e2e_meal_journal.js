@@ -28,6 +28,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   const sumK = async () => (await stored()).reduce((a, e) => a + e.k, 0);
 
   G = 'A · fresh day is neutral';
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); const ap = Plans.active(); if (ap && MealPlan.pending(ap)) MealPlan.applyChange(ap, 'בדיקה: מגוון בינלאומי'); }); /* these flows test the original adjusted 30-day menu = 'מגוון בינלאומי'; the new default is covered by e2e_food_global */
   await go('#/nutrition');
   const btns = await p.evaluate(() => [...document.querySelectorAll('[data-act=eat]')].map(x => ({ t: x.textContent.trim(), good: x.classList.contains('good'), svg: !!x.querySelector('svg'), pressed: x.getAttribute('aria-pressed') })));
   ok(btns.length >= 3, 'eat buttons rendered for the planned meals', btns.length);
@@ -89,6 +90,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   await p.locator('.sheet [data-act=no]').click(); await p.waitForTimeout(250); ok(JSON.stringify(await stored()) === JSON.stringify(before), 'and adds nothing on "לא להוסיף"');
 
   G = 'C/D · wording and time labels';
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* the original (adjusted) 30-day menu = 'מגוון בינלאומי'; the default is now Israeli–Mediterranean */
   await go('#/nutrition'); const html = await p.content();
   ok(!/כמויות מותאמות ליעדים שלך|כמות מותאמת ליעד היומי/.test(html), 'old adjusted-portion wording is gone');
   const adj = await p.locator('[data-adjusted]').allInnerTexts();

@@ -16,21 +16,23 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   let { ctx, p, errs } = await mk(390); await boot(p);
   G = 'cuisine: settings UI + persistence';
   await go(p, '#/settings', 700);
-  ok(await p.locator('[data-cuisine] [data-act=cuis]').count() === 6, 'six cuisine choices (Israeli, Mediterranean, Western, Indian, Asian, international mix)');
+  await p.locator('[data-cuisine] [data-fp=cu]').first().waitFor({ timeout: 5000 });
+  ok(await p.locator('[data-cuisine] [data-fp=cu]').count() === 6, 'six cuisine choices (Israeli, Mediterranean, Western, Indian, Asian, international mix)');
   const week = () => p.evaluate(() => { const out = []; const d0 = Store.today(); for (let i = 0; i < 7; i++) { const d = Store.addDays(d0, i); const pl = Core.plan(d);
     ['m1', 'm2', 'snack'].forEach(k => { const s = pl[k]; if (s && s.rid) out.push({ d, k, rid: s.rid, cu: Core.cuisineOf(Logic.recipe(s.rid)), auto: s.auto, miss: !!s.cuisineMiss, conf: Core.conflicts(Logic.recipe(s.rid), s.ov).length }); }); } return out; });
   const before = await week(); const indBefore = before.filter(x => ['indian', 'himachali'].includes(x.cu)).length;
-  ok(await p.locator('[data-cuisine] [aria-pressed=true]').count() === 0, 'nothing preselected (existing menus unchanged until the user chooses)');
-  await p.click('[data-act=cuis][data-v=israeli]'); await p.click('[data-act=cuis][data-v=mediterranean]'); await p.selectOption('#pf-cmain', 'israeli');
-  await p.click('[data-act=savePrefs]'); await p.waitForTimeout(700);
+  ok(await p.locator('[data-cuisine] [aria-pressed=true]').count() === 0, 'nothing stored as a choice until the user chooses');
+  await p.click('[data-fp=cu][data-v=israeli]'); await p.waitForTimeout(300); await p.click('[data-fp=cu][data-v=mediterranean]'); await p.waitForTimeout(300); await p.selectOption('[data-fp=main]', 'israeli'); await p.waitForTimeout(500); /* saved live — one state for chips and favourite */
   const pf = await p.evaluate(() => Core.normPrefs(Core.profile().prefs));
   ok(JSON.stringify(pf.cuisines) === '["israeli","mediterranean"]' && pf.cuisineMain === 'israeli', 'saved to the profile', pf);
-  await p.reload(); await p.waitForTimeout(900); await go(p, '#/settings', 700);
-  ok((await p.locator('[data-cuisine] [aria-pressed=true]').evaluateAll(es => es.map(e => e.dataset.v))).join() === 'israeli,mediterranean' && await p.inputValue('#pf-cmain') === 'israeli', 'still selected after a reload');
+  await p.reload(); await p.waitForTimeout(900); await go(p, '#/settings', 700); await p.locator('[data-cuisine] [data-fp=cu]').first().waitFor({ timeout: 5000 });
+  ok((await p.locator('[data-cuisine] [aria-pressed=true]').evaluateAll(es => es.map(e => e.dataset.v))).join() === 'israeli,mediterranean' && await p.inputValue('[data-fp=main]') === 'israeli', 'still selected after a reload');
   G = 'cuisine: changes the menu';
   const isr = await week(); const allowed = ['israeli', 'middle_eastern', 'moroccan', 'mediterranean', 'greek', 'italian'];
   const isrOk = isr.filter(x => allowed.includes(x.cu)).length, miss = isr.filter(x => !allowed.includes(x.cu));
-  ok(indBefore >= 7, 'baseline (no choice): the classic menu is mostly Indian', { indBefore, n: before.length });
+  ok(indBefore === 0, 'P0: no choice → default Israeli/Mediterranean/Western, NO Indian dishes in the week', { indBefore, n: before.length, cu: before.map(x => x.cu) });
+  ok(before.every(x => ['israeli', 'middle_eastern', 'moroccan', 'mediterranean', 'greek', 'italian', 'american', 'international', 'mexican'].includes(x.cu) || x.miss), 'every default dish is from the default cuisines (or flagged)', before.filter(x => !x.miss).map(x => x.cu));
+  ok(before.every(x => x.conf === 0), 'default menu respects restrictions');
   ok(isrOk >= Math.ceil(isr.length * 0.8), 'Israeli + Mediterranean chosen: ≥80% of the week\'s meals are from those cuisines', { isrOk, n: isr.length, miss: miss.slice(0, 5) });
   ok(miss.every(x => x.miss), 'every remaining other-cuisine dish is flagged to the user (no silent fallback)', miss.filter(x => !x.miss).slice(0, 5));
   ok(isr.every(x => x.conf === 0), 'no meal conflicts with restrictions');
@@ -40,6 +42,21 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   /* Indian only → menu is Indian */
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['indian'] }); delete pr.prefs.cuisineMain; Store.save('profile'); });
   const ind = await week(); ok(ind.filter(x => ['indian', 'himachali'].includes(x.cu)).length >= Math.ceil(ind.length * 0.8), 'Indian chosen: ≥80% Indian', ind.map(x => x.cu));
+  G = 'cuisine: nutrition kept';
+  const tot = () => p.evaluate(() => { const ks = [], ps = []; for (let i = 0; i < 14; i++) { const d = Store.addDays(Store.today(), i), t = Core.plannedTotals(d, 'base'); ks.push(t.k); ps.push(t.p); } const a = x => Math.round(x.reduce((q, w) => q + w, 0) / x.length); return { k: a(ks), p: a(ps), minP: Math.min(...ps) }; });
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* same path as saving in settings */
+  const allC = await tot();
+  await p.evaluate(() => { const pr = Core.profile(); const pf = Core.normPrefs(pr.prefs); delete pf.cuisines; delete pf.cuisineMain; pr.prefs = pf; Store.save('profile'); Core.applyPrefs(pf); });
+  const defC = await tot();
+  ok(Math.abs(defC.k - allC.k) <= allC.k * 0.08 && defC.p >= allC.p * 0.9, 'default-cuisine menu keeps calories (±8%) and protein (≥90%) of the original menu', { allC, defC });
+  ok(await p.evaluate(() => { const ws = []; for (let i = 0; i < 7; i++) { const pl = Core.plan(Store.addDays(Store.today(), i)); ['m1', 'm2', 'snack'].forEach(k => { if (pl[k].auto === 'cuisine') ws.push(pl[k].scale); }); } return ws.every(x => x >= 0.6 && x <= 1.8); }), 'replacements are portion-sized within 0.6–1.8×');
+  G = 'cuisine: international = everything';
+  await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* same path as saving in settings */
+  ok((await week()).filter(x => ['indian', 'himachali'].includes(x.cu)).length >= 7, '"מגוון בינלאומי" chosen → the full menu (Indian included) comes back');
+  G = 'cuisine: location/travel do not decide';
+  await p.evaluate(() => { const pr = Core.profile(); const pf = Core.normPrefs(pr.prefs); delete pf.cuisines; pr.prefs = pf; pr.travel = { dest: 'Manali', from: Store.today(), to: Store.addDays(Store.today(), 5), minutes: null, eq: [] }; Store.save('profile'); });
+  ok((await week()).filter(x => ['indian', 'himachali'].includes(x.cu)).length === 0, 'a trip to Manali does not switch the menu to Indian');
+  await p.evaluate(() => { const pr = Core.profile(); pr.travel = {}; Store.save('profile'); });
   G = 'cuisine: restrictions always win';
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['israeli'], dairy: false, egg: false, glutenFree: true }); Store.save('profile'); });
   const strict = await week();
@@ -51,7 +68,7 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   G = 'cuisine: no choice → prompt';
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Core.normPrefs({}); pr.nutritionDislike = []; Store.save('profile'); });
   await go(p, '#/settings', 400); await go(p, '#/nutrition', 800);
-  ok(await p.locator('[data-cuisine-prompt]').count() === 1, 'a clear prompt to choose a cuisine when none is chosen');
+  ok(await p.locator('[data-cuisine-prompt]').count() === 1 && /ישראלי, ים־תיכוני ומערבי/.test(await p.locator('[data-cuisine-prompt]').innerText()), 'no choice → the screen says which default cuisines are used');
   ok(await p.locator('[data-nearby-link]').count() === 1, 'an explicit "מצא אוכל בקרבתי" entry on the nutrition screen');
   allErrs.push(...errs); await ctx.close();
 

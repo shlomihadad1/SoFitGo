@@ -81,7 +81,7 @@
   /* counts for the status screen and reports — derived from MEDIA, never hard-coded */
   function stats() {
     const ex = Object.values(M().ex), rc = Object.values(M().rc);
-    return { exercises: ex.length, covers: ex.filter(x => x.poster).length, videos: ex.filter(x => x.video).length, recipes: rc.length, photos: rc.filter(x => x.photo).length, prep: rc.filter(x => x.prep).length, stepSets: rc.filter(x => x.steps && x.steps.length).length };
+    return { exercises: ex.length, covers: ex.filter(x => x.poster).length, videos: ex.filter(x => x.video).length, recipes: root.NUTRI ? root.NUTRI.RECIPES.length : rc.length, photos: rc.filter(x => x.photo).length, prep: rc.filter(x => x.prep).length, stepSets: rc.filter(x => x.steps && x.steps.length).length };
   }
   root.Media = { BASE, image, player, exVideo, exCover, rcPhoto, rcPrep, rcSteps, credit, stats, prefs, enabled: on };
 })(typeof window !== 'undefined' ? window : globalThis);
