@@ -29,8 +29,9 @@ function start(day, version, plan) {
       open();
     };
     /* the setup sheet lives in the on-demand chunk (first-load budget); offline before it was ever loaded → last choices */
-    if (root.RunSetup) return root.RunSetup.setupSheet(st, begin);
-    return root.App.loadChunk('extra.js').then(() => root.RunSetup ? root.RunSetup.setupSheet(st, begin) : begin(runPrefs()), () => { root.UI.toast('מתחילים לפי ההגדרות האחרונות'); begin(runPrefs()); });
+    const meta = { def: defOf({ day, plan }), day, version, plan };
+    if (root.RunSetup) return root.RunSetup.setupSheet(st, begin, meta);
+    return root.App.loadChunk('extra.js').then(() => root.RunSetup ? root.RunSetup.setupSheet(st, begin, meta) : begin(runPrefs()), () => { root.UI.toast('מתחילים לפי ההגדרות האחרונות'); begin(runPrefs()); });
   }
   open();
 }
@@ -160,7 +161,7 @@ function render() {
       ${it.note && !it.test ? `<p class="small acc">${esc(it.note)}</p>` : ''}
       ${timed && !(auto && (s.work && s.work.auto || s.cd || s.hold === 'late')) ? `<div class="card"><div class="timer" data-work>${s.work ? '' : mmss((it.sec === 'max' ? 0 : it.sec) * 1000)}</div><button class="btn ${s.work ? '' : 'outline'}" data-a="${s.work ? 'stopWork' : 'startWork'}">${s.work ? 'עצירת טיימר' : icon('timer') + ' הפעלת טיימר'}</button></div>` : ''}
       ${it.test ? `<div class="banner info small"><div><b>${esc(P.TESTS[it.test].name)}</b><br>${esc(P.TESTS[it.test].how)}</div></div><label class="field">התוצאה שלך (${esc(P.TESTS[it.test].unit)}) — השאירו ריק אם לא בוצע<input type="number" id="run-test" inputmode="numeric" min="0" value="${s.tests[it.test] != null ? s.tests[it.test] : ''}"></label>` : ''}
-      <details class="more"><summary>איך מבצעים</summary><div class="stack tight small"><p>${esc(e.start)}</p><ol class="steps">${e.steps.map(x => `<li>${esc(x)}</li>`).join('')}</ol><p><b>נשימה:</b> ${esc(e.breath)}</p><p><b>להימנע:</b> ${esc(e.mistakes.join(' · '))}</p></div></details>
+      <details class="more" ${(C.profile().display || {}).explain === 'detail' ? 'open' : ''} data-howto><summary>איך מבצעים</summary><div class="stack tight small"><p>${esc(e.start)}</p><ol class="steps">${e.steps.map(x => `<li>${esc(x)}</li>`).join('')}</ol><p><b>נשימה:</b> ${esc(e.breath)}</p><p><b>להימנע:</b> ${esc(e.mistakes.join(' · '))}</p></div></details>
     </div>
     <div class="run-bot">
       ${!timed && !it.test && st.sec === 'main' ? `<div class="row between"><span class="small muted">חזרות בפועל</span><div class="stepper"><button data-a="rm" aria-label="פחות">−</button><input type="number" id="run-reps" inputmode="numeric" value="${lg && lg.reps != null ? lg.reps : (it.reps || 0)}" aria-label="חזרות בפועל"><button data-a="rp" aria-label="יותר">+</button></div></div>` : ''}

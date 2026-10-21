@@ -51,6 +51,8 @@ function buildWorkout(d, n, mode) {
   if (w.logged) lines.push('שים/י לב: האימון של היום כבר נרשם. פתיחה מחדש תעדכן את הרישום.');
   lines.push(`הצעה: גרסה ${VH[pick[0]] || pick[0]} — כ־${pick[1]} דק׳ (הערכה).` + (sorted.length > 1 ? ` גרסאות: ${sorted.map(([v, m]) => `${VH[v]} ~${m}`).join(' · ')}.` : ''));
   if (max && pick[1] > max) lines.push(`אפילו הגרסה הקצרה ארוכה מ־${max} דק׳. אפשר להתחיל ולעצור באמצע — מה שבוצע נשמר כ"חלקי".`);
+  if (root.Gate) { const g = root.Gate.checkWorkout(w.def, { plan: w.plan ? root.Plans.get(w.plan.id) : null, n: w.n, version: pick[0], minutes: said || null, exFor: w.plan ? null : id => C.exFor(w.n, id) });
+    g.issues.filter(x => x.sev !== 'info').slice(0, 3).forEach(x => lines.push('בדיקת התאמה: ' + x.text + (x.kind === 'equipment' || x.kind === 'excluded' ? ' — אפשר להחליף לפני ההתחלה.' : '.'))); if (!g.issues.length) lines.push('בדיקת התאמה: מתאים לציוד ולתרגילים שהגדרת.'); }
   const eq = (p.environment && p.environment.equipment || []); lines.push(w.plan ? 'התוכנית האישית שלך כבר בנויה לציוד ולמטרה שבפרופיל.' : `תוכנית 30 הימים היא בעיקר במשקל גוף${eq.length ? '' : ' — מתאים גם בלי ציוד'}. תרגיל לא מתאים? אפשר להחליף אותו במסך היום.`);
   return { lines, acts: [{ act: 'coachRun', data: { day: w.n, v: pick[0], plan: w.plan ? w.plan.n : '' }, label: `פתיחה במצב אימון (${VH[pick[0]] || pick[0]})` }, { href: w.href, label: 'לפרטי היום ולהחלפת תרגילים' }],
     chat: said ? `${said} דקות — לפי מה שכתבת עכשיו (לא נשמר בפרופיל)` : null, src: 'התוכנית של היום והפרופיל' };
@@ -105,6 +107,8 @@ const T = [
     a: (d, n) => { const e = findEx(n); return e ? explainEx(e, d, true) : { lines: ['לאיזה תרגיל? כתבו את שם התרגיל, למשל "חלופה לסקוואט".', 'אפשר גם להחליף ישירות במסך היום.'], acts: [{ href: (todayWorkout(d) || {}).href || '#/workouts', label: 'למסך היום' }] }; } },
   { id: 'meals', he: 'התאמת ארוחות', re: /התאמת ארוח|להתאים ארוח|ארוחה|ארוחות|מה לאכול|להחליף מנה|החלפת מנה|לא אוהב|לא טעים|תפריט|לבשל|בישול|יותר חלבון|מנה /,
     a: (d, n) => mealAdjust(d, n) },
+  { id: 'travel', he: 'אני בנסיעה', re: /נסיעה|בנסיעה|טס |טסה|טיסה|מלון|בחו ל|בחול|בדרכים|חופשה/,
+    a: () => { const t = root.Gate && root.Gate.trip ? root.Gate.trip() : null; return { lines: [t ? `נסיעה פעילה עד ${S.fmtShort(t.to)}${t.minutes ? `, ${t.minutes} דק׳ ביום` : ''}. האימונים נבדקים מול הציוד והזמן של הנסיעה.` : 'אפשר להגדיר נסיעה: תאריכים, זמן ביום וציוד במקום — והאימונים ייבדקו מולם.', 'במסך הנסיעה: היום (מקורי / מעודכן / בפועל), גרסה קצרה, העברה למחר או מנוחה, ואוכל ביעד.'], acts: [{ href: '#/travel', label: 'למסך הנסיעה' }] }; } },
   { id: 'tired', he: 'התאמת האימון להיום', re: /עייפ|אין לי (זמן|כוח)|לא מתחשק|מותש|לדלג|דילוג|חולה|לא ישנתי|רק \d+ דק|יש לי \d+ דק|קצר יותר|להתאים את האימון|התאמת האימון/,
     a: (d, n) => { const b = buildWorkout(d, n, 'short'); return Object.assign(b, { lines: ['אפשר גרסה קצרה, להזיז או לדלג — בלי אשמה. גם מנוחה היא בחירה לגיטימית. חולה (חום, חולשה)? מנוחה עדיפה.'].concat(b.lines), acts: (b.acts || []).concat([{ href: '#/planb', label: 'Plan B — עוד אפשרויות' }]) }); } },
   { id: 'summary', he: 'סיכום האימון האחרון', re: /סיכום|האימון האחרון|איך היה האימון|אתמול/, a: () => summary() },

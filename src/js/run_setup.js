@@ -17,13 +17,24 @@ function cfgHtml(c, all, withMode) {
     <label class="field">ספירה לאחור לפני סט (במצב אוטומטי)<select id="rs-cd">${[0, 3, 5, 10].map(v => `<option value="${v}" ${c.countdown === v ? 'selected' : ''}>${v ? v + ' שניות' : 'ללא'}</option>`).join('')}</select></label>
     <label class="switch"><span>הנחיות קוליות (אם הדפדפן תומך)</span><input type="checkbox" id="rs-voice" ${c.voice ? 'checked' : ''}></label>
     <p class="small" data-est>משך משוער: <b>כ־${est(c.mode === 'auto')} דק׳</b> <span class="tiny muted">(הערכה לפי זמני העבודה והמנוחה שנבחרו; המשך בפועל נמדד באימון)</span></p>`; }
-function setupSheet(st, go) {
-  const c = R().runPrefs(), all = st;
+/* M12: the Plan Integrity Gate runs on the day before it starts; fixes go through the existing swap / version mechanisms */
+function gateFor(meta) {
+  if (!meta || !root.Gate || !meta.def) return null; const pl = meta.plan && root.Plans ? root.Plans.get(meta.plan.id) : null, n = meta.plan ? meta.plan.n : meta.day;
+  const w = S.load('workouts'), sw = (w.swaps || {})[meta.day] || {};
+  const res = root.Gate.checkWorkout(meta.def, { plan: pl, n, version: meta.version, exFor: meta.plan ? null : id => C.exFor(meta.day, id) });
+  const canShort = meta.version !== 'short' && meta.version !== 'test' && (meta.plan ? !['assess', 'active'].includes((root.Plans.dayOf(pl, n) || {}).type) : root.Logic.hasVersions(meta.def));
+  const env = { plan: pl, n, date: S.today(), canShort, origOf: id => Object.keys(sw).find(k => sw[k] === id) || id,
+    onShort: () => { root.UI.closeAllSheets(); try { if (meta.plan) root.Plans.setVersion(meta.plan.id, n, 'short'); } catch (e) { root.UI.toast(e.message); return; } root.Run.start(meta.day, 'short', meta.plan); },
+    onDone: () => { root.UI.closeAllSheets(); root.App.render(); root.Run.start(meta.day, meta.version, meta.plan); } };
+  return { res, env };
+}
+function setupSheet(st, go, meta) {
+  const c = R().runPrefs(), all = st, gt = gateFor(meta), block = gt && !gt.res.ok;
   const upd = b => { const v = readCfg(b); b.querySelector('[data-est] b').textContent = 'כ־' + Math.round(R().estimateSec(all, v, v.mode === 'auto') / 60) + ' דק׳'; };
-  root.UI.sheet('לפני שמתחילים', `<div class="stack" data-run-setup>${cfgHtml(c, all, true)}<button class="btn primary big" data-act="go">${icon('play')} התחלת אימון</button></div>`, {
+  root.UI.sheet('לפני שמתחילים', `<div class="stack" data-run-setup>${gt ? `<div data-run-gate>${root.GateUI.panel(gt.res, Object.assign({ what: 'לציוד, לזמן ולתרגילים שהגדרת' }, gt.env))}</div>` : ''}${cfgHtml(c, all, true)}${block ? '<p class="small warn" data-gate-start-note>יש באימון תרגיל שסותר הגדרה שלך. מומלץ להחליף למעלה; אפשר גם להתחיל בכל זאת.</p>' : ''}<button class="btn primary big" data-act="go">${icon('play')} ${block ? 'להתחיל בכל זאת' : 'התחלת אימון'}</button></div>`, Object.assign(gt ? root.GateUI.handlers(gt.env) : {}, {
     mode: (b, e, cl, body) => { body.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', x === b)); const auto = b.dataset.mode === 'auto';
       body.querySelector('[data-mode-help]').textContent = auto ? 'האפליקציה מפעילה ספירה לאחור, זמן עבודה ומנוחה ועוברת לבד לסט הבא. בסט חזרות הזמן הוא הערכה (כ־3 שניות לחזרה) — אם סיימתם מוקדם לוחצים "סיימתי", ובמנוחה אפשר לתקן כמה חזרות ביצעתם. סט "מקסימום" ומבדקים מחכים לאישור שלכם.' : 'כל סט מסתיים בלחיצה. טיימר המנוחה מתחיל אוטומטית.'; upd(body); },
-    go: (b, e, cl, body) => { const v = readCfg(body); const p = C.profile(); p.display = Object.assign({}, p.display, { run: v }); S.save('profile'); cl(); go(v); } });
+    go: (b, e, cl, body) => { const v = readCfg(body); const p = C.profile(); p.display = Object.assign({}, p.display, { run: v }); S.save('profile'); cl(); go(v); } }));
   const b = document.querySelector('[data-run-setup]'); if (b) b.addEventListener('change', () => upd(b));
 }
 function settingsSheet() {

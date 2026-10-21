@@ -10,14 +10,14 @@ const { esc, icon } = root.UI; const S = root.Store, C = root.Core, L = root.Log
 const U = () => Screens._nu; /* shared helpers of the nutrition screen: fmt, diffTable, timeShort, COST_HE */
 const mins = r => (r.prep || 0) + (r.cook || 0);
 const SORTS = { close: 'הכי קרוב בערכים', protein: 'יותר חלבון', quick: 'מהיר להכנה', light: 'פחות קלוריות' };
-function defaultSort() { const g = (C.profile().aims || {}).primary; return ['fat_loss', 'weight_loss'].includes(g) ? 'light' : ['muscle', 'gain', 'strength'].includes(g) ? 'protein' : 'close'; }
+function defaultSort() { if (root.Gate && root.Gate.trip && root.Gate.trip()) return 'quick'; /* traveling: quick dishes first */ const g = (C.profile().aims || {}).primary; return ['fat_loss', 'weight_loss'].includes(g) ? 'light' : ['muscle', 'gain', 'strength'].includes(g) ? 'protein' : 'close'; }
 /* returns { cur, base, list:[{r,m,flags,cuOk,main,slow,est}], other:[...] (other cuisines), hidden:{blocked,disliked} } */
 function options(date, slot, sort) {
   const s = C.plan(date)[slot], empty = !s.rid || s.off || s.missing, pf = C.normPrefs(C.profile().prefs), dis = new Set(C.profile().nutritionDislike || []);
   const cur = empty ? null : L.recipe(s.rid), base = empty ? { k: 0, p: 0, c: 0, f: 0, fb: 0 } : C.slotMacros(s);
   const all = empty ? N().RECIPES.filter(x => x.meal === slot && !x.est).map(x => ({ r: x, m: L.recipeMacros(x), flags: [], score: 0 })) : L.swapCandidates(cur, N().RECIPES);
   let blocked = 0, disliked = 0; const keep = [];
-  all.forEach(o => { if (dis.has(o.r.id)) { disliked++; return; } if (C.conflicts(o.r, null).length) { blocked++; return; }
+  all.forEach(o => { if (dis.has(o.r.id)) { disliked++; return; } if (root.Gate ? !root.Gate.checkMeal(o.r, null).ok : C.conflicts(o.r, null).length) { blocked++; return; } /* M12: the Plan Integrity Gate decides */
     keep.push(Object.assign(o, { cuOk: C.cuisineAllowed(o.r, pf), main: C.cuisineMainOk(o.r, pf), slow: !!(pf.maxPrep && mins(o.r) > pf.maxPrep), est: !!o.r.est })); });
   sort = SORTS[sort] ? sort : defaultSort();
   const key = { close: o => (o.flags.length ? 100 : 0) + o.score, protein: o => -o.m.p + (empty || o.m.k <= base.k * 1.25 + 50 ? 0 : 1000), quick: o => mins(o.r), light: o => o.m.k + (empty || o.m.p >= base.p * 0.8 ? 0 : 1000) }[sort];
@@ -57,7 +57,8 @@ function dislike(date, slot, rid) {
 /* preview → save. done(saved:boolean) is called after the write (Sofit uses it to report only a real save). */
 function confirmSwap(date, slot, rid, done, o) {
   o = o || options(date, slot); const nr = L.recipe(rid); if (!nr) return done && done(false);
-  if (C.conflicts(nr, null).length) { root.UI.toast('המנה לא תואמת להגבלות התזונה שלך'); return done && done(false); }
+  const gm = root.Gate ? root.Gate.checkMeal(nr, null) : { ok: !C.conflicts(nr, null).length, issues: [] };
+  if (!gm.ok) { root.UI.toast('המנה לא תואמת להגבלות התזונה שלך'); return done && done(false); }
   const nu = U(), m1 = L.recipeMacros(nr), base = o.base, empty = o.empty;
   const sc = !empty && C.plan(date).source === 'plan' && slot !== 'extra' && m1.k ? Math.max(0.6, Math.min(1.8, Math.round(base.k / m1.k * 20) / 20)) : 1, m2 = L.recipeMacros(nr, sc);
   const t = C.targets(), day0 = C.plannedTotals(date, 'selected'), cur = slot === 'extra' && !C.plan(date).extra.on ? { k: 0, p: 0, c: 0, f: 0 } : base;
@@ -66,6 +67,7 @@ function confirmSwap(date, slot, rid, done, o) {
   root.UI.sheet('אישור החלפה', `<div class="stack" data-swap-confirm><p class="small">${empty ? '' : `<b>${esc(o.cur.he)}</b> ← `}<b>${esc(nr.he)}</b>${sc !== 1 ? ` <span class="pill">כמות ×${sc} כדי להתאים לגודל הארוחה</span>` : ''}${nr.est ? ' <span class="pill acc">ערכים משוערים</span>' : ''}</p>${nu.diffTable(base, m2)}
     <div class="kv small" data-day-impact>${t ? `<span>תכנון היום אחרי ההחלפה: <b>${day1.k}</b>/${t.kcal} קק״ל · <b>${day1.p}</b>/${t.protein} ג׳ חלבון</span>` : '<span>אין יעדים (חסרים גיל, גובה או משקל בפרופיל) — מוצג רק השינוי במנה.</span>'}<span>נאכל בפועל עד עכשיו: ${Math.round(eaten.k)} קק״ל · ${Math.round(eaten.p)} ג׳ חלבון</span></div>
     ${t && gapP >= 10 && free.length ? `<label class="switch" data-rebalance><span>להגדיל מנות חלבון בשאר הארוחות של היום כדי להשלים כ־${Math.round(gapP)} ג׳ (בגבולות המתכונים; אפשר לבטל ב"חזרה לארוחה המקורית")</span><input type="checkbox" id="sw-reb"></label>` : ''}
+    <div class="small" data-why-meal><b>למה המנה הזו:</b> ${[gm.issues.some(x => x.kind === 'restriction') ? null : 'מתאימה להגבלות התזונה שלך', C.cuisineAllowed(nr, o.pf) ? ((o.pf.cuisines || []).length ? 'מהמטבח שבחרת' : null) : 'ממטבח אחר מזה שבחרת', m2.p >= base.p ? `חלבון ${Math.round(m2.p)} ג׳ (${Math.round(m2.p - base.p) >= 0 ? '+' : ''}${Math.round(m2.p - base.p)})` : `פחות חלבון (${Math.round(m2.p - base.p)} ג׳)`, ((nr.prep || 0) + (nr.cook || 0)) ? `~${(nr.prep || 0) + (nr.cook || 0)} דק׳ הכנה` : null].filter(Boolean).map(esc).join(' · ')} ${root.GateUI ? root.GateUI.tag('data') : ''} ${nr.est ? (root.GateUI ? root.GateUI.tag('est') : '') : ''}${gm.issues.filter(x => x.sev === 'warn').map(x => `<br><span class="warn tiny">${esc(x.text)}</span>`).join('')}</div>
     <p class="tiny faint">${C.slotEntry(date, slot) ? 'הרישום של מה שכבר נאכל לא ישתנה. ' : ''}היעדים והפרופיל לא משתנים.</p>
     <button class="btn primary" data-act="ok">אישור ההחלפה</button><button class="btn ghost" data-act="no">ביטול</button></div>`,
     { ok: (b2, e2, close2) => { const reb = document.getElementById('sw-reb'), doReb = !!(reb && reb.checked);

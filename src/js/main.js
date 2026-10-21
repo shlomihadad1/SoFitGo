@@ -46,7 +46,7 @@ function screenFor(r) {
     case 'nutrition': return Screens.nutrition(r.arg && /^\d{4}-\d{2}-\d{2}$/.test(r.arg) ? r.arg : null);
     case 'recipes': return Screens.recipes ? Screens.recipes() : extraLoading('מתכונים', '#/nutrition'); /* M10.4: extra.js */
     case 'recipe': return Screens.recipe ? Screens.recipe(r.arg, r.rest[0], r.rest[1]) : extraLoading('מתכון', '#/nutrition'); /* M10.4: extra.js */
-    case 'nearby': return Screens.foodNear ? Screens.foodNear() : extraLoading('אוכל בקרבתי', '#/nutrition'); /* M10.4: extra.js, location only on tap */
+    case 'nearby': return Screens.foodNear ? Screens.foodNear(r.arg) : extraLoading('אוכל בקרבתי', '#/nutrition'); /* M10.4: extra.js, location only on tap */
     case 'targets': return Screens.targets();
     case 'progress': return Screens.progress();
     case 'settings': return Screens.settings();

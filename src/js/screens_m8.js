@@ -98,6 +98,34 @@ async function offlineCheck() {
   out.ready = out.controlled && out.appFiles === 5;
   return out;
 }
+/* M12 · Travel Mode (extended): trip dates, minutes per day and equipment where you stay (profile.travel). While a trip is active
+   the Plan Integrity Gate checks today's workout against THOSE limits; the original plan is never rewritten — changes go through
+   the existing per-day mechanisms (shorter version, skip, move, swap) and the screen shows original / updated / done side by side. */
+const TRIP_EQ = [['bands', 'גומיות'], ['dumbbells', 'משקולות'], ['gym', 'חדר כושר במלון'], ['outdoor', 'מקום לאימון בחוץ']];
+function tripCard(tr) { const on = root.Gate && root.Gate.trip ? root.Gate.trip() : null, eq = tr.eq || [];
+  return `<section class="card" data-trip><h3>פרטי הנסיעה</h3>${on ? `<p class="small good" data-trip-on>נסיעה פעילה עד ${esc(S.fmtDate(tr.to))}: האימונים נבדקים מול ${tr.minutes ? tr.minutes + ' דק׳ ביום ו' : ''}${eq.length ? 'הציוד: ' + esc(eq.map(k => (TRIP_EQ.find(x => x[0] === k) || [k, k])[1]).join(', ')) : 'בלי ציוד'}.</p>` : ''}
+    <div class="grid2"><label class="field">מתאריך<input type="date" id="tr-from" value="${esc(tr.from || '')}"></label><label class="field">עד תאריך<input type="date" id="tr-to" value="${esc(tr.to || '')}"></label></div>
+    <label class="field">זמן לאימון ביום הנסיעה<select id="tr-min"><option value="">כמו בפרופיל</option>${[10, 15, 20, 30, 45].map(m => `<option value="${m}" ${+tr.minutes === m ? 'selected' : ''}>${m} דק׳</option>`).join('')}</select></label>
+    <div class="stack tight"><span class="small muted">מה יש במקום? (בלי סימון = בלי ציוד)</span><div class="chips">${TRIP_EQ.map(([k, h]) => `<button class="chip" data-act="trEq" data-k="${k}" aria-pressed="${eq.includes(k)}">${h}</button>`).join('')}</div></div>
+    <div class="btns"><button class="btn primary" data-act="tripSave">שמירת הנסיעה</button>${tr.from ? '<button class="btn ghost" data-act="tripEnd">סיום הנסיעה</button>' : ''}</div>
+    <p class="tiny faint">נשמר רק במכשיר. האפליקציה לא מזהה מיקום; היעד הוא טקסט שהזנת.</p></section>`; }
+function todayCard(ap, n) {
+  const today = S.today(), G = root.Gate; if (!n) return '';
+  const pl = ap ? root.Plans.dayOf(ap, n) : null, def = ap ? root.Plans.runDef(ap.id, n) : C.dayDef(n), cls = !ap, w = S.load('workouts');
+  if (!def || !(def.main || []).length || (pl && !root.Plans.isTraining(pl))) return `<section class="card" data-travel-today><h3>היום</h3><p class="small">אין אימון היום בתוכנית.</p></section>`;
+  const orig = `${def.title || 'אימון'} · גרסה רגילה ~${root.Logic.estimateMinutes(def, 'std')} דק׳`;
+  const upd = pl ? (pl.status === 'skipped' ? 'דילוג (נשמר)' : pl.movedTo && pl.movedTo !== today ? `הועבר ל־${S.fmtDate(pl.movedTo)}` : `גרסה ${root.Logic.VERSIONS[pl.version || 'std']} ~${root.Logic.estimateMinutes(def, pl.version || 'std')} דק׳`) : 'כמו המקור (בתוכנית 30 היום בוחרים גרסה בהתחלה)';
+  const lg = pl ? pl.log : (w.days[n] && w.days[n].date === today ? w.days[n] : null), done = lg ? ({ done: 'בוצע', partial: 'בוצע חלקית', skipped: 'דולג' }[lg.status] || lg.status) : 'עוד לא';
+  const g = G ? G.checkWorkout(def, { plan: ap, n, version: pl ? pl.version || 'std' : 'std', exFor: cls ? id => C.exFor(n, id) : null }) : null;
+  const t = C.targets(), e = C.eatenTotals(today), pt = C.plannedTotals(today, 'selected');
+  return `<section class="card" data-travel-today><h3>היום — מקורי, מעודכן ובפועל</h3>
+    <dl class="pdl small" data-today-states><dt>מקורי</dt><dd>${esc(orig)}</dd><dt>מעודכן</dt><dd data-today-upd>${esc(upd)}</dd><dt>בפועל</dt><dd>${esc(done)}</dd></dl>
+    ${g && root.GateUI ? root.GateUI.panel(g, { what: G.trip() ? 'לזמן ולציוד של הנסיעה' : 'לזמן ולציוד שהגדרת', plan: ap, n, canShort: !lg && (cls ? root.Logic.hasVersions(def) : !['assess', 'active'].includes(pl.type)) }) : ''}
+    ${lg ? '' : `<div class="stack tight"><span class="small muted">משהו השתנה היום?</span><div class="btns">
+      <button class="btn sm" data-act="dayTired">עייף/ה — גרסה קצרה</button><button class="btn sm" data-act="dayLate">מתעכב/ת — ${ap ? 'להעביר למחר' : 'מחר'}</button><button class="btn sm" data-act="dayUnwell">לא מרגיש/ה טוב — מנוחה</button></div></div>`}
+    <div class="kv small" data-today-food>${t ? `<span>תזונה מתוכננת: ${Math.round(pt.k)}/${t.kcal} קק״ל · ${Math.round(pt.p)}/${t.protein} ג׳ חלבון</span>` : '<span>אין יעדים (חסרים נתוני פרופיל)</span>'}<span>נאכל בפועל: ${Math.round(e.k)} קק״ל · ${Math.round(e.p)} ג׳ חלבון</span></div>
+    <p class="tiny faint">התוכנית המקורית נשמרת; שינוי חל על היום בלבד ואפשר לבטל אותו במסך התוכנית.</p></section>`;
+}
 Screens.travel = function () {
   const p = S.load('profile'), tr = p.travel || {}, ap = root.Plans && root.Plans.active(), td = ap ? root.Plans.todayDay(ap) : null;
   const n = ap ? (td && td.n) : C.clampDay(C.todayN()), dayHref = ap ? (n ? '#/pday/' + n : '#/plan') : '#/day/' + n, ck = trSt.check;
@@ -108,12 +136,14 @@ Screens.travel = function () {
       <p class="tiny muted">האפליקציה <b>לא מזהה מיקום</b> ולא מבקשת הרשאת מיקום. אם תרצו, כתבו יעד — הוא נשמר רק כתווית במכשיר הזה ולא משנה את התפריט או האימונים.</p>
       <div class="row"><input id="tr-dest" type="text" maxlength="60" placeholder="למשל: אילת, כנס בברלין" value="${esc(tr.dest || '')}" aria-label="יעד (טקסט חופשי)"><button class="btn sm" data-act="destSave">שמירה</button>${tr.dest ? '<button class="btn sm ghost" data-act="destClear">ניקוי</button>' : ''}</div>
       ${tr.dest ? `<p class="small" data-dest-label>יעד שנרשם: <b>${esc(tr.dest)}</b> <span class="tiny muted">(הוזן ידנית)</span></p>` : ''}</section>
+    ${tripCard(tr)}${todayCard(ap, n)}
     <section class="card" data-travel-train><h3>אימונים בדרכים</h3>
       ${ap ? `<p class="small muted">מצב נסיעה בתוכנית: לטווח תאריכים (עד 4 שבועות) תרגילים שדורשים ציוד מוחלפים בחלופות בלי ציוד, ואפשר גם גרסה קצרה. רואים מה ישתנה לפני האישור, ואפשר לבטל.</p>
         ${Screens.travelCard ? Screens.travelCard(ap) : ''}<div class="btns"><button class="btn primary" data-act="travelMode">${icon('route')} הגדרת מצב נסיעה</button></div>`
       : `<p class="small muted">מצב נסיעה (החלפת תרגילים לטווח תאריכים) קיים בתוכנית אישית. בתוכנית 30 היום הקלאסית יש גרסה קצרה לכל אימון.</p><div class="btns"><a class="btn" href="#/setup/1">בניית תוכנית אישית</a></div>`}
       <div class="list"><a class="li" href="${dayHref}" data-travel-link="today"><div class="grow"><div class="t">היום בלבד: גרסה קצרה, החלפת תרגיל או דילוג</div><div class="s">באימון של היום — בלי אשמה.</div></div>${icon('chev')}</a></div></section>
     <section class="card" data-travel-food><h3>אוכל בדרכים</h3><div class="list">
+      <a class="li" href="#/nearby${tr.dest ? '/' + encodeURIComponent(tr.dest) : ''}" data-travel-link="nearby"><div class="grow"><div class="t">אוכל ${tr.dest ? 'ב' + esc(tr.dest) : 'בקרבתי'}</div><div class="s">חיפוש אצל ספק מפות חיצוני — לפי מיקום (רק באישור) או לפי היעד שהזנת.</div></div>${icon('chev')}</a>
       <a class="li" href="#/fridge" data-travel-link="fridge"><div class="grow"><div class="t">מה אפשר להכין ממה שיש</div><div class="s">למשל במטבחון של דירה או מלון.</div></div>${icon('chev')}</a>
       <a class="li" href="#/nutrition" data-travel-link="nutrition"><div class="grow"><div class="t">החלפת ארוחה ביומן</div><div class="s">כולל ארוחות מסעדה כלליות — ערכים משוערים בלבד.</div></div>${icon('chev')}</a></div>
       <p class="tiny faint">אין כאן מסעדות אמיתיות או תפריטים מקומיים — אלה דורשים נתונים חיצוניים שעוד לא קיימים.</p></section>
@@ -133,6 +163,19 @@ Screens.travel = function () {
       destSave: () => { const v = document.getElementById('tr-dest').value.trim().slice(0, 60), pr = S.load('profile'); pr.travel = Object.assign({}, pr.travel, { dest: v || null, at: new Date().toISOString() }); if (S.save('profile')) root.UI.toast(v ? 'היעד נשמר כתווית' : 'היעד נוקה'); root.App.render(); },
       destClear: () => { const pr = S.load('profile'); pr.travel = Object.assign({}, pr.travel, { dest: null, at: new Date().toISOString() }); if (S.save('profile')) root.UI.toast('היעד נוקה'); root.App.render(); },
       travelMode: () => { if (ap && Screens.travelSheet) Screens.travelSheet(ap); },
+      trEq: el => el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true'),
+      tripSave: () => { const f = document.getElementById('tr-from').value, t2 = document.getElementById('tr-to').value, mn = document.getElementById('tr-min').value;
+        if (!f || !t2 || t2 < f) { root.UI.toast('בחרו תאריך התחלה וסיום (הסיום אחרי ההתחלה)'); return; }
+        const eq = [...document.querySelectorAll('[data-act=trEq][aria-pressed=true]')].map(b => b.dataset.k), pr = S.load('profile');
+        pr.travel = Object.assign({}, pr.travel, { from: f, to: t2, minutes: mn ? +mn : null, eq, at: new Date().toISOString() });
+        if (S.save('profile') === false && S.storageOKAtStart) { root.UI.toast('השמירה נכשלה'); return; } root.UI.toast('הנסיעה נשמרה'); root.App.render(); },
+      tripEnd: () => { const pr = S.load('profile'); pr.travel = Object.assign({}, pr.travel, { from: null, to: null, minutes: null, eq: [] }); S.save('profile'); root.UI.toast('הנסיעה הסתיימה'); root.App.render(); },
+      dayTired: () => { try { if (ap) { root.Plans.setVersion(ap.id, n, 'short'); root.UI.toast('היום: גרסה קצרה'); root.App.render(); } else root.Run.start(n, 'short'); } catch (e) { root.UI.toast(e.message); } },
+      dayLate: () => { if (!ap) { root.UI.toast('בתוכנית 30 היום אפשר להתאמן מחר; היום יישאר לא מסומן ואפשר להשלים אותו.'); return; }
+        try { root.Plans.move(ap.id, n, S.addDays(S.today(), 1)); root.UI.toast('האימון הועבר למחר'); root.App.render(); } catch (e) { root.UI.toast(e.message); } },
+      dayUnwell: () => { if (!ap) { root.UI.toast('מנוחה היום. אין צורך לסמן — אפשר להשלים כשמרגישים טוב.'); return; }
+        root.UI.confirmSheet('מנוחה היום', 'לסמן דילוג על האימון של היום? אפשר לבטל במסך התוכנית. אם יש חום, כאב בחזה או סחרחורת — לפנות לגורם רפואי.', 'דילוג', () => { try { root.Plans.skip(ap.id, n); root.UI.toast('דילוג נשמר. החלמה מהירה.'); root.App.render(); } catch (e) { root.UI.toast(e.message); } }); },
+      ...(root.GateUI ? root.GateUI.handlers({ plan: ap, n, date: S.today(), onShort: () => { try { if (ap) root.Plans.setVersion(ap.id, n, 'short'); root.UI.toast('היום: גרסה קצרה'); root.App.render(); } catch (e) { root.UI.toast(e.message); } } }) : {}),
       offCheck: async () => { trSt.busy = true; root.App.render(); try { trSt.check = await offlineCheck(); } finally { trSt.busy = false; root.App.render(); } } } };
 };
 Screens.travel.offlineCheck = offlineCheck;
