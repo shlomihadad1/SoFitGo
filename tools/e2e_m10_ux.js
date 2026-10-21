@@ -4,6 +4,7 @@
    stands in for the space the keyboard takes.
    Usage: node tools/e2e_m10_ux.js [URL] */
 const { chromium, devices } = require('playwright');
+const Core_fmt = ml => String(Math.round((+ml || 0) / 10) / 100); /* same rule as Core.fmtL, for expected strings */
 const URL0 = process.argv[2] || 'http://localhost:8096/';
 const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m: m + (i !== undefined && !c ? ' → ' + JSON.stringify(i).slice(0, 400) : '') });
 const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 176, weight: 80, startWeight: 80, sex: 'm', experience: 'beginner', aims: { primary: 'general', secondary: [] } }); Store.save('profile'); };
@@ -134,7 +135,8 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
   const wt = () => p.evaluate(() => ({ total: document.querySelector('[data-water-total]').innerText.trim(), left: document.querySelector('[data-water-left]').innerText.trim(), kind: document.querySelector('[data-water-goal-kind]').innerText.trim(), stored: Core.daily(Store.today()).water || 0, dir: getComputedStyle(document.querySelector('[data-water]')).direction, btn: [...document.querySelectorAll('[data-water] [data-act=water]')].map(b => b.innerText.trim()) }));
   let W = await wt();
   ok(W.total === '0 מתוך 2.25 ליטר' && W.left === 'נותרו 2.25 ליטר' && /הצעה אישית/.test(W.kind), 'Home: "0 מתוך 2.25 ליטר", remaining, labelled as a personal suggestion', W);
-  ok(W.btn.includes('+250 מ״ל') && W.btn.includes('+500 מ״ל'), 'quick-add stays in ml (+250 / +500 מ״ל)', W.btn);
+  ok(JSON.stringify(W.btn) === JSON.stringify(['+0.25 ל׳', '+0.5 ל׳', '+0.75 ל׳', '−0.25 ל׳']), 'quick-add buttons are labelled in liters (+0.25 / +0.5 / +0.75 / −0.25 ל׳); stored amounts stay in ml', W.btn);
+  ok(await p.evaluate(() => [...document.querySelectorAll('[data-water] [data-act=water]')].every(b => /ליטר/.test(b.getAttribute('aria-label')))), 'screen readers hear liters too');
   ok(W.dir === 'rtl', 'water block is right-to-left', W.dir);
   await p.locator('[data-water] [data-act=water][data-ml="250"]').click(); await p.waitForTimeout(300);
   await p.locator('[data-water] [data-act=water][data-ml="500"]').click(); await p.waitForTimeout(300);
@@ -143,6 +145,20 @@ const SEED_PLAN = () => { const pr = Store.load('profile'); pr.availability = { 
   const tp = await p.evaluate(() => Core.dailyProgress(Store.today()).tasks.find(t => t.k === 'water').v);
   ok(Math.abs(tp - 750 / 2250) < 1e-9, 'daily progress uses the same target (750/2250)', tp);
   ok(await p.evaluate(() => Core.daily(Store.today()).waterGoal) === 2250, 'the target in force is recorded with the day');
+  G = 'water: edge cases (zero, exact target, over target)';
+  const edge = async ml => { await p.evaluate(v => { Core.setDaily(Store.today(), { water: v, waterGoal: Core.waterGoalOn(Store.today()).ml }); }, ml); await go(p, '#/calendar', 250); await go(p, '#/', 500);
+    return p.evaluate(() => { const g = Core.waterGoalOn(Store.today()).ml, w = Core.daily(Store.today()).water || 0, bar = parseFloat(document.querySelector('[data-water] .meter i').style.width);
+      return { g, w, total: document.querySelector('[data-water-total]').innerText.trim(), left: document.querySelector('[data-water-left]').innerText.trim(), bar, task: Core.dailyProgress(Store.today()).tasks.find(t => t.k === 'water').v }; }); };
+  let E0 = await edge(0);
+  ok(E0.total === `0 מתוך ${Core_fmt(E0.g)} ליטר` && E0.left === `נותרו ${Core_fmt(E0.g)} ליטר` && E0.bar === 0 && E0.task === 0, 'zero: "0 מתוך X ליטר", all of it remaining, empty bar', E0);
+  let E1 = await edge(E0.g);
+  ok(E1.total === `${Core_fmt(E1.g)} מתוך ${Core_fmt(E1.g)} ליטר` && E1.left === 'הגעת ליעד היום' && E1.bar === 100 && E1.task === 1, 'exactly on target: "הגעת ליעד היום", full bar', E1);
+  let E2 = await edge(E0.g + 250);
+  ok(E2.total === `${Core_fmt(E2.g + 250)} מתוך ${Core_fmt(E2.g)} ליטר` && E2.left === 'הגעת ליעד · 0.25 ליטר מעל היעד' && E2.bar === 100 && E2.task === 1, 'over target: total keeps counting, says "0.25 ליטר מעל היעד", bar capped at 100%', E2);
+  await p.locator('[data-water] [data-act=water][data-ml="-250"]').click(); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => Core.daily(Store.today()).water) === E0.g, '−0.25 ל׳ removes exactly 250 ml');
+  await p.evaluate(() => Core.setDaily(Store.today(), { water: 750 }));
+
   G = 'water: history is not rewritten';
   const hist = await p.evaluate(() => { const y = Store.addDays(Store.today(), -1); Core.setDaily(y, { water: 1000, waterGoal: 2000 }); const pr = Store.load('profile'); pr.weight = 100; Store.save('profile');
     return { past: Core.waterGoalOn(y).ml, pastV: Core.dailyProgress(y).tasks.find(t => t.k === 'water').v, today: Core.waterGoalOn(Store.today()).ml, stored: Core.daily(y).water }; });
