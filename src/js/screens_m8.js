@@ -70,8 +70,12 @@ Screens.coach = function () {
       water: el => { C.addWater(today, +el.dataset.ml); root.UI.toast('נוספו ' + C.fmtL(+el.dataset.ml) + ' ל׳'); root.App.render(); },
       askT: el => { const t = (root.CoachAsk.TOPICS.find(x => x.id === el.dataset.t) || {}).he; if (t) askPush(t); },
       coachRun: el => { const pn = el.dataset.plan; if (pn && ap) root.Run.start(+pn, el.dataset.v, { id: ap.id, n: +pn }); else root.Run.start(+el.dataset.day, el.dataset.v); },
-      coachSwap: el => { const r = root.Logic.recipe(el.dataset.rid); if (!r) return; root.UI.confirmSheet('החלפת מנה', `להחליף את ${C.slotNames[el.dataset.slot]} של היום ב"${r.he}"? אפשר לחזור למנה המקורית במסך התזונה.`, 'החלפה', () => {
-        C.setPlanSlot(today, el.dataset.slot, { rid: r.id, ov: null, scale: 1, auto: false }); askLog.push({ q: 'החלפה: ' + r.he, a: { id: 'done', lines: [`הוחלף ונשמר בתפריט של היום: ${C.slotNames[el.dataset.slot]} — ${r.he}.`], acts: [{ href: '#/nutrition', label: 'לתפריט' }] }, by: 'פעולה באפליקציה' }); root.UI.toast('הארוחה הוחלפה'); root.App.render(); }); },
+      coachSwap: el => { const sl = el.dataset.slot, r = root.Logic.recipe(el.dataset.rid); if (!root.MealOpt || !r) return;
+        root.MealOpt.confirmSwap(today, sl, r.id, saved => { if (!saved) return; askLog.push({ q: 'החלפה: ' + r.he, a: { id: 'done', lines: [`נשמר בתפריט של היום: ${C.slotNames[sl]} — ${r.he}.`], acts: [{ href: '#/nutrition', label: 'לתפריט' }] }, by: 'פעולה באפליקציה' }); root.App.render(); }); },
+      coachOpts: el => root.MealOpt && root.MealOpt.sheet(today, el.dataset.slot, el.dataset.s),
+      coachDislike: el => { const r = root.Logic.recipe(el.dataset.rid); if (!r) return; root.UI.confirmSheet('לא אוהב/ת', `לסמן את "${r.he}" כמנה שלא אוהבים? היא לא תוצע יותר בתפריט. אפשר לבטל בהגדרות.`, 'סימון', () => {
+        if (!root.MealOpt || !root.MealOpt.dislike(today, el.dataset.slot, r.id)) { root.UI.toast('השמירה נכשלה — הסימון לא נשמר'); return; }
+        askLog.push({ q: 'לא אוהב/ת: ' + r.he, a: { id: 'done', lines: [`נשמר: "${r.he}" לא תוצע יותר. התפריט של היום מוחלף אוטומטית למנה מתאימה; אפשר לבחור אחרת.`], acts: [{ act: 'coachOpts', data: { slot: el.dataset.slot }, label: 'בחירת חלופה' }, { href: '#/nutrition', label: 'לתפריט' }] }, by: 'פעולה באפליקציה' }); root.App.render(); }); },
       ask: () => { const i = document.getElementById('ask-q'); const q = (i && i.value || '').trim(); if (i) i.value = ''; askPush(q); } },
     after: v => { const i = v.querySelector('#ask-q'); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = i.value.trim(); i.value = ''; askPush(q); } }); } };
 };

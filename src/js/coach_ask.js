@@ -63,17 +63,22 @@ function explainEx(e, d, wantAlt) {
   if (it) lines.push(`בתוכנית של היום: ${it.sets || 1} סטים × ${it.reps ? it.reps + ' חזרות' : it.sec + ' שניות'}${it.rest ? `, מנוחה ${it.rest} שנ׳` : ''}.`);
   return { lines, acts: [{ href: w && w.href ? w.href : '#/workouts', label: wantAlt ? 'למסך היום (החלפה)' : 'לאימון של היום' }, { href: '#/ex/' + e.id, label: 'לדף התרגיל' }], src: 'ספריית התרגילים והתוכנית' };
 }
-function mealAdjust(d) {
-  const pf = C.normPrefs(C.profile().prefs), m = root.Screens.nowModel(d), nxt = m.done.find(x => ['m1', 'm2', 'snack'].includes(x.k) && !x.ok), ctx = context();
-  const lines = [`ההעדפות שנלקחות בחשבון: הגבלות — ${ctx[5].v}; מטבח — ${ctx[6].v || 'לא נבחר'}.`];
-  if (!nxt) return { lines: lines.concat('כל הארוחות של היום כבר סומנו. אפשר לשנות מנות לימים הבאים במסך התזונה.'), acts: [{ href: '#/nutrition', label: 'לתפריט' }, { href: '#/settings', label: 'לעדכון העדפות' }] };
-  const pl = C.plan(d)[nxt.k], r = L.recipe(pl.rid), dis = new Set(C.profile().nutritionDislike || []);
-  const cands = L.swapCandidates(r, N().RECIPES).filter(o => !o.r.est && !dis.has(o.r.id) && !C.conflicts(o.r, null, pf).length && C.cuisineAllowed(o.r, pf)).sort((a, z) => (C.cuisineMainOk(z.r, pf) ? 1 : 0) - (C.cuisineMainOk(a.r, pf) ? 1 : 0) || a.score - z.score).slice(0, 3);
-  const mm = L.recipeMacros(r, pl.scale || 1, pl.ov);
-  lines.push(`הארוחה הבאה (${C.slotNames[nxt.k]}): ${r.he} — כ־${r1(mm.k)} קק״ל, ${r1(mm.p)} ג׳ חלבון.`);
-  if (!cands.length) lines.push('לא מצאתי חלופה שמתאימה להגבלות ולמטבח שבחרת. אפשר לשנות העדפות או לבחור ידנית במסך התזונה.');
-  else lines.push('חלופות שמתאימות להגבלות ולמטבח שלך (ערכים מחושבים מהמרכיבים):');
-  return { lines, acts: cands.map(o => ({ act: 'coachSwap', data: { slot: nxt.k, rid: o.r.id }, label: `${o.r.he} · ${r1(o.m.k)} קק״ל · ${r1(o.m.p)} ג׳ חלבון` })).concat([{ href: '#/nutrition', label: 'לתפריט' }]), src: 'התפריט של היום והעדפות התזונה' };
+function mealAdjust(d, n) {
+  n = n || ''; const MO = root.MealOpt, m = root.Screens.nowModel(d), ctx = context();
+  const mode = /חלבון/.test(n) ? 'protein' : /לבשל|בישול|מהיר|זמן|קל להכנה/.test(n) ? 'quick' : /קליל|פחות קלוריות|דיאט/.test(n) ? 'light' : null;
+  const lines = [`ההעדפות שנלקחות בחשבון: הגבלות — ${ctx[5].v}; מטבח — ${ctx[6].v || 'לא נבחר'}${C.normPrefs(C.profile().prefs).maxPrep ? `; זמן הכנה עד ${C.normPrefs(C.profile().prefs).maxPrep} דק׳` : ''}.`];
+  const nxt = m.done.find(x => ['m1', 'm2', 'snack'].includes(x.k) && !x.ok);
+  if (!nxt || !MO) return { lines: lines.concat('כל הארוחות של היום כבר סומנו. אפשר לשנות מנות לימים הבאים במסך התזונה.'), acts: [{ href: '#/nutrition', label: 'לתפריט' }, { href: '#/settings', label: 'לעדכון העדפות' }] };
+  const o = MO.options(d, nxt.k, mode || undefined), r = o.cur;
+  if (/לא אוהב|לא טעים|לא בא לי/.test(n) && r) {
+    lines.push(`הארוחה הבאה (${C.slotNames[nxt.k]}): ${r.he}. לסמן אותה "לא אוהב/ת"? היא לא תוצע יותר, ואז תבחרו חלופה.`);
+    return { lines, acts: [{ act: 'coachDislike', data: { slot: nxt.k, rid: r.id }, label: `סימון "לא אוהב/ת": ${r.he}` }, { act: 'coachOpts', data: { slot: nxt.k, s: o.sort }, label: 'רק להחליף הפעם' }], src: 'התפריט של היום והעדפות התזונה' }; }
+  if (r) { const mm = o.base; lines.push(`הארוחה הבאה (${C.slotNames[nxt.k]}): ${r.he} — כ־${Math.round(mm.k)} קק״ל, ${Math.round(mm.p)} ג׳ חלבון, ${(r.prep || 0) + (r.cook || 0)} דק׳.`); }
+  const top = o.list.slice(0, 3);
+  if (!top.length) lines.push('לא מצאתי חלופה שמתאימה להגבלות, למטבח ולמנות שסימנת. אפשר לפתוח את כל החלופות או לשנות העדפות.');
+  else lines.push(`חלופות (${MO.SORTS[o.sort]}), ערכים מחושבים מהמרכיבים — לחיצה מציגה את ההשוואה לפני השמירה:`);
+  return { lines, acts: top.map(x => ({ act: 'coachSwap', data: { slot: nxt.k, rid: x.r.id }, label: `${x.r.he} · ${Math.round(x.m.k)} קק״ל · ${Math.round(x.m.p)} ג׳ חלבון · ${(x.r.prep || 0) + (x.r.cook || 0)} דק׳` }))
+    .concat([{ act: 'coachOpts', data: { slot: nxt.k, s: o.sort }, label: 'כל החלופות' }]), src: 'התפריט של היום והעדפות התזונה' };
 }
 function lastWorkout() {
   const out = []; const w = S.load('workouts'); Object.entries(w.days || {}).forEach(([n, x]) => x && x.date && out.push({ date: x.date, title: 'יום ' + n, x }));
@@ -98,14 +103,14 @@ const T = [
     a: () => ({ lines: ['עוצרים את האימון עכשיו. אני לא יכולה לאבחן או לטפל.', 'כאב בחזה, לחץ בחזה, קוצר נשימה, עילפון או דופק לא סדיר — פנו מיד לעזרה רפואית (מספר החירום המקומי).', 'כאב חד או פציעה — לא ממשיכים את התרגיל; אם זה לא חולף, לרופא/ה.'], acts: [{ href: '#/planb', label: 'הנחיות עצירה ו־Plan B' }], safety: true }) },
   { id: 'alt', he: 'חלופה לתרגיל', re: /חלופה|במקום|להחליף תרגיל|אחר במקום|לא יכול לעשות|לא יכולה לעשות/, ex: true,
     a: (d, n) => { const e = findEx(n); return e ? explainEx(e, d, true) : { lines: ['לאיזה תרגיל? כתבו את שם התרגיל, למשל "חלופה לסקוואט".', 'אפשר גם להחליף ישירות במסך היום.'], acts: [{ href: (todayWorkout(d) || {}).href || '#/workouts', label: 'למסך היום' }] }; } },
+  { id: 'meals', he: 'התאמת ארוחות', re: /התאמת ארוח|להתאים ארוח|ארוחה|ארוחות|מה לאכול|להחליף מנה|החלפת מנה|לא אוהב|לא טעים|תפריט|לבשל|בישול|יותר חלבון|מנה /,
+    a: (d, n) => mealAdjust(d, n) },
   { id: 'tired', he: 'התאמת האימון להיום', re: /עייפ|אין לי (זמן|כוח)|לא מתחשק|מותש|לדלג|דילוג|חולה|לא ישנתי|רק \d+ דק|יש לי \d+ דק|קצר יותר|להתאים את האימון|התאמת האימון/,
     a: (d, n) => { const b = buildWorkout(d, n, 'short'); return Object.assign(b, { lines: ['אפשר גרסה קצרה, להזיז או לדלג — בלי אשמה. גם מנוחה היא בחירה לגיטימית. חולה (חום, חולשה)? מנוחה עדיפה.'].concat(b.lines), acts: (b.acts || []).concat([{ href: '#/planb', label: 'Plan B — עוד אפשרויות' }]) }); } },
   { id: 'summary', he: 'סיכום האימון האחרון', re: /סיכום|האימון האחרון|איך היה האימון|אתמול/, a: () => summary() },
   { id: 'build', he: 'בניית אימון להיום', re: /בנה|בני לי|תבני|אימון של \d+|אימון ל ?\d+|\d+ דק|חצי שעה|לבנות אימון|בניית אימון/,
     a: (d, n) => buildWorkout(d, n) },
   { id: 'workout', he: 'מה האימון היום?', re: /אימון|להתאמן|מתאמנ|מה (יש )?היום/, a: (d, n) => buildWorkout(d, n) },
-  { id: 'meals', he: 'התאמת ארוחות', re: /התאמת ארוח|להתאים ארוח|ארוחה|ארוחות|מה לאכול|להחליף מנה|החלפת מנה|לא אוהב|תפריט/,
-    a: d => mealAdjust(d) },
   { id: 'protein', he: 'כמה חלבון נשאר לי?', re: /חלבון|פרוטאין|protein/,
     a: d => { const t = C.targets(); if (!t) return need(); const e = C.eatenTotals(d), left = r1(t.protein - e.p);
       return { lines: [`היום רשמת ${r1(e.p)} ג׳ חלבון מתוך יעד של ${t.protein} ג׳.`, left > 0 ? `נשארו כ־${left} ג׳. ${nextMeal(d)}` : 'הגעת ליעד החלבון של היום.'], acts: [{ href: '#/nutrition', label: 'ליומן התזונה' }], src: 'היומן של היום והיעד שבפרופיל' }; } },

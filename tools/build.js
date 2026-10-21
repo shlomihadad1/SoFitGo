@@ -7,7 +7,7 @@ const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/
    service worker for offline use; the single-file artifact inlines it. Keeps the first-load budget (700 KB) intact. */
 const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/screens_help.js'];
 /* RC5: second on-demand chunk for screens that are not needed on first load (precached for offline like help.js) */
-const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js'];
+const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js', 'src/js/meal_options.js'];
 /* M10: accounts + sync + legal drafts — loaded only when the user opens the account screen or already has a session */
 const ACCOUNT = ['src/js/account.js', 'src/js/screens_account.js'];
 /* M10: backend configuration comes from the environment at build time (never from files in the repository).
