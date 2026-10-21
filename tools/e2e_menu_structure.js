@@ -23,7 +23,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
         ['m1', 'm2', 'snack', 'extra'].forEach(k => { const s = pl[k]; if (s && s.rid && Logic.recipe(s.rid).meal !== k) bad.push([d, k, s.rid]); });
         if (pl.extra.rid && Core.extraRepeats(Logic.recipe(pl.extra.rid), pl)) rep.push([d, pl.extra.rid]);
         const sum = Logic.roundM(Logic.sumMacros(['m1', 'm2', 'snack'].filter(k => pl[k].rid && !pl[k].off && !pl[k].missing).map(k => Core.slotMacros(pl[k])))), pt = Core.plannedTotals(d);
-        if (pl.extra.on || sum.k !== pt.k || sum.p !== pt.p) tot.push([d, sum, pt]); }
+        if (pl.extra.on || ['k', 'p', 'c', 'f', 'fb'].some(x => Math.abs(sum[x] - pt[x]) > 0.05)) tot.push([d, sum, pt]); }
       return { bad, rep, tot }; });
     const lbl = pf ? pf.cuisines[0] : 'default';
     ok(!r.bad.length, `[${lbl}] every meal holds a dish of its own meal type (no snack as lunch)`, r.bad);
@@ -36,7 +36,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     const r = await p.evaluate(pf => { Store.resetAll(); localStorage.clear(); const pr = Store.load('profile'); Object.assign(pr, pf, { startWeight: pf.weight }); Store.save('profile');
       const t = Core.targets(), T = Store.today(); let inT = 0, gapShown = 0, bad = [], dup = 0;
       for (let i = 0; i < 30; i++) { const d = Store.addDays(T, i), pl = Core.plan(d), x = Core.plannedTotals(d, 'base'), okK = x.k >= t.kcal * 0.93 && x.k <= t.kcal * 1.07, okP = x.p >= t.protein - 0.5;
-        if (pl.source !== 'auto') bad.push([d, 'source ' + pl.source]); if (okK && okP) inT++; else if (pl.gap) gapShown++; else bad.push([d, x.k, x.p]);
+        if (pl.source !== 'auto') bad.push([d, 'source ' + pl.source]); { const sm = Logic.roundM(Logic.sumMacros(['m1', 'm2', 'snack'].filter(k => pl[k].rid && !pl[k].off).map(k => Logic.recipeMacros(Logic.recipe(pl[k].rid), pl[k].scale || 1, pl[k].ov)))); if (['k', 'p', 'c', 'f'].some(q => Math.abs(sm[q] - x[q]) > 0.05)) bad.push([d, 'sum', sm, x]); if (Math.abs(x.k - (x.p * 4 + x.c * 4 + x.f * 9)) > x.k * 0.12) bad.push([d, 'atwater', x]); } if (okK && okP) inT++; else if (pl.gap) gapShown++; else bad.push([d, x.k, x.p]);
         const ids = ['m1', 'm2', 'snack'].map(k => pl[k].rid).filter(Boolean); if (new Set(ids).size !== ids.length) dup++; }
       return { kcal: t.kcal, protein: t.protein, inT, gapShown, bad, dup }; }, pf);
     ok(!r.bad.length && r.inT + r.gapShown === 30 && r.inT >= 23, `[${lbl}] default menu built from the user's targets (${r.kcal} kcal / ${r.protein} g): ${r.inT}/30 days within ±7% kcal and protein met; the rest show the real gap (${r.gapShown})`, r);

@@ -37,7 +37,7 @@
       const explicit = (params.prefs.cuisines || []).length || (params.prefs.region && params.prefs.region.consent && params.prefs.region.group);
       const need = explicit ? min : params.kcal > 3200 ? 1e9 : (k === 'extra' ? 2 : 6); /* very high energy targets need the whole library's capacity */ /* default mix: only when the pool stays rich enough for variety and targets; otherwise all safe dishes, scored */
       const ind = C().CUISINE_GROUPS.indian ? new Set(C().CUISINE_GROUPS.indian.codes) : new Set(), nonInd = explicit ? [] : out[k].filter(c => !ind.has(C().cuisineOf(c.r)));
-      if (ok.length >= need) out[k] = ok; else if (!explicit && nonInd.length >= Math.min(need, 3)) out[k] = nonInd; /* default mix too small (e.g. no dairy): widen to other non-default cuisines before the Indian-heavy original menu */ else if (k !== 'extra' && explicit) out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
+      if (ok.length >= need) out[k] = ok; else if (!explicit && params.kcal <= 3200 && nonInd.length >= (k === 'extra' ? 2 : GAP[k] + 1)) out[k] = nonInd; /* only when the wider non-Indian pool still keeps the no-repeat rule; very high targets keep the whole library */ /* default mix too small (e.g. no dairy): widen to other non-default cuisines before the Indian-heavy original menu */ else if (k !== 'extra' && explicit) out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
     if (params.maxPrep) SLOTS3.forEach(k => { const quick = out[k].filter(c => c.min <= params.maxPrep); if (quick.length >= 3) out[k] = quick; else out.notes.push(`אין מספיק מנות ל"${C().slotNames[k]}" שמוכנות תוך ${params.maxPrep} דק׳ — נכללו גם מנות ארוכות יותר.`); });
     return out;
   }
@@ -123,6 +123,17 @@
             const t1 = cur(); if (!bad(t1) || (byP && !shortP(t1))) { used.add(c.r.id); used.delete(base0[k].rid); state.use[base0[k].rid]--; state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; (state.last[k] = state.last[k] || {})[c.r.id] = state.i; delete state.last[k][base0[k].rid]; base0[k] = { rid: c.r.id, ov: c.ov }; break; }
             day.slots = save; }
         }
+        /* fat balance: the fat target follows computeTargets (25% of energy; carbs are the remainder, so with energy and protein on
+           target, fat on target also puts carbs on target). If the day's fat is >20% off, try the other snack / breakfast candidates
+           (same shortlist rules) and keep one only if energy and protein stay within the rules AND fat moves clearly closer. */
+        { const Ft = Math.round(T * 0.25 / 9 / 5) * 5, fo = t => Math.abs(t.f - Ft);
+          for (const k of ['snack', 'm1'].filter(x => present.includes(x))) { const t0 = cur(); if (fo(t0) <= Ft * 0.2 || bad(t0)) break;
+            const tried = P[k].filter(c => !used.has(c.r.id) && c.r.id !== base0[k].rid && ((state.last[k] || {})[c.r.id] == null || state.i - state.last[k][c.r.id] > Math.min(GAP[k], P[k].length - 1)));
+            let best = null, bestF = fo(t0) - 3;
+            for (const c of tried.slice(0, 12)) { const save = JSON.parse(JSON.stringify(day.slots)); Object.keys(base0).forEach(x => { day.slots[x] = JSON.parse(JSON.stringify(base0[x])); }); day.slots[k] = { rid: c.r.id, ov: c.ov }; portion(day, present, T, Pt);
+              const t1 = cur(); if (!bad(t1) && fo(t1) < bestF) { best = c; bestF = fo(t1); } day.slots = save; }
+            if (best) { const c = best; Object.keys(base0).forEach(x => { day.slots[x] = JSON.parse(JSON.stringify(base0[x])); }); day.slots[k] = { rid: c.r.id, ov: c.ov }; portion(day, present, T, Pt);
+              used.add(c.r.id); used.delete(base0[k].rid); state.use[base0[k].rid]--; state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; (state.last[k] = state.last[k] || {})[c.r.id] = state.i; delete state.last[k][base0[k].rid]; base0[k] = { rid: c.r.id, ov: c.ov }; } } }
         /* TD-21: the stored totals and the gap use the SAME sum the screen shows (C.plannedTotals: each dish rounded, then
            summed). The repair loop above still uses `tot`, so the chosen dishes and portions are unchanged. */
         const t = shown(Object.fromEntries(present.map(k => [k, day.slots[k]])));
