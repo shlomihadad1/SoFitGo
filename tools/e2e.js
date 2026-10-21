@@ -103,7 +103,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   ok((await p.locator('main').innerText()).includes('הערכה') && (await p.locator('main').innerText()).includes('זמן מתוכנן'), 'planned time shown and labelled as estimate');
   await p.locator('[data-act=swap][data-ex=reverse_lunge]').click(); await p.locator('.sheet [data-act=pick][data-id=split_squat]').click(); await p.waitForTimeout(200);
   ok((await state('workouts')).swaps[3].reverse_lunge === 'split_squat', 'exercise swap');
-  await p.locator('.seg [data-v=std]').click(); await p.locator('[data-act=start]').click(); await p.waitForTimeout(400);
+  await p.locator('.seg [data-v=std]').click(); await p.locator('[data-act=start]').click(); await p.locator('.sheet [data-act=go]').click(); await p.waitForTimeout(400); /* M11: pre-start sheet (mode + rest) */
   ok(await p.locator('.run').count() === 1 && !(await state('workouts')).days[3], 'workout mode opens, not marked done');
   await p.locator('.run [data-a=done]').click(); await p.waitForTimeout(200);
   ok((await state('session')).log[0].done === true, 'set marked done');
@@ -125,7 +125,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   G = 'fitness tests';
   await go('#/day/1');
   ok((await p.locator('main').innerText()).includes('מבחן כושר סטנדרטי'), 'test card on day 1');
-  await p.locator('[data-act=startTest]').click(); await p.waitForTimeout(400);
+  await p.locator('[data-act=startTest]').click(); await p.locator('.sheet [data-act=go]').click(); await p.waitForTimeout(400);
   ok((await state('session')).version === 'test', 'test session is separate from workout');
   // go to the push-up test step, enter a result, skip the rest
   for (let i = 0; i < 12; i++) { if (await p.locator('#run-test').count()) break; await p.locator('.run [data-a=done]').click(); await p.waitForTimeout(80); if (await p.locator('.run [data-a=skipRest]').count()) await p.locator('.run [data-a=skipRest]').click(); }

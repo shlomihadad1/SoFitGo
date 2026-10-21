@@ -14,7 +14,8 @@
   const links = (where) => { const t = encodeURIComponent(q() + ' ' + where);
     return `<div class="btns" data-near-links><a class="btn primary" href="https://www.google.com/maps/search/?api=1&query=${t}" target="_blank" rel="noopener noreferrer" data-near-google aria-label="חיפוש ב־Google Maps (נפתח באתר חיצוני)">חיפוש ב־Google Maps ↗</a><a class="btn" href="https://www.openstreetmap.org/search?query=${t}" target="_blank" rel="noopener noreferrer" data-near-osm aria-label="חיפוש ב־OpenStreetMap (נפתח באתר חיצוני)">חיפוש ב־OpenStreetMap ↗</a></div>
       <p class="tiny muted" data-near-external><b>הקישורים נפתחים אצל ספק חיצוני</b> (Google או OpenStreetMap), רק כשלוחצים עליהם, ובכפוף למדיניות הפרטיות שלו. הספק מקבל רק את מה שבקישור: סוג האוכל ו${where === ui.city ? 'העיר שהזנת' : 'המיקום המעוגל'}. SoFitGo לא בודקת את הערכים התזונתיים של מסעדות.</p>`; };
-  Screens.foodNear = function () {
+  Screens.foodNear = function (dest) {
+    if (dest && ui.state === 'idle' && !ui.city) { ui.city = String(dest).slice(0, 60); ui.state = 'manual'; } /* M12: destination typed in Travel Mode (never a detected location) */
     const geo = !!(navigator.geolocation && navigator.geolocation.getCurrentPosition);
     const pre = (root.Core.normPrefs(root.Core.profile().prefs).cuisines || []);
     let res = '';

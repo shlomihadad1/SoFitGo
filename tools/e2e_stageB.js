@@ -104,7 +104,7 @@ const res = []; let G = ''; const ok = (c, m, info) => res.push({ g: G, ok: !!c,
 
   G = 'workout run → history';
   { const n = await p.evaluate(() => { const pl = Plans.active(); const d = Plans.days(pl).find(x => Plans.isTraining(x) && x.type !== 'assess' && !x.log && x.date >= Store.today() && x.status !== 'skipped'); return d.n; });
-    await p.evaluate(n => { const pl = Plans.active(), d = Plans.dayOf(pl, n); Run.start(n, d.version || 'std', { id: pl.id, n }); }, n); await p.waitForTimeout(400);
+    await p.evaluate(n => { const pl = Plans.active(), d = Plans.dayOf(pl, n); Run.start(n, d.version || 'std', { id: pl.id, n }); }, n); await p.locator('.sheet [data-act=go]').click(); await p.waitForTimeout(400);
     ok(await p.locator('.run').count() === 1, 'plan day opens in the workout runner');
     await p.locator('.run [data-a=exit]').click(); await p.waitForTimeout(200); await p.locator('.sheet [data-act=finish]').click(); await p.waitForTimeout(300);
     await p.locator('.run [data-r="6"]').click(); await p.locator('.run [data-a=save]').click(); await p.waitForTimeout(400);

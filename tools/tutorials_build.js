@@ -21,7 +21,7 @@ const FLOWS = {
     await t.tap('[data-act=gp][data-v=general]'); await t.tap('[data-act=next]'); await t.pause(700); await t.scroll(500);
     await t.pause(900); },
   async programs(t) { await t.seed({ plan: false }); await t.go('#/settings'); await t.tap('a[href="#/programs"]'); await t.pause(800); await t.tap('a[href^="#/program/"]'); await t.scroll(500); await t.pause(800); await t.scroll(500); await t.pause(900); },
-  async runner(t) { await t.seed(); await t.clockTo(2); /* day 1 is the fitness test (different runner); day 3 is a regular workout */ await t.go('#/plan'); await t.tap('[data-act=start]');
+  async runner(t) { await t.seed(); await t.clockTo(2); /* day 1 is the fitness test (different runner); day 3 is a regular workout */ await t.go('#/plan'); await t.tap('[data-act=start]'); await t.tap('.sheet [data-act=go]');
     for (let i = 0; i < 3; i++) { if (await t.has('.run [data-a=skipRest]')) await t.tap('.run [data-a=skipRest]'); await t.tap('.run [data-a=done]'); }
     await t.tap('.run [data-a=exit]'); await t.tap('.sheet [data-act=finish]'); await t.pause(700);
     if (await t.has('.run [data-fb][data-v=ok]')) await t.tap('.run [data-fb][data-v=ok]'); if (await t.has('.run [data-r="6"]')) await t.tap('.run [data-r="6"]'); await t.tap('.run [data-a=save]'); await t.pause(900); },

@@ -165,7 +165,8 @@ C.unlocked = {};
 C.locked = date => C.isPast(date) && !C.unlocked[date];
 C.setPlanSlot = (date, slot, patch) => {
   const nu = S().load('nutrition'); nu.plan[date] = nu.plan[date] || {};
-  nu.plan[date][slot] = Object.assign({}, nu.plan[date][slot] || {}, patch); S().save('nutrition');
+  nu.plan[date][slot] = Object.assign({}, nu.plan[date][slot] || {}, patch);
+  return S().save('nutrition') || (S().storageOKAtStart ? false : 'memory'); /* M11.3: false = the write failed (Store rolled the change back); 'memory' = no storage on this browser, kept for this session */
 };
 C.addEntry = (date, e) => { const nu = S().load('nutrition'); nu.log[date] = nu.log[date] || { entries: [] }; e.id = e.id || ('e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); e.at = new Date().toISOString(); nu.log[date].entries.push(e); S().save('nutrition'); return e; };
 C.removeEntry = (date, id) => { const nu = S().load('nutrition'); const l = nu.log[date]; if (!l) return; l.entries = l.entries.filter(x => x.id !== id); S().save('nutrition'); };

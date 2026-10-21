@@ -85,7 +85,8 @@ Screens.nutrition = function (date) {
       eat: el => portionSheet(date, el.dataset.slot, null),
       editEat: el => portionSheet(date, el.dataset.slot, C.slotEntry(date, el.dataset.slot)),
       uneat: el => { const e = C.slotEntry(date, el.dataset.slot); if (!e) return; C.removeEntry(date, e.id); root.App.render(); undoToast('הסימון בוטל', () => { if (!C.slotEntry(date, e.slot)) C.addEntry(date, Object.assign({}, e)); }); },
-      swapMeal: el => swapMealSheet(date, el.dataset.slot),
+      swapMeal: el => { const sl = el.dataset.slot; if (root.MealOpt) return root.MealOpt.sheet(date, sl); /* M11.3: swap sheet lives in the on-demand chunk */
+        root.App.loadChunk('extra.js').then(() => root.MealOpt.sheet(date, sl), () => root.UI.toast('החלפת מנה זמינה אחרי טעינה ראשונה עם חיבור לאינטרנט')); },
       portion: el => portionPlanSheet(date, el.dataset.slot),
       menuUpdate: () => menuUpdateSheet(),
       swapIng: el => swapIngSheet(date, el.dataset.slot),
@@ -129,26 +130,6 @@ function portionSheet(date, slot, entry) {
         const had = C.slotEntry(date, slot), ne = C.eatSlot(date, slot, pct / 100); close(); root.App.render(); /* eatSlot never adds a second entry for the same slot */
         if (!had) undoToast('סומן כנאכל ✓', () => { C.removeEntry(date, ne.id); }); else root.UI.toast('נשמר ביומן'); } });
   sh.body.querySelector('#pp').addEventListener('input', ev => { pct = +ev.target.value || 0; sh.body.querySelector('#pm').innerHTML = body(); });
-}
-function swapMealSheet(date, slot) {
-  const s = C.plan(date)[slot], empty = !s.rid || s.off || s.missing; /* empty slot: offer every fitting recipe of that meal type */
-  const r = empty ? N.RECIPES.find(x => x.meal === slot && !x.est) : L.recipe(s.rid), base = empty ? { k: 0, p: 0, c: 0, f: 0, fb: 0 } : C.slotMacros(s);
-  const cands = (empty ? N.RECIPES.filter(x => x.meal === slot && !x.est).map(x => ({ r: x, m: L.recipeMacros(x), flags: [] })) : L.swapCandidates(r, N.RECIPES)).filter(o => !prefBlocked(o.r));
-  const blockedN = (empty ? N.RECIPES.filter(x => x.meal === slot && !x.est).length : L.swapCandidates(r, N.RECIPES).length) - cands.length;
-  const close3 = cands.filter(o => !o.flags.length), other = cands.filter(o => o.flags.length);
-  const card = o => { const main = o.r.ing.filter(x => F[x.f].grp !== 'fat').slice(0, 4).map(x => `${F[x.f].he.split(' (')[0]} ${x.g}ג׳`).join(' · ');
-    return `<button class="li li-btn" data-act="pick" data-id="${o.r.id}"><div class="grow stack tight"><div class="t">${esc(o.r.he)}${o.r.est ? ' <span class="pill acc">הערכה</span>' : ''}</div><div class="s">${esc(main)}</div><div class="kv">${fmt(o.m)}<span>⏱ ${timeShort(o.r)}</span><span>${COST_HE[o.r.cost]}</span></div>${o.flags.length ? `<div class="tiny warn">שונה מהותית ב: ${o.flags.join(', ')} (${o.m.k - base.k > 0 ? '+' : ''}${o.m.k - base.k} קק״ל, ${o.m.p - base.p > 0 ? '+' : ''}${Math.round(o.m.p - base.p)} ג׳ חלבון)</div>` : ''}</div></button>`; };
-  root.UI.sheet('החלפת ' + C.slotNames[slot], `<div class="banner info small"><div>${empty ? 'אין כרגע מנה במקום הזה.' : `נוכחי: <b>${esc(r.he)}</b> · ${base.k} קק״ל · ${base.p} ג׳ חלבון`}</div></div>
-    ${s.changed ? '<button class="btn sm" data-act="reset">חזרה לארוחה המקורית</button>' : ''}
-    <h4>חלופות קרובות בערכים</h4><div class="list">${close3.slice(0, 8).map(card).join('') || '<p class="muted small">אין חלופה קרובה מספיק — ראו למטה.</p>'}</div>
-    ${other.length ? `<details class="more"><summary>חלופות נוספות (ערכים שונים)</summary><div class="list">${other.map(card).join('')}</div></details>` : ''}
-    ${blockedN ? `<p class="tiny faint">${blockedN} מנות הוסתרו כי אינן תואמות להעדפות התזונה שלך.</p>` : ''}<p class="tiny faint">"עלות" היא דירוג יחסי בלבד ולא מחיר. ${C.slotEntry(date, slot) ? 'הרישום של מה שכבר נאכל לא ישתנה.' : ''}</p>`,
-    { pick: (el, e, close) => { const nr = L.recipe(el.dataset.id), m1 = L.recipeMacros(nr);
-        /* in a personal plan the replacement is sized to the meal it replaces (the generated menu is sized to the user's targets) */
-        const sc = !empty && C.plan(date).source === 'plan' && slot !== 'extra' && m1.k ? Math.max(0.6, Math.min(1.8, Math.round(base.k / m1.k * 20) / 20)) : 1, m2 = L.recipeMacros(nr, sc);
-        close(); root.UI.sheet('אישור החלפה', `<p class="small">${empty ? '' : `<b>${esc(r.he)}</b> ← `}<b>${esc(nr.he)}</b>${sc !== 1 ? ` <span class="pill">כמות ×${sc} כדי להתאים לגודל הארוחה</span>` : ''}</p>${diffTable(base, m2)}${nr.cuisine ? '' : ''}<p class="tiny faint">${C.slotEntry(date, slot) ? 'הרישום של מה שכבר נאכל לא ישתנה.' : ''}</p><button class="btn primary" data-act="ok">אישור ההחלפה</button><button class="btn ghost" data-act="no">ביטול</button>`,
-          { ok: (b2, e2, close2) => { C.setPlanSlot(date, slot, Object.assign({ rid: nr.id, ov: null, scale: sc, auto: false }, slot === 'extra' ? { on: true } : {})); close2(); root.UI.toast('הארוחה הוחלפה והסיכום עודכן'); root.App.render(); }, no: (b2, e2, close2) => close2() }); },
-      reset: (el, e, close) => { const nu = S.load('nutrition'); if (nu.plan[date]) delete nu.plan[date][slot]; S.save('nutrition'); close(); root.App.render(); } });
 }
 function portionPlanSheet(date, slot) {
   const s = C.plan(date)[slot], r = L.recipe(s.rid), before = C.slotMacros(s); let sc = s.scale || 1;
@@ -240,7 +221,7 @@ function rcPage() {
   if (inp) inp.addEventListener('input', () => { st.rq = inp.value; st.rcShown = RC_PAGE; rcApply(); });
 }
 /* M10.4: #/recipes and #/recipe moved to screens_recipes.js (on-demand chunk extra.js, first-load budget); shared helpers via Screens._nu */
-Screens._nu = { st, COST_HE, timeShort, ingLine, addRecipeEntry, prefBlocked, rcApply, rcPage, rcText, RC_PAGE, RF };
+Screens._nu = { fmt, diffTable, st, COST_HE, timeShort, ingLine, addRecipeEntry, prefBlocked, rcApply, rcPage, rcText, RC_PAGE, RF };
 Screens.targetWarnings = function (opt) { opt = opt || {}; const w = C.targetWarnings().filter(x => !opt.only || opt.only.includes(x.level));
   return (w.length ? `<div class="stack tight" data-target-warnings>${w.map(x => `<div class="banner ${x.level === 'bad' ? 'bad' : x.level === 'warn' ? 'warn' : 'info'} small" data-tw="${x.k}">${icon('info')}<div>${esc(x.text)}</div></div>`).join('')}</div>` : '') + (opt.disclaimer ? `<p class="tiny faint" data-disclaimer>${esc(C.DISCLAIMER)}</p>` : ''); };
 Screens.targets = function () {

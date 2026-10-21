@@ -13,7 +13,7 @@
 (function (root) {
 'use strict';
 const S = () => root.Store;
-const SRC_HE = { healthkit: 'Apple Health', healthconnect: 'Health Connect' };
+const SRC_HE = { healthkit: 'Apple Health', healthconnect: 'Health Connect', file: 'קובץ' };
 const KIND_HE = { measured: 'נמדד', user: 'הוזן ידנית', estimated: 'הערכה', none: 'אין נתון' };
 
 /* ---- environment ---- */
@@ -40,7 +40,7 @@ function day(date, t) {
   if (typeof d.steps === 'number' && d.steps >= 0) return { value: d.steps, kind: d.stepsSrc === 'estimated' ? 'estimated' : 'user', src: null, syncedAt: null, user: d.steps };
   return { value: null, kind: 'none', src: null, syncedAt: null, user: null };
 }
-function label(v) { return v.kind === 'measured' ? `${KIND_HE.measured} · ${SRC_HE[v.src] || v.src}` : KIND_HE[v.kind]; }
+function label(v) { return v.kind === 'measured' && v.src === 'file' ? 'יובא מקובץ' : v.kind === 'measured' ? `${KIND_HE.measured} · ${SRC_HE[v.src] || v.src}` : KIND_HE[v.kind]; }
 function setUserSteps(date, steps) { /* manual entry: always labelled 'user' */
   const t = tracking(); t.daily[date] = Object.assign({}, t.daily[date] || {}, { steps: Math.max(0, Math.round(steps)), stepsSrc: 'user' }); return S().save('tracking');
 }

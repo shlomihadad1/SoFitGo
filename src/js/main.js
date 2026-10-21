@@ -46,7 +46,7 @@ function screenFor(r) {
     case 'nutrition': return Screens.nutrition(r.arg && /^\d{4}-\d{2}-\d{2}$/.test(r.arg) ? r.arg : null);
     case 'recipes': return Screens.recipes ? Screens.recipes() : extraLoading('מתכונים', '#/nutrition'); /* M10.4: extra.js */
     case 'recipe': return Screens.recipe ? Screens.recipe(r.arg, r.rest[0], r.rest[1]) : extraLoading('מתכון', '#/nutrition'); /* M10.4: extra.js */
-    case 'nearby': return Screens.foodNear ? Screens.foodNear() : extraLoading('אוכל בקרבתי', '#/nutrition'); /* M10.4: extra.js, location only on tap */
+    case 'nearby': return Screens.foodNear ? Screens.foodNear(r.arg) : extraLoading('אוכל בקרבתי', '#/nutrition'); /* M10.4: extra.js, location only on tap */
     case 'targets': return Screens.targets();
     case 'progress': return Screens.progress();
     case 'settings': return Screens.settings();
@@ -169,6 +169,7 @@ App.importBackup = function () {
         close(); root.UI.confirmSheet('לאשר שחזור?', `גיבוי מתאריך ${o.exportedAt ? o.exportedAt.slice(0, 10) : 'לא ידוע'} יחליף את הנתונים הנוכחיים.`, 'שחזור', () => { try { S.importAll(o); App.applyDisplay(); root.UI.toast('השחזור הושלם'); location.hash = '#/'; App.render(); } catch (er) { root.UI.toast(er.message); } }, true); } });
   const f = document.getElementById('im-f'); f.addEventListener('change', () => { const file = f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => { document.getElementById('im-t').value = rd.result; document.getElementById('im-msg').textContent = 'הקובץ נטען. לחצו "שחזור".'; }; rd.readAsText(file); });
 };
+App.fileOut = fileOut; /* M11.4: used by the on-demand sync tools */
 App.exportICS = function (time, alarm) {
   const [hh, mm] = time.split(':').map(Number); const pad = n => String(n).padStart(2, '0');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//fit30//HE', 'CALSCALE:GREGORIAN'];

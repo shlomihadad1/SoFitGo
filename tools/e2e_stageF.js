@@ -26,7 +26,7 @@ const res = []; let G = ''; const ok = (c, m, info) => res.push({ g: G, ok: !!c,
     for (const d0 of t.slice(0, 3)) for (const it of d0.main.filter(x => !x.circuit && typeof x.reps === 'number')) { const l = t.filter(d => d.main.some(x => x.ex === it.ex && !x.circuit)); if (l.length >= 4) return { ex: it.ex, days: l.map(d => ({ n: d.n, date: d.date })) }; } return null; });
   ok(!!ses, 'setup: an exercise that repeats in ≥4 sessions');
   await at(ses.days[0].date);
-  await p.evaluate(n => { const pl = Plans.active(), d = Plans.dayOf(pl, n); Run.start(n, d.version || 'std', { id: pl.id, n }); }, ses.days[0].n); await p.waitForTimeout(300);
+  await p.evaluate(n => { const pl = Plans.active(), d = Plans.dayOf(pl, n); Run.start(n, d.version || 'std', { id: pl.id, n }); }, ses.days[0].n); await p.locator('.sheet [data-act=go]').click(); await p.waitForTimeout(300);
   for (let i = 0; i < 3; i++) { if (await p.locator('.run [data-a=skipRest]').count()) await p.locator('.run [data-a=skipRest]').click(); await p.locator('.run [data-a=done]').click(); await p.waitForTimeout(60); }
   await p.locator('.run [data-a=exit]').click(); await p.waitForTimeout(200); await p.locator('.sheet [data-act=finish]').click(); await p.waitForTimeout(300);
   ok(await p.locator('.run [data-a=save]').count() === 1, 'workout runner reaches the summary');
