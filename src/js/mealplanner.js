@@ -29,6 +29,12 @@
       const capK = L().recipeIngredients(r, ov).reduce((s, x) => { const f = N().FOODS[x.f]; const g = f.unit ? x.g : Math.min(capOf(x.f), x.g * (isProt(x.f) ? 2.5 : 2.4)); return s + f.k * g / 100; }, 0);
       out[r.meal].push({ r, ov, fav: fav.has(r.id), min: (r.prep || 0) + (r.cook || 0), protein: mainProtein(r), dens: m.k ? m.p / m.k * 100 : 0, capK });
     }
+    /* M10.4 · cuisine preference (only when the user chose one): keep dishes of the chosen cuisines; if a slot would have too few,
+       other SAFE dishes are added back and the menu says so (never presented as matching the chosen cuisine) */
+    const cset = C().cuisineSet(params.prefs);
+    if (cset) SLOTS3.concat('extra').forEach(k => { const ok = out[k].filter(c => cset.has(C().cuisineOf(c.r))), min = k === 'extra' ? 1 : 3;
+      out[k].forEach(c => { c.cuOk = cset.has(C().cuisineOf(c.r)); c.cuMain = C().cuisineMainOk(c.r, params.prefs); });
+      if (ok.length >= min) out[k] = ok; else if (k !== 'extra') out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
     if (params.maxPrep) SLOTS3.forEach(k => { const quick = out[k].filter(c => c.min <= params.maxPrep); if (quick.length >= 3) out[k] = quick; else out.notes.push(`אין מספיק מנות ל"${C().slotNames[k]}" שמוכנות תוך ${params.maxPrep} דק׳ — נכללו גם מנות ארוכות יותר.`); });
     return out;
   }
@@ -92,7 +98,7 @@
         /* protein density vs what the user's targets need (g protein per 100 kcal); low-protein dishes still appear, less often */
         const need = Pt && T ? Pt / T * 100 : 0;
         const SHARE = params.meals === 2 ? { m1: 0.45, m2: 0.55 } : { m1: 0.33, m2: 0.45, snack: 0.22 }, needK = T ? T * SHARE[k] : 0;
-        const score = c => (state.use[c.r.id] || 0) * 10 + Math.max(0, need - c.dens) * 8 + Math.max(0, needK - c.capK) / 100 * 4 + (c.protein && c.protein === prevProt && list.length > 3 ? 6 : 0) - (c.fav ? 3 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000;
+        const score = c => (state.use[c.r.id] || 0) * 10 + Math.max(0, need - c.dens) * 8 + Math.max(0, needK - c.capK) / 100 * 4 + (c.protein && c.protein === prevProt && list.length > 3 ? 6 : 0) - (c.fav ? 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000; /* M10.4: chosen cuisine first, favourite cuisine slightly preferred */
         const pick = list.slice().sort((a, b) => score(a) - score(b))[0];
         used.add(pick.r.id); state.use[pick.r.id] = (state.use[pick.r.id] || 0) + 1; (state.last[k] = state.last[k] || {})[pick.r.id] = state.i;
         if (k === 'm2') state.prevProt = pick.protein;

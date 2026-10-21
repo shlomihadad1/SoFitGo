@@ -62,7 +62,12 @@ T('5 security & privacy');
   const hits = []; all.forEach(f => { const s = fs.readFileSync(f, 'utf8'); pats.forEach(r => { if (r.test(s)) hits.push(path.basename(f) + ' ' + r); }); });
   ok(hits.length === 0, `no API keys, tokens, private keys or personal e-mail addresses in ${all.length} source files`, hits);
   const net = cp.execSync(`grep -rhoE "https?://[a-zA-Z0-9.-]+" ${path.join(ROOT, 'src/js')} ${path.join(ROOT, 'src/data')} | sort -u`).toString().trim().split('\n').filter(Boolean);
-  ok(net.every(u => /fonts\.(googleapis|gstatic)\.com|webkit\.org|www\.w3\.org/.test(u)), 'the only network hosts referenced by code are fonts (and documentation links)', net);
+  ok(net.every(u => /fonts\.(googleapis|gstatic)\.com|webkit\.org|www\.w3\.org|^https:\/\/www\.google\.com$|^https:\/\/www\.openstreetmap\.org$/.test(u)), 'the only network hosts referenced by code are fonts, documentation links and the two map-search links of #/nearby', net);
+  { /* M10.4: the map hosts may appear ONLY as user-clicked links (target=_blank, noopener) in screens_food_near.js — never fetched */
+    const mapFiles = cp.execSync(`grep -rlE "google\\.com|openstreetmap\\.org" ${path.join(ROOT, 'src/js')} ${path.join(ROOT, 'src/data')} || true`).toString().trim().split('\n').filter(Boolean).map(f => path.basename(f));
+    const fn = fs.readFileSync(path.join(ROOT, 'src/js/screens_food_near.js'), 'utf8');
+    ok(mapFiles.join() === 'screens_food_near.js' && !/fetch\(|XMLHttpRequest|sendBeacon|new Image|<img|<iframe|<script/.test(fn) && (fn.match(/href="https:\/\/www\.(google\.com|openstreetmap\.org)/g) || []).length === 2 && (fn.match(/rel="noopener noreferrer"/g) || []).length === 2,
+      'map hosts appear only as two outbound links (noopener) in the nearby-food screen — no request is sent to them by the app', mapFiles); }
   const html = fs.readFileSync(path.join(ROOT, 'dist/pwa/index.html'), 'utf8'); ok(!/<iframe|youtube|vimeo|google-analytics|gtag\(|facebook\.net/i.test(html), 'no third-party players, analytics or trackers in the build'); }
 
 T('6 tutorial media');

@@ -598,3 +598,9 @@ body.kb .setup-nav { position: static; background: none; }
 @supports (-webkit-touch-callout: none) {
   .top, .nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); }
 }
+/* M10.4 · sticky stack: the header height is measured (--top-h) so the section index sits right under it on every device,
+   html scroll-padding keeps anchors/focused fields clear of the sticky bars and of the bottom navigation; while the keyboard is
+   open the section index stops being sticky (it would otherwise eat ~56px of the little space left). */
+html { scroll-padding-top: calc(var(--sticky-h, 64px) + 8px); scroll-padding-bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px)); }
+.sec-index { top: var(--top-h, calc(54px + env(safe-area-inset-top, 0px))); }
+body.kb .sec-index { position: static; }
