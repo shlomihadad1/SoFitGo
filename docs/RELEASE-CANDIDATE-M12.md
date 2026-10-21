@@ -46,3 +46,6 @@ Live Supabase config: `sofitgo-config.js` next to `index.html` (URL + publishabl
 
 ## Owner actions required
 Merge PR #1/#2, push + PR for `feat/beta-core`, deploy, SMTP setup, test-user SQL approval, device checks, and any paid service decision (AI, restaurant data).
+
+## Consolidated regression (run once, on `956be4b`)
+`node tools/qa/run_qa.js --mode full` (local, Chromium + Playwright WebKit engine, PostgreSQL 16 local emulator): **57 suites PASS (15,556 checks), 0 FAIL, 2 BLOCKED** (live Supabase checks — not authorised; auto-fix — no approved AI), **4 NOT TESTED** (real Safari/devices, real email delivery, AI coach model, subscriptions). Local servers were up for the whole run.
