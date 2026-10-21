@@ -123,7 +123,7 @@ const T = [
   { id: 'steps', he: 'כמה צעדים עשיתי?', re: /צעד|הליכה|הלכתי|steps/,
     a: d => { const A = root.Activity; if (!A) return { lines: ['מעקב הצעדים לא זמין בגרסה הזו.'], acts: [] }; const v = A.day(d), tg = A.targetOn(d);
       if (v.value == null) return { lines: ['עוד לא נרשמו צעדים היום.', A.envText()], acts: [{ href: '#/activity', label: 'רישום צעדים' }] };
-      return { lines: [`היום: ${v.value.toLocaleString('he-IL')} צעדים (${A.label(v)}).`, tg ? (v.value >= tg ? 'הגעת ליעד הצעדים.' : `היעד: ${tg.toLocaleString('he-IL')} — נשארו ${(tg - v.value).toLocaleString('he-IL')}.`) : 'אין יעד צעדים מוגדר.'], acts: [{ href: '#/activity', label: 'לפעילות' }], src: v.kind === 'measured' ? 'נתון שנמדד' : 'רישום ידני' }; } },
+      return { lines: [`היום: ${v.value.toLocaleString('he-IL')} צעדים (${A.label(v)}).`, tg ? (v.value >= tg ? 'הגעת ליעד הצעדים.' : `היעד: ${tg.toLocaleString('he-IL')} — נשארו ${(tg - v.value).toLocaleString('he-IL')}.`) : 'אין יעד צעדים מוגדר.'], acts: [{ href: '#/activity', label: 'לפעילות' }], src: A.label(v) }; } },
   { id: 'progress', he: 'איך ההתקדמות שלי?', re: /התקדמות|משקל|ירדתי|עליתי|שקילה|רצף|השבוע/,
     a: () => { const ms = C.measures().filter(x => x.weight), st = C.streak(), lines = [];
       if (ms.length >= 2) { const a = ms[0], b = ms[ms.length - 1], dlt = Math.round((b.weight - a.weight) * 10) / 10; lines.push(`משקל: ${a.weight} ← ${b.weight} ק״ג (${dlt > 0 ? '+' : ''}${dlt}) בין ${S.fmtShort(a.date)} ל־${S.fmtShort(b.date)}. שינוי של יום־יומיים הוא בעיקר מים.`); }

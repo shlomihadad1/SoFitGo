@@ -155,7 +155,7 @@ Screens.settings = function () {
       <label class="switch"><span>מסך דולק במהלך אימון (אם נתמך)</span><input type="checkbox" id="d-wake" ${p.display.wake ? 'checked' : ''} data-act="display"></label>
       <label class="switch"><span>צליל בסוף מנוחה</span><input type="checkbox" id="d-snd" ${p.display.sound ? 'checked' : ''} data-act="display"></label></section>
     <section class="card"><h2>תזכורות</h2><p class="small">התראות דחיפה מאפליקציית ווב באייפון דורשות שרת התראות — לא מומש באפליקציה הזו. במקום זה אפשר להעתיק את לוח האימונים כקובץ יומן (iCalendar) ולייבא ליומן של האייפון עם התראה יומית.</p>
-      <div class="grid2"><label class="field">שעת אימון<input type="time" id="ics-t" value="07:00"></label><label class="field">התראה לפני (דק׳)<input type="number" id="ics-a" inputmode="numeric" value="15"></label></div><button class="btn" data-act="ics">${icon('cal')} יצירת קובץ יומן ל־30 הימים</button></section>
+      <div class="grid2"><label class="field">שעת אימון<input type="time" id="ics-t" value="07:00"></label><label class="field">התראה לפני (דק׳)<input type="number" id="ics-a" inputmode="numeric" value="15"></label></div><button class="btn" data-act="ics">${icon('cal')} ${root.Plans && root.Plans.active() ? 'יצירת קובץ יומן לתוכנית האישית' : 'יצירת קובץ יומן ל־30 הימים'}</button></section>
     <section class="card"><h2>גיבוי ושחזור</h2>
       <div class="banner info small">${icon('info')}<div>כל הנתונים נשמרים <b>רק במכשיר ובדפדפן הזה</b> (Local Storage). אין שרת ואין ענן. מחיקת נתוני האתר ב־Safari, או מעבר לטלפון אחר, ימחקו אותם — לכן חשוב לגבות. גיבוי אחרון: <b>${meta.lastBackup ? esc(S.fmtDate(meta.lastBackup.slice(0, 10))) : 'עדיין לא'}</b>. נפח בשימוש: ~${kb} KB.</div></div>
       <div class="btns"><button class="btn primary" data-act="export">${icon('share')} ייצוא גיבוי</button><button class="btn" data-act="import">שחזור מגיבוי</button></div>
@@ -205,7 +205,8 @@ Screens.settings = function () {
           <p class="tiny faint">הערכים התזונתיים חושבו מחדש. ימים שעברו ומזון שכבר נרשם כנאכל לא שונו.</p>`); },
       units: () => { p.units = { w: document.getElementById('u-w').value, len: document.getElementById('u-l').value }; S.save('profile'); root.App.render(); },
       display: () => { p.display = { size: document.getElementById('d-size').value, motion: document.getElementById('d-mo').checked ? 'reduce' : 'auto', wake: document.getElementById('d-wake').checked, sound: document.getElementById('d-snd').checked }; S.save('profile'); root.App.applyDisplay(); },
-      ics: () => root.App.exportICS(document.getElementById('ics-t').value || '07:00', +document.getElementById('ics-a').value || 0),
+      ics: () => { const t = document.getElementById('ics-t').value || '07:00', a = +document.getElementById('ics-a').value || 0; if (!(root.Plans && root.Plans.active())) return root.App.exportICS(t, a);
+        root.App.loadChunk('extra.js').then(() => root.SyncTools.exportPlanICS(t, a), () => root.UI.toast('נדרש חיבור לאינטרנט בפעם הראשונה')); }, /* M11.4: an active personal plan exports ITS days */
       export: () => root.App.exportBackup(),
       import: () => root.App.importBackup(),
       reset: () => { root.UI.sheet('מחיקת כל הנתונים', `<p>פעולה זו מוחקת מהמכשיר את כל הרישומים, המדידות וההגדרות. לא ניתן לבטל. מומלץ לייצא גיבוי קודם.</p><label class="field">הקלידו "מחק" לאישור<input type="text" id="rs-c"></label><button class="btn danger" data-act="ok">מחיקה סופית</button>`,
