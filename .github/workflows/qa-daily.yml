@@ -46,12 +46,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install test tooling (esbuild, Playwright)
-        run: npm install --no-audit --no-fund
+      - name: Install test tooling (esbuild, Playwright, sharp)
+        # sharp: image tool used by tools/media_build.js (stageA_test). Pinned to the version the tests were run with locally;
+        # --no-save keeps package.json unchanged (the app itself has no runtime dependencies).
+        run: npm install --no-audit --no-fund && npm install --no-audit --no-fund --no-save sharp@0.35.4
       - name: Install browsers (Chromium + WebKit engine; WebKit is not Safari)
         run: npx playwright install --with-deps chromium webkit
-      - name: PostgreSQL client
-        run: sudo apt-get install -y postgresql-client >/dev/null
+      - name: PostgreSQL client and ffmpeg (ffprobe is used by rc1_test to check the tutorial videos)
+        run: sudo apt-get update >/dev/null && sudo apt-get install -y postgresql-client ffmpeg >/dev/null
+      - name: Check test tools are installed (fails fast instead of crashing a suite)
+        run: |
+          node -e "console.log('sharp ok, libvips', require('sharp').versions.vips)"
+          ffprobe -version | head -1
+          ffmpeg -version | head -1
+          psql --version
+          zip -v | head -2 | tail -1
+          unzip -v | head -1
       - name: Run QA agents
         id: qa
         continue-on-error: true

@@ -29,7 +29,7 @@ const ENV = root.FIT30_ENV || 'pwa';
 
 const tr = k => (root.I18N ? root.I18N.t(k) : k);
 const NAV = [ { h: '#/', k: 'home', i: 'home' }, { h: '#/calendar', k: 'calendar', i: 'cal' }, { h: '#/workouts', k: 'workouts', i: 'dumbbell' }, { h: '#/nutrition', k: 'nutrition', i: 'food' }, { h: '#/progress', k: 'progress', i: 'chart' } ];
-const SECTION = { account: 'settings', legal: 'settings', coach: 'home', travel: 'home', planb: 'home', feedback: 'settings', fridge: 'nutrition', activity: 'progress', help: 'settings', explain: 'workouts', review: 'progress', records: 'progress', shopping: 'nutrition', home: 'home', calendar: 'calendar', workouts: 'workouts', day: 'workouts', library: 'workouts', ex: 'workouts', nutrition: 'nutrition', recipes: 'nutrition', recipe: 'nutrition', targets: 'nutrition', progress: 'progress', settings: 'settings', programs: 'workouts', program: 'workouts', media: 'settings', profile: 'settings', setup: 'workouts', plan: 'workouts', pday: 'workouts', install: 'settings' };
+const SECTION = { account: 'settings', legal: 'settings', coach: 'home', travel: 'home', planb: 'home', feedback: 'settings', fridge: 'nutrition', activity: 'progress', help: 'settings', explain: 'workouts', review: 'progress', records: 'progress', shopping: 'nutrition', home: 'home', calendar: 'calendar', workouts: 'workouts', day: 'workouts', library: 'workouts', ex: 'workouts', nutrition: 'nutrition', recipes: 'nutrition', recipe: 'nutrition', 'nearby': 'nutrition', targets: 'nutrition', progress: 'progress', settings: 'settings', programs: 'workouts', program: 'workouts', media: 'settings', profile: 'settings', setup: 'workouts', plan: 'workouts', pday: 'workouts', install: 'settings' };
 
 function route() {
   const h = (location.hash || '#/').replace(/^#\/?/, ''); const [name, arg, ...rest] = h.split('/');
@@ -44,8 +44,9 @@ function screenFor(r) {
     case 'day': return Screens.day(r.arg || C.clampDay(C.todayN()));
     case 'ex': return Screens.exercise(r.arg);
     case 'nutrition': return Screens.nutrition(r.arg && /^\d{4}-\d{2}-\d{2}$/.test(r.arg) ? r.arg : null);
-    case 'recipes': return Screens.recipes();
-    case 'recipe': return Screens.recipe(r.arg, r.rest[0], r.rest[1]);
+    case 'recipes': return Screens.recipes ? Screens.recipes() : extraLoading('מתכונים', '#/nutrition'); /* M10.4: extra.js */
+    case 'recipe': return Screens.recipe ? Screens.recipe(r.arg, r.rest[0], r.rest[1]) : extraLoading('מתכון', '#/nutrition'); /* M10.4: extra.js */
+    case 'nearby': return Screens.foodNear ? Screens.foodNear() : extraLoading('אוכל בקרבתי', '#/nutrition'); /* M10.4: extra.js, location only on tap */
     case 'targets': return Screens.targets();
     case 'progress': return Screens.progress();
     case 'settings': return Screens.settings();
@@ -99,6 +100,13 @@ const BRAND_MARK_C2 = `<span class="brand" role="img" aria-label="${esc(root.FIT
    vector original arrives. <picture> fetches only the one that is shown. Without logo files (legacy brand) the C2 mark stays. */
 const LOGO = root.FIT30_LOGO;
 const BRAND_MARK = LOGO ? `<span class="brand" role="img" aria-label="${esc(root.FIT30_BRAND || 'SoFitGo')}"><picture><source media="(max-width: 359px)" srcset="${esc(LOGO.sym)}"><img class="brand-logo" src="${esc(LOGO.word)}" alt="" height="26"></picture></span>` : BRAND_MARK_C2;
+/* M10.4 · the sticky stack (header + section-index chips, incl. the safe-area inset) is MEASURED, not assumed: --sticky-h feeds
+   html { scroll-padding-top } so the browser (also Safari when the keyboard opens and when a chip jumps to a section) never parks
+   a field or a heading underneath it. Before, the field-focus fix assumed 70px while the settings index ends at ~119px. */
+App.stickyH = function () { const t = document.getElementById('top'), ix = document.querySelector('[data-sec-index]'); let h = t ? t.getBoundingClientRect().bottom : 0;
+  if (ix && getComputedStyle(ix).position === 'sticky') h = Math.max(h, Math.round(parseFloat(getComputedStyle(ix).top) || 0) + ix.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--sticky-h', Math.round(h) + 'px'); document.documentElement.style.setProperty('--top-h', Math.round(t ? t.getBoundingClientRect().height : 54) + 'px'); return h; };
+window.addEventListener('resize', () => App.stickyH());
 App.render = function () {
   App.figStops.forEach(f => f && f()); App.figStops = [];
   const r = route(); let scr;
@@ -119,10 +127,10 @@ App.render = function () {
   /* Stage D: long settings-type screens get a section index (chips that jump to each card heading) */
   if (['profile', 'settings'].includes(r.name)) { const hs = [...v.querySelectorAll('section.card')].map(sc => sc.querySelector(':scope > h2, :scope > h3, :scope > .card-h > h2, :scope > .card-h > h3')).filter(Boolean); if (hs.length >= 5) {
     const nav = document.createElement('nav'); nav.className = 'chips sec-index'; nav.setAttribute('aria-label', 'קפיצה לסעיף'); nav.dataset.secIndex = '';
-    hs.forEach((h, i) => { const sec = h.closest('section'); sec.id = sec.id || 'sec-' + i; sec.style.scrollMarginTop = '70px'; const a = document.createElement('a'); a.className = 'chip'; a.href = '#' + location.hash.slice(1); a.textContent = h.textContent.trim().slice(0, 28);
+    hs.forEach((h, i) => { const sec = h.closest('section'); sec.id = sec.id || 'sec-' + i; /* M10.4: no fixed 70px — html scroll-padding-top follows the measured sticky stack (see stickyH) */ const a = document.createElement('a'); a.className = 'chip'; a.href = '#' + location.hash.slice(1); a.textContent = h.textContent.trim().slice(0, 28);
       a.addEventListener('click', ev => { ev.preventDefault(); sec.scrollIntoView({ behavior: document.documentElement.dataset.motion === 'reduce' ? 'auto' : 'smooth', block: 'start' }); const f = h; if (f) { f.tabIndex = -1; f.focus({ preventScroll: true }); } }); nav.appendChild(a); });
     v.insertBefore(nav, v.firstChild); } }
-  updOffline();
+  updOffline(); App.stickyH();
   document.title = scr.title + ' · ' + (root.FIT30_BRAND || 'כושר 30');
   if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
   lastName = location.hash;
@@ -196,8 +204,8 @@ function boot() {
   /* M8 · keyboard: hide the bottom nav while a text field has focus (see styles.css body.kb); delayed restore on blur */
   const isText = el => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|file|color)$/.test(el.type)));
   let kbT = null;
-  document.addEventListener('focusin', e => { if (isText(e.target)) { clearTimeout(kbT); document.body.classList.add('kb'); const el = e.target; setTimeout(() => { if (document.activeElement !== el) return; const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight, r = el.getBoundingClientRect(); if (r.bottom > h - 16 || r.top < 70) el.scrollIntoView({ block: 'center' }); }, 320); } }); /* M10: keep the focused field visible above the keyboard */
-  document.addEventListener('focusout', e => { if (isText(e.target)) { clearTimeout(kbT); kbT = setTimeout(() => { if (!isText(document.activeElement)) document.body.classList.remove('kb'); }, 400); } });
+  document.addEventListener('focusin', e => { if (isText(e.target)) { clearTimeout(kbT); document.body.classList.add('kb'); const el = e.target; setTimeout(() => { if (document.activeElement !== el) return; const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight, r = el.getBoundingClientRect(); if (r.bottom > h - 16 || r.top < App.stickyH() + 8) el.scrollIntoView({ block: 'center' }); }, 320); } }); /* M10: keep the focused field visible above the keyboard */
+  document.addEventListener('focusout', e => { if (isText(e.target)) { clearTimeout(kbT); kbT = setTimeout(() => { if (!isText(document.activeElement)) document.body.classList.remove('kb'); App.stickyH(); }, 400); } });
   App.render();
   /* M10: with accounts configured, resume the session (refresh token, pull/push) in the background after first paint */
   if (root.FIT30_BACKEND) setTimeout(() => App.loadChunk('account.js').then(() => { if (['home', 'settings'].includes(route().name) || fromAuthLink) App.render(); }, () => { }), 0);
