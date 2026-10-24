@@ -14,6 +14,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   const state = k => p.evaluate(k => JSON.parse(localStorage.getItem('fit30.' + k) || 'null'), k);
   // independent calculator in page context: sums FOODS × grams for a plan slot as currently stored
   const indepSlot = (date, slot) => p.evaluate(([d, s]) => { const pl = Core.plan(d)[s], r = Logic.recipe(pl.rid); const ings = r.ing.map((x, i) => (pl.ov && pl.ov[i]) ? Object.assign({}, x, pl.ov[i]) : x);
+  const indepDay = async date => { const ks = await p.evaluate(d => { const pl = Core.plan(d); return Core.DAY.filter(k => pl[k].rid && !pl[k].off && !pl[k].missing); }, date); const o = { k: 0, p: 0 }; for (const k of ks) { const x = await indepSlot(date, k); o.k += x.k; o.p += x.p; } return o; }; /* v2: the day's meals as planned (breakfast, lunch, dinner + snacks when needed) */
     return ings.reduce((t, x) => { const f = NUTRI.FOODS[x.f]; t.k += f.k * x.g / 100 * pl.scale; t.p += f.p * x.g / 100 * pl.scale; return t; }, { k: 0, p: 0 }); }, [date, slot]);
   await p.goto(URL0); await p.waitForTimeout(700);
   await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(700);
@@ -24,12 +25,12 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   G = 'nutrition';
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* these flows test the original adjusted 30-day menu = 'מגוון בינלאומי'; the new default is covered by e2e_food_global */
   await go('#/nutrition');
-  const base3 = (await indepSlot(today, 'm1')).k + (await indepSlot(today, 'm2')).k + (await indepSlot(today, 'snack')).k;
+  const base3 = (await indepDay(today)).k;
   const shownBase = await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'));
-  ok(Math.abs(shownBase.k - base3) <= 2, `day without add-on: planned = 3 meals (${shownBase.k} vs ${Math.round(base3)})`);
+  ok(Math.abs(shownBase.k - base3) <= 2, `day without add-on: planned = the day's meals (${shownBase.k} vs ${Math.round(base3)})`);
   ok(!(await p.locator('[data-act=extraOn]').count()) && !/ארוחה ראשונה/.test(await p.locator('main').innerText()), 'add-on not shown as a meal and not counted until added');
   const tgt = await p.evaluate(() => Core.targets().protein);
-  const bp = (await indepSlot(today, 'm1')).p + (await indepSlot(today, 'm2')).p + (await indepSlot(today, 'snack')).p;
+  const bp = (await indepDay(today)).p;
   ok(bp >= tgt, `base menu reaches protein target without add-on (${bp.toFixed(1)} ≥ ${tgt})`);
   ok(!(await p.locator('main').innerText()).includes('חסרים'), 'no shortfall warning when base meets target');
   ok(!(await p.locator('main').innerText()).includes('יעד החלבון הושג'), 'target not shown as achieved before eating');
@@ -52,12 +53,12 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   ok(await p.locator('.sheet [data-diff]').count() === 1 && /הפרש/.test(await p.locator('.sheet').innerText()), 'meal swap shows kcal/protein/carbs/fat differences before confirming');
   await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(250);
   ok(await p.evaluate(() => Core.plan(Store.today()).m2.rid) === newId, 'meal swap stored');
-  const afterSwap = (await indepSlot(today, 'm1')).k + (await indepSlot(today, 'm2')).k + (await indepSlot(today, 'snack')).k;
+  const afterSwap = (await indepDay(today)).k;
   ok(Math.abs((await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'))).k - afterSwap) <= 2, 'totals after meal swap match independent sum (no stale values)');
   // ingredient swap
   await p.locator('[data-act=swapIng][data-slot=m1]').click(); await p.locator('.sheet [data-act=pickIng]').first().click(); await p.waitForTimeout(200);
   await p.selectOption('.sheet #sw-f', { index: 1 }); await p.locator('.sheet [data-act=saveIng]').click(); await p.waitForTimeout(250);
-  const afterIng = (await indepSlot(today, 'm1')).k + (await indepSlot(today, 'm2')).k + (await indepSlot(today, 'snack')).k;
+  const afterIng = (await indepDay(today)).k;
   ok(Math.abs((await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'))).k - afterIng) <= 2, 'totals after ingredient swap match independent sum');
   // eat / quantity / remove
   await p.locator('[data-act=eat][data-slot=snack]').click(); await p.locator('.sheet [data-act=p][data-p="75"]').click(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(250);
