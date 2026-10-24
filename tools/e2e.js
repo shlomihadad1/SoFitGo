@@ -14,8 +14,8 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   const state = k => p.evaluate(k => JSON.parse(localStorage.getItem('fit30.' + k) || 'null'), k);
   // independent calculator in page context: sums FOODS × grams for a plan slot as currently stored
   const indepSlot = (date, slot) => p.evaluate(([d, s]) => { const pl = Core.plan(d)[s], r = Logic.recipe(pl.rid); const ings = r.ing.map((x, i) => (pl.ov && pl.ov[i]) ? Object.assign({}, x, pl.ov[i]) : x);
-  const indepDay = async date => { const ks = await p.evaluate(d => { const pl = Core.plan(d); return Core.DAY.filter(k => pl[k].rid && !pl[k].off && !pl[k].missing); }, date); const o = { k: 0, p: 0 }; for (const k of ks) { const x = await indepSlot(date, k); o.k += x.k; o.p += x.p; } return o; }; /* v2: the day's meals as planned (breakfast, lunch, dinner + snacks when needed) */
     return ings.reduce((t, x) => { const f = NUTRI.FOODS[x.f]; t.k += f.k * x.g / 100 * pl.scale; t.p += f.p * x.g / 100 * pl.scale; return t; }, { k: 0, p: 0 }); }, [date, slot]);
+  const indepDay = async date => { const ks = await p.evaluate(d => { const pl = Core.plan(d); return Core.DAY.filter(k => pl[k].rid && !pl[k].off && !pl[k].missing); }, date); const o = { k: 0, p: 0 }; for (const k of ks) { const x = await indepSlot(date, k); o.k += x.k; o.p += x.p; } return o; }; /* v2: the day's meals as planned (breakfast, lunch, dinner + snacks when needed) */
   await p.goto(URL0); await p.waitForTimeout(700);
   await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(700);
   // Stage B: a new profile is empty; the test user enters their own data (same values as before → same expected numbers)
@@ -61,16 +61,17 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   const afterIng = (await indepDay(today)).k;
   ok(Math.abs((await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected'))).k - afterIng) <= 2, 'totals after ingredient swap match independent sum');
   // eat / quantity / remove
-  await p.locator('[data-act=eat][data-slot=snack]').click(); await p.locator('.sheet [data-act=p][data-p="75"]').click(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(250);
-  const sn = await indepSlot(today, 'snack');
+  const SL = await p.evaluate(() => { const pl = Core.plan(Store.today()); return ['snack', 'snack2', 'm3', 'm2'].find(k => pl[k].rid && !pl[k].off); }); /* v2: snacks only when the day needs them */
+  await p.locator(`[data-act=eat][data-slot=${SL}]`).click(); await p.locator('.sheet [data-act=p][data-p="75"]').click(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(250);
+  const sn = await indepSlot(today, SL);
   ok(Math.abs((await p.evaluate(() => Core.eatenTotals(Store.today()).k)) - sn.k * 0.75) <= 2, 'eaten 75% = 0.75 × recipe');
-  await p.locator('[data-act=editEat][data-slot=snack]').click(); await p.locator('.sheet [data-act=p][data-p="100"]').click(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(250);
+  await p.locator(`[data-act=editEat][data-slot=${SL}]`).click(); await p.locator('.sheet [data-act=p][data-p="100"]').click(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(250);
   ok(Math.abs((await p.evaluate(() => Core.eatenTotals(Store.today()).k)) - sn.k) <= 2, 'quantity changed to 100%');
   ok((await p.evaluate(() => Core.entries(Store.today()).length)) === 1, 'no duplicate entry after editing');
   await p.reload(); await p.waitForTimeout(600);
   ok(Math.abs((await p.evaluate(() => Core.eatenTotals(Store.today()).k)) - sn.k) <= 2, 'eaten value persists after reload');
   ok(await p.evaluate(() => Core.plan(Store.today()).m2.rid) === newId, 'meal swap persists after reload');
-  await go('#/nutrition'); await p.locator('[data-act=uneat][data-slot=snack]').click(); await p.waitForTimeout(250);
+  await go('#/nutrition'); await p.locator(`[data-act=uneat][data-slot=${SL}]`).click(); await p.waitForTimeout(250);
   ok((await p.evaluate(() => Core.eatenTotals(Store.today()).k)) === 0, 'removing from log returns to 0');
   // home screen consistency
   await go('#/'); await p.locator('[data-act=eat][data-slot=m1]').click(); await p.waitForTimeout(250);

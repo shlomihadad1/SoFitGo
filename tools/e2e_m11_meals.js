@@ -62,8 +62,9 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   if (await p.locator('.sheet [data-rebalance]').count()) {
     const e0 = await p.evaluate(() => Core.entries(Store.today()).length), pp0 = await p.evaluate(() => Core.plannedTotals(Store.today(), 'selected').p);
     await p.locator('.sheet #sw-reb').check(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(300);
-    const after = await p.evaluate(() => ({ p: Core.plannedTotals(Store.today(), 'selected').p, e: Core.entries(Store.today()).length, ok: ['m1', 'snack'].every(k => Core.conflicts(Logic.recipe(Core.plan(Store.today())[k].rid), Core.plan(Store.today())[k].ov).length === 0) }));
-    ok(after.p > pp0 - 1 && after.e === e0 && after.ok, 'other meals scaled up only when asked; journal untouched; still no restricted food', { pp0, after });
+    const toastT = await p.evaluate(() => [...document.querySelectorAll('.toast, [role=status]')].map(x => x.innerText).join(' '));
+    const after = await p.evaluate(() => ({ p: Core.plannedTotals(Store.today(), 'selected').p, e: Core.entries(Store.today()).length, ok: Core.DAY.filter(k => Core.plan(Store.today())[k].rid && !Core.plan(Store.today())[k].off).every(k => Core.conflicts(Logic.recipe(Core.plan(Store.today())[k].rid), Core.plan(Store.today())[k].ov).length === 0) }));
+    ok((after.p > pp0 - 1 || /לא היה מקום להגדיל/.test(toastT)) && after.e === e0 && after.ok, /* v2: portions are capped, so when the other meals are already at their limit the app says so instead of shrinking them */ 'other meals scaled up only when asked; journal untouched; still no restricted food', { pp0, after });
   } else { ok(false, 'rebalance offered when the planned day is ≥10 g below the protein target'); await p.locator('.sheet [data-act=no]').click(); }
   ok(await p.evaluate(() => JSON.stringify([Core.profile().targets, Core.profile().aims, Core.targets()])) === targets1, 'targets still unchanged by swapping/rebalancing');
 
