@@ -21,7 +21,7 @@ const res = []; let G = ''; const ok = (c, m, info) => res.push({ g: G, ok: !!c,
   G = 'P0: restricted foods (classic day 31+)';
   await seed({ prefs: { exclude: ['peanuts'] }, kinds: { peanuts: 'allergy' }, p: { menuMode: 'fixed' } }); await reload(); await p.evaluate(() => Core.applyPrefs()); /* the authored 30-day menu (still used for history and menuMode 'fixed') is guarded */
   { let leak = 0, guarded = 0; for (const d of ['2026-11-18', '2026-11-21', '2026-12-10', '2027-01-15']) { await go('#/nutrition/' + d);
-      leak += await p.evaluate(d => ['m1', 'm2', 'snack'].filter(k => { const s = Core.plan(d)[k]; return s.rid && Logic.recipeIngredients(Logic.recipe(s.rid), s.ov).some(x => Core.blockedFoods().has(x.f)); }).length, d);
+      leak += await p.evaluate(d => Core.DAY.filter(k => { const s = Core.plan(d)[k]; return s && s.rid && Logic.recipeIngredients(Logic.recipe(s.rid), s.ov).some(x => Core.blockedFoods().has(x.f)); }).length, d);
       guarded += await p.locator('[data-guard]').count(); }
     ok(leak === 0, 'days 31, 34, 53, 89 of the classic program: no meal with peanuts'); ok(guarded > 0, 'replaced meals carry a visible "replaced automatically · reason (allergy)" label', { guarded });
     await go('#/nutrition/2026-11-21'); const t = await main(); ok(!/לא נמצאה חלופה אוטומטית/.test(t), 'the old misleading warning text is gone'); await shot('guard');

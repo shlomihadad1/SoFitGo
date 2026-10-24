@@ -85,7 +85,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   await go('#/settings'); await p.locator('#pf-d').check(); await p.locator('[data-act=savePrefs]').click(); await p.waitForTimeout(400);
   ok((await p.locator('.sheet').innerText()).includes('מנות שהוחלפו'), 'preference change shows summary');
   await p.locator('.sheet [data-x]').click();
-  const conflictsLeft = await p.evaluate(() => { const b = Core.blockedFoods(); let n = 0; for (let d = 2; d <= 30; d++) { const date = Core.dateOfDay(d); ['m1', 'm2', 'snack'].forEach(s => { const pl = Core.plan(date)[s]; if (Logic.recipeIngredients(Logic.recipe(pl.rid), pl.ov).some(x => b.has(x.f))) n++; }); } return n; });
+  const conflictsLeft = await p.evaluate(() => { const b = Core.blockedFoods(); let n = 0; for (let d = 2; d <= 30; d++) { const date = Core.dateOfDay(d); Core.DAY.forEach(s => { const pl = Core.plan(date)[s]; if (pl && pl.rid && Logic.recipeIngredients(Logic.recipe(pl.rid), pl.ov).some(x => b.has(x.f))) n++; }); } return n; });
   ok(conflictsLeft === 0, 'no dairy left in planned meals (days 2–30)');
   ok((await p.evaluate(() => Core.entries(Store.today()).length)) === 1, 'eaten history untouched by preference change');
   await go('#/nutrition/' + await p.evaluate(() => Core.dateOfDay(3)));
@@ -97,7 +97,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   // custom exclusion
   await p.selectOption('#pf-add', 'peanuts'); await p.locator('[data-act=exclude]').click(); await p.waitForTimeout(250);
   await p.locator('[data-act=savePrefs]').click(); await p.waitForTimeout(400); await p.locator('.sheet [data-x]').click();
-  ok(await p.evaluate(() => { for (let d = 2; d <= 30; d++) { const date = Core.dateOfDay(d); for (const s of ['m1', 'm2', 'snack']) { const pl = Core.plan(date)[s]; if (Logic.recipeIngredients(Logic.recipe(pl.rid), pl.ov).some(x => x.f === 'peanuts')) return false; } } return true; }), 'custom excluded food removed from plan');
+  ok(await p.evaluate(() => { for (let d = 2; d <= 30; d++) { const date = Core.dateOfDay(d); for (const s of Core.DAY) { const pl = Core.plan(date)[s]; if (pl && pl.rid && Logic.recipeIngredients(Logic.recipe(pl.rid), pl.ov).some(x => x.f === 'peanuts')) return false; } } return true; }), 'custom excluded food removed from plan');
   await p.locator('[data-act=unexclude][data-f=peanuts]').click(); await p.waitForTimeout(200); await p.locator('[data-act=savePrefs]').click(); await p.waitForTimeout(300); await p.locator('.sheet [data-x]').click();
 
   await p.evaluate(() => { const pr = Store.load('profile'); delete pr.menuMode; Store.save('profile'); });
@@ -163,7 +163,7 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
 
   G = 'recipe day context';
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* the original (adjusted) 30-day menu = 'מגוון בינלאומי'; the default is now Israeli–Mediterranean */
-  const adjSlot = await p.evaluate(() => { const st = Store.load('profile').startDate; for (let n = 1; n <= 30; n++) { const d = Store.addDays(st, n - 1), pl = Core.plan(d); for (const k of ['m1', 'm2', 'snack']) if (pl[k].adjusted) return { d, k, rid: pl[k].rid, m: Core.slotMacros(pl[k]), b: Logic.recipeMacros(Logic.recipe(pl[k].rid)) }; } return null; });
+  const adjSlot = await p.evaluate(() => { const st = Store.load('profile').startDate; for (let n = 1; n <= 30; n++) { const d = Store.addDays(st, n - 1), pl = Core.plan(d); for (const k of Core.DAY) if (pl[k] && pl[k].adjusted) return { d, k, rid: pl[k].rid, m: Core.slotMacros(pl[k]), b: Logic.recipeMacros(Logic.recipe(pl[k].rid)) }; } return null; });
   ok(!!adjSlot, 'found a day with an adjusted (BASE_ADJ) slot');
   await go('#/nutrition/' + adjSlot.d);
   ok(await p.locator(`a[href="#/recipe/${adjSlot.rid}/${adjSlot.d}/${adjSlot.k}"]`).count() === 1, 'slot recipe link carries date and slot');

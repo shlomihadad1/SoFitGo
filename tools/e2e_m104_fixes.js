@@ -19,7 +19,7 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   await p.locator('[data-cuisine] [data-fp=cu]').first().waitFor({ timeout: 5000 });
   ok(await p.locator('[data-cuisine] [data-fp=cu]').count() === 6, 'six cuisine choices (Israeli, Mediterranean, Western, Indian, Asian, international mix)');
   const week = () => p.evaluate(() => { const out = []; const d0 = Store.today(); for (let i = 0; i < 7; i++) { const d = Store.addDays(d0, i); const pl = Core.plan(d);
-    ['m1', 'm2', 'snack'].forEach(k => { const s = pl[k]; if (s && s.rid) out.push({ d, k, rid: s.rid, cu: Core.cuisineOf(Logic.recipe(s.rid)), auto: s.auto, miss: !!s.cuisineMiss, conf: Core.conflicts(Logic.recipe(s.rid), s.ov).length }); }); } return out; });
+    Core.DAY.forEach(k => { const s = pl[k]; if (s && s.rid) out.push({ d, k, rid: s.rid, cu: Core.cuisineOf(Logic.recipe(s.rid)), auto: s.auto, miss: !!s.cuisineMiss, conf: Core.conflicts(Logic.recipe(s.rid), s.ov).length }); }); } return out; });
   const before = await week(); const indBefore = before.filter(x => ['indian', 'himachali'].includes(x.cu)).length;
   ok(await p.locator('[data-cuisine] [aria-pressed=true]').count() === 0, 'nothing stored as a choice until the user chooses');
   await p.click('[data-fp=cu][data-v=israeli]'); await p.waitForTimeout(300); await p.click('[data-fp=cu][data-v=mediterranean]'); await p.waitForTimeout(300); await p.selectOption('[data-fp=main]', 'israeli'); await p.waitForTimeout(500); /* saved live — one state for chips and favourite */
@@ -49,7 +49,7 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   await p.evaluate(() => { const pr = Core.profile(); const pf = Core.normPrefs(pr.prefs); delete pf.cuisines; delete pf.cuisineMain; pr.prefs = pf; Store.save('profile'); Core.applyPrefs(pf); });
   const defC = await tot();
   ok(Math.abs(defC.k - allC.k) <= allC.k * 0.08 && defC.p >= allC.p * 0.9, 'default-cuisine menu keeps calories (±8%) and protein (≥90%) of the original menu', { allC, defC });
-  ok(await p.evaluate(() => { const ws = []; for (let i = 0; i < 7; i++) { const pl = Core.plan(Store.addDays(Store.today(), i)); ['m1', 'm2', 'snack'].forEach(k => { if (pl[k].auto === 'cuisine') ws.push(pl[k].scale); }); } return ws.every(x => x >= 0.6 && x <= 1.8); }), 'replacements are portion-sized within 0.6–1.8×');
+  ok(await p.evaluate(() => { const ws = []; for (let i = 0; i < 7; i++) { const pl = Core.plan(Store.addDays(Store.today(), i)); Core.DAY.forEach(k => { if (pl[k] && pl[k].auto === 'cuisine') ws.push(pl[k].scale); }); } return ws.every(x => x >= 0.6 && x <= 1.8); }), 'replacements are portion-sized within 0.6–1.8×');
   G = 'cuisine: international = everything';
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* same path as saving in settings */
   { const w = await week(); ok(w.filter(x => ['indian', 'himachali'].includes(x.cu)).length >= 2 && new Set(w.map(x => x.cu)).size >= 5, '"מגוון בינלאומי" chosen → dishes from the whole library (Indian included, ≥5 cuisines a week)', { ind: w.filter(x => ['indian', 'himachali'].includes(x.cu)).length, cu: [...new Set(w.map(x => x.cu))] }); }

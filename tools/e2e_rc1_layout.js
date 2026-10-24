@@ -33,7 +33,7 @@ const SIZES = [['iPhone SE', 375, 667], ['320 narrow', 320, 640], ['iPhone 13', 
   { const c = await b.newContext({ ...devices['iPhone 13'] }); const p = await c.newPage(); await p.goto(URL0); await p.waitForTimeout(1500);
     await p.evaluate(() => { localStorage.clear(); Store.resetAll(); const pr = Store.load('profile'); Object.assign(pr, { age: 30, height: 175, weight: 75, sex: 'm', experience: 'beginner', onboarded: true, startDate: Store.addDays(Store.today(), -40) }); pr.aims = { primary: 'fat_loss', secondary: [] }; pr.prefs = Core.normPrefs({ exclude: ['peanuts'], dairy: false }); Store.save('profile'); });
     await c.setOffline(true); await p.reload(); await p.waitForTimeout(800);
-    const leak = await p.evaluate(() => { let n = 0; for (let i = 0; i < 30; i++) { const d = Store.addDays(Store.today(), i), pl = Core.plan(d); ['m1', 'm2', 'snack'].forEach(k => { const s = pl[k]; if (s.rid && Logic.recipeIngredients(Logic.recipe(s.rid), s.ov).some(x => Core.blockedFoods().has(x.f))) n++; }); } return n; });
+    const leak = await p.evaluate(() => { let n = 0; for (let i = 0; i < 30; i++) { const d = Store.addDays(Store.today(), i), pl = Core.plan(d); Core.DAY.forEach(k => { const s = pl[k]; if (s && s.rid && Logic.recipeIngredients(Logic.recipe(s.rid), s.ov).some(x => Core.blockedFoods().has(x.f))) n++; }); } return n; });
     ok(leak === 0 && await p.evaluate(() => navigator.onLine) === false, 'offline, classic program days 41–70: restrictions still enforced (0 restricted meals)', { leak }); await c.close(); }
   G = 'general'; ok(errs.length === 0, 'no page errors on any screen/size', errs.slice(0, 4));
   await b.close();
