@@ -2,7 +2,7 @@
    Numbers are computed here from the data tables or parsed from test output — nothing is typed in by hand.
    Prose findings reference the test or log that demonstrates them. */
 const fs = require('fs'), path = require('path'); const R = p => path.join(__dirname, '..', p);
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/js/logic.js']) require('../' + f);
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/js/logic.js']) require('../' + f);
 const { NUTRI: N, Logic: L, PROGRAM: P } = globalThis; const F = N.FOODS;
 const J = f => JSON.parse(fs.readFileSync(R('dist/reports/' + f), 'utf8'));
 const LOG = f => fs.readFileSync(R('dist/reports/logs/' + f), 'utf8');

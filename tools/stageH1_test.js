@@ -1,7 +1,7 @@
 /* Stage H1 regression & acceptance tests (Node, simulated clock). Expected values are recomputed independently.
    Writes dist/reports/stageH1-test.json */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
 const { Store: S, Core: C, Plans: PS, MealPlan: MP, Logic: L, NUTRI: N, CATALOG: CT, Signature: G } = globalThis; const F = N.FOODS;
 let pass = 0, fail = 0; const fails = [], sec = {}; let cur = '';
 const T = n => { cur = n; sec[n] = { pass: 0, fail: 0 }; }, ok = (c, m, info) => { if (c) { pass++; sec[cur].pass++; } else { fail++; sec[cur].fail++; if (fails.length < 80) fails.push(cur + ': ' + m + (info !== undefined ? ' → ' + JSON.stringify(info).slice(0, 300) : '')); } };
@@ -14,7 +14,7 @@ function setUser(o) { S.resetAll(); NOW = '2026-10-19'; o = Object.assign({}, BA
 const activate = tid => PS.activate(PS.create(tid || 'general_90', PS.paramsFromProfile(S.load('profile')), NOW), { confirmReplace: true });
 const blockedIn = (rid, ov) => L.recipeIngredients(L.recipe(rid), ov).filter(x => C.blockedFoods().has(x.f)).map(x => x.f);
 function scan(from, n) { let meals = 0, bad = [], empty = 0, unexplained = 0; for (let i = 0; i < n; i++) { const d = S.addDays(from, i), p = C.plan(d);
-  ['m1', 'm2', 'snack', 'extra'].forEach(k => { const s = p[k]; if (!s) return; if (!s.rid) { if (s.blockedNone) empty++; return; } if (s.off) return; meals++; const b = blockedIn(s.rid, s.ov); if (b.length && !s.conflict) bad.push(d + ':' + k + ':' + s.rid + ':' + b.join('+')); }); } return { meals, bad, empty }; }
+  C.ALL.forEach(k => { const s = p[k]; if (!s) return; if (!s.rid) { if (s.blockedNone) empty++; return; } if (s.off) return; meals++; const b = blockedIn(s.rid, s.ov); if (b.length && !s.conflict) bad.push(d + ':' + k + ':' + s.rid + ':' + b.join('+')); }); } return { meals, bad, empty }; }
 const shopBlocked = (from, days) => { const sh = G.shopping(from, days); return sh.groups.flatMap(g => g.items).filter(i => C.blockedFoods().has(i.f) && !i.blocked).map(i => i.f); };
 
 /* ---------- 1. restrictions on every path ---------- */
@@ -49,7 +49,7 @@ for (const pf of [{ exclude: ['peanuts'] }, { exclude: ['peanuts', 'soya'], dair
 
 T('1c swaps, portions, regeneration, explicit user choice');
 { setUser({ prefs: { exclude: ['peanuts', 'soya'], dairy: false }, kinds: { peanuts: 'allergy', dairy: 'intolerance' } }); const pl = activate(); const bl = C.blockedFoods();
-  let leak = 0; for (let i = 0; i < 14; i++) { const d = S.addDays(NOW, i), p = C.plan(d); ['m1', 'm2', 'snack'].forEach(k => { if (!p[k].rid) return; L.swapCandidates(L.recipe(p[k].rid), N.RECIPES).filter(o => !C.conflicts(o.r, null).length).forEach(o => { if (blockedIn(o.r.id).length) leak++; }); }); }
+  let leak = 0; for (let i = 0; i < 14; i++) { const d = S.addDays(NOW, i), p = C.plan(d); C.DAY.forEach(k => { if (!p[k].rid) return; L.swapCandidates(L.recipe(p[k].rid), N.RECIPES).filter(o => !C.conflicts(o.r, null).length).forEach(o => { if (blockedIn(o.r.id).length) leak++; }); }); }
   ok(leak === 0, 'meal-swap candidates offered over 14 days: none restricted');
   let ingLeak = 0; Object.keys(N.SWAP).forEach(g => N.SWAP[g].filter(f => !bl.has(f)).forEach(f => { if (bl.has(f)) ingLeak++; })); ok(ingLeak === 0, 'ingredient-swap options: none restricted');
   /* user swaps a meal to an allowed candidate and an ingredient to an allowed option → totals update, still clean */
@@ -131,7 +131,7 @@ T('4 profile ↔ active plan');
 T('5 coverage and equipment');
 { setUser({ goal: 'recomp', prefs: { vegan: true, exclude: ['soya', 'peanuts'] } }); const pool = MP.pool({ prefs: C.normPrefs({ vegan: true, exclude: ['soya', 'peanuts'] }) });
   ok(pool.m1.length >= 5 && pool.m2.length >= 7 && pool.snack.length >= 4, `vegan / no soy / no peanuts pool meets the planner's own no-repeat rule (m1 ${pool.m1.length}, m2 ${pool.m2.length}, snack ${pool.snack.length})`);
-  const pl = activate(); const ds = PS.days(PS.get(pl.id)); let miss = 0, gapDays = 0, shown = 0; ds.forEach(d => { const p = C.plan(d.date); if (['m1', 'm2', 'snack'].some(k => p[k].missing)) miss++; if (p.gap && (p.gap.p || p.gap.kLow)) { gapDays++; shown++; } });
+  const pl = activate(); const ds = PS.days(PS.get(pl.id)); let miss = 0, gapDays = 0, shown = 0; ds.forEach(d => { const p = C.plan(d.date); if (C.DAY.some(k => p[k].missing)) miss++; if (p.gap && (p.gap.p || p.gap.kLow)) { gapDays++; shown++; } });
   ok(miss === 0, `vegan / no soy / no peanuts: a meal in every slot on all ${ds.length} days (was: no breakfast on 90/90)`, { miss });
   const t = C.targets(), sm = MP.summarize(PS.get(pl.id), NOW, ds.length); ok(gapDays === shown, `remaining protein/calorie gap is reported on each affected day (${gapDays} days; avg ${sm.protein} g vs ${t.protein} g)`); }
 { const NEW = ['besan_veg_cheela', 'moong_dal_cheela', 'oats_tahini_banana', 'chickpea_avocado_toast', 'vegan_bean_potato_burrito', 'sprouts_poha', 'chana_masala_rice', 'rajma_rice_vegan', 'masoor_dal_spinach_roti', 'chickpea_spinach_couscous', 'roasted_chana_apple'];
@@ -144,9 +144,9 @@ T('5 coverage and equipment');
 
 T('6 high targets — dish selection by calorie capacity (regression found while testing H1)');
 { const run = o => { setUser(o); const prm = MP.currentParams(); let k = 0, d = 0, gaps = 0; for (const sd of ['a', 'b', 'c', 'd', 'e']) MP.generate(prm, NOW, 90, sd).days.forEach(x => { if (!x.totals) return; d++; k += x.totals.k; if (x.gap && x.gap.kLow) gaps++; }); return { avg: Math.round(k / d), target: prm.kcal, gapDays: gaps / 5 }; };
-  const hi = run({ age: 22, height: 195, weight: 105, goal: 'muscle' }); ok(hi.avg >= hi.target * 0.9, `high target (${hi.target}): average planned ${hi.avg} ≥ 90% (5 seeds × 90 days; before H1: 3135)`, hi);
-  const df = run({}); ok(Math.abs(df.avg - df.target) <= df.target * 0.05 && df.gapDays === 0, `ordinary target (${df.target}): ${df.avg}, no calorie gaps — unchanged behaviour`, df);
-  const st = run({ age: 22, height: 195, weight: 105, goal: 'muscle', prefs: { meals: 2, vegan: true, exclude: ['soya'] } }); ok(st.avg >= 2600, `stress (2 meals, vegan without soy, ${st.target}): ${st.avg} — not below the pre-H1 level (2626); remaining gap reported daily`, st); }
+  const hi = run({ age: 22, height: 195, weight: 105, goal: 'muscle' }); ok(hi.avg >= hi.target * 0.8 && hi.gapDays > 0, `very high target (${hi.target}): average planned ${hi.avg} ≥ 80% with realistic portions (v2: a dish may grow only to ×1.6 of its serving; the rest is shown as a gap on those days — ${hi.gapDays} days avg; before H1: 3135)`, hi);
+  const df = run({}); ok(Math.abs(df.avg - df.target) <= df.target * 0.05 && df.gapDays <= 1, `ordinary target (${df.target}): ${df.avg}, calorie gap on ≤1 of 90 days (shown when it happens)`, df);
+  const st = run({ age: 22, height: 195, weight: 105, goal: 'muscle', prefs: { meals: 2, vegan: true, exclude: ['soya'] } }); ok(st.gapDays === 90 && st.avg >= st.target * 0.55, `stress (2 meals, vegan without soy, ${st.target}): ${st.avg} with ordinary portions — the remaining gap is reported on every day (v2: no oversized plates; before v2 the engine scaled dishes up to ×2.5)`, st); }
 
 fs.mkdirSync(path.join(ROOT, 'dist/reports'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'dist/reports/stageH1-test.json'), JSON.stringify({ pass, fail, sections: sec, fails }, null, 1));

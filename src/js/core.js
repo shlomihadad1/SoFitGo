@@ -90,11 +90,15 @@ C.streak = () => {
 };
 /* nutrition */
 C.menuIndex = date => { const n = C.programDay(date); return ((Math.max(1, n) - 1) % 30); };
-C.slotNames = { m1: 'ארוחת בוקר', m2: 'ארוחה עיקרית', snack: 'ארוחת ביניים', extra: 'נשנוש חלבון (רשות)' }; /* the model's meal types: breakfast dishes, the main meal (≈45% of the day in a 3-meal menu), a smaller meal (≈22%); the user chooses 2 or 3 meals */
+C.slotNames = { m1: 'ארוחת בוקר', snack: 'ארוחת ביניים', m2: 'ארוחת צהריים', snack2: 'ארוחת ביניים נוספת', m3: 'ארוחת ערב', extra: 'נשנוש חלבון (רשות)' };
+/* meal slots in the order of the day; dinner (m3) uses main-dish recipes, the 2nd snack uses snack recipes. Which of them a day has
+   comes from the menu engine (meals per day as the user set + snacks only when needed); unused slots are 'off'. */
+C.DAY = ['m1', 'snack', 'm2', 'snack2', 'm3']; C.ALL = C.DAY.concat('extra');
+C.mealOf = k => k === 'm3' ? 'm2' : k === 'snack2' ? 'snack' : k; /* the model's meal types: breakfast dishes, the main meal (≈45% of the day in a 3-meal menu), a smaller meal (≈22%); the user chooses 2 or 3 meals */
 /* main protein foods of a dish as planned (dairy/legume/protein groups) — used so an add-on never repeats what the day already has */
 C.protFoods = s => { if (!s || !s.rid) return []; const r = L().recipe(s.rid); return r ? L().recipeIngredients(r, s.ov).map(x => x.f).filter(f => ['protein', 'legume', 'dairy'].includes(N().FOODS[f].grp)) : []; };
 C.extraFoods = r => r.ing.map(x => x.f).filter(f => ['protein', 'legume', 'dairy'].includes(N().FOODS[f].grp));
-C.extraRepeats = (r, p) => { const day = new Set(['m1', 'm2', 'snack'].filter(k => p[k] && !p[k].off && !p[k].missing).flatMap(k => C.protFoods(p[k]))); return C.extraFoods(r).some(f => day.has(f)); };
+C.extraRepeats = (r, p) => { const day = new Set(C.DAY.filter(k => p[k] && !p[k].off && !p[k].missing).flatMap(k => C.protFoods(p[k]))); return C.extraFoods(r).some(f => day.has(f)); };
 /* where a date's default menu comes from: the personal plan's generated menu (Stage C) or the fixed 30-day menu */
 /* Menu source per date: an active personal plan's menu; otherwise (nutrition-engine fix) the SAME generator builds the day from the
    user's own targets and preferences ('auto'); the authored 30-day menu ('classic') remains only for days without targets, for past days
@@ -105,16 +109,16 @@ C.plan = (date, opt) => {
   const src = C.planSource(date), ov = (S().load('nutrition').plan[date]) || {};
   let def, defOv, adj;
   if (src.gen) { const g = src.gen, fb = N().RECIPES.find(r => r.meal === 'snack');
-    def = { m1: g.slots.m1 ? g.slots.m1.rid : null, m2: g.slots.m2 ? g.slots.m2.rid : null, snack: g.slots.snack ? g.slots.snack.rid : fb.id, extra: g.slots.extra ? g.slots.extra.rid : null }; /* no fitting add-on → none (never a non-matching default) */
+    def = {}; C.ALL.forEach(k => { def[k] = g.slots[k] ? g.slots[k].rid : null; }); if (!g.slots.snack && !(g.off && g.off.snack)) def.snack = fb.id; /* older generated menus always had a snack */ /* no fitting add-on → none (never a non-matching default) */
     adj = {}; Object.keys(g.slots).forEach(k => { if (g.slots[k] && g.slots[k].ov) adj[k] = true; });
     defOv = k => g.slots[k] && g.slots[k].ov ? JSON.parse(JSON.stringify(g.slots[k].ov)) : null;
   } else { const i = src.i, base = N().MENU[i];
-    def = { m1: base[0], m2: base[1], snack: base[2], extra: N().EXTRA_DAY[i] };
+    def = { m1: base[0], m2: base[1], snack: base[2], m3: null, snack2: null, extra: N().EXTRA_DAY[i] }; /* the authored 30-day menu has 3 eating slots */
     adj = (N().BASE_ADJ && N().BASE_ADJ[i]) || {};
     defOv = k => { const a = adj[k]; if (!a) return null; const r = L().recipe(def[k]); const o = {}; Object.keys(a).forEach(idx => { o[idx] = { f: r.ing[idx].f, g: a[idx] }; }); return o; }; }
   const out = {};
-  ['m1', 'm2', 'snack', 'extra'].forEach(k => {
-    const o1 = ov[k] || {}, o0 = o1.rid && (L().recipe(o1.rid) || {}).meal !== k ? {} : o1; /* P0: a stored dish of another meal type (e.g. a snack saved as lunch by an older build) is not shown in this meal */
+  C.ALL.forEach(k => {
+    const o1 = ov[k] || {}, o0 = o1.rid && (L().recipe(o1.rid) || {}).meal !== C.mealOf(k) ? {} : o1; /* P0: a stored dish of another meal type (e.g. a snack saved as lunch by an older build) is not shown in this meal */
     const o = src.gen && o0.auto === 'pref' ? {} : o0; /* automatic preference fixes were made for the classic menu; a personal plan builds its own menu from the same preferences */
     const rid = o.rid || def[k], same = rid === def[k];
     const eff = o.ov != null ? o.ov : (same ? defOv(k) : null);
@@ -127,7 +131,9 @@ C.plan = (date, opt) => {
      same deterministic resolver used everywhere else; if nothing fits, the slot is left empty with an explanation —
      a forbidden food is never kept as a fallback. A dish the user picked explicitly is kept but flagged (never silent). */
   const avoid = [];
-  if (!(opt && opt.raw) && date >= S().today()) ['m1', 'm2', 'snack', 'extra'].forEach(k => { /* past days are history — never rewritten */
+  ['m3', 'snack2'].forEach(k => { if (!out[k].rid) out[k].off = true; }); /* not part of this day's menu (a user can still add one) */
+  if (src.gen && src.gen.off) Object.keys(src.gen.off).forEach(k => { if (out[k] && !(ov[k] && ov[k].rid)) out[k].off = true; });
+  if (!(opt && opt.raw) && date >= S().today()) C.ALL.forEach(k => { /* past days are history — never rewritten */
     const o = ov[k] || {}, s0 = out[k], userChose = !!(o.rid && !o.auto) || (o.ov != null && !o.auto);
     if (!s0.rid || C.slotEntry(date, k)) { if (s0.rid) avoid.push(s0.rid); return; }
     const cs = C.conflicts(L().recipe(s0.rid), s0.ov);
@@ -153,15 +159,15 @@ C.plan = (date, opt) => {
   if (!(opt && opt.raw) && date >= S().today() && out.extra.rid && !(ov.extra && ov.extra.rid) && !C.slotEntry(date, 'extra') && C.extraRepeats(L().recipe(out.extra.rid), out)) {
     const alt = N().RECIPES.filter(r => r.meal === 'extra' && !C.conflicts(r, null).length && !C.extraRepeats(r, out)).sort((a, b) => ((C.rotOf(date) * 7 + a.id.length) % 13) - ((C.rotOf(date) * 7 + b.id.length) % 13))[0];
     if (alt) Object.assign(out.extra, { rid: alt.id, ov: null, scale: 1, def: alt.id }); }
-  if (src.gen) { out.source = src.kind; out.planId = src.gen.planId || null; out.gap = src.gen.gap; if (src.gen.off && src.gen.off.snack && !(ov.snack && ov.snack.rid)) out.snack.off = true; ['m1', 'm2', 'snack', 'extra'].forEach(k => { if (!src.gen.slots[k] && !(ov[k] && ov[k].rid) && !(k === 'snack' && out.snack.off)) out[k].missing = true; });
+  if (src.gen) { out.source = src.kind; out.planId = src.gen.planId || null; out.gap = src.gen.gap; C.ALL.forEach(k => { if (!src.gen.slots[k] && !(ov[k] && ov[k].rid) && !out[k].off) out[k].missing = true; });
     /* TD-22 (RC4): the gap is re-checked on the day AS IT IS NOW — after a meal swap, a portion change or a guard replacement —
        with the same rule (MealPlan.gapOf) and the same sum the screen shows (C.plannedTotals 'base'). For an unedited day this
        equals the generated gap (same sum, same rule). gapEdited tells the screen to word it as "after your changes". */
     if (src.gen.target && src.gen.target.k && root.MealPlan && root.MealPlan.gapOf) {
-      const ks = ['m1', 'm2', 'snack'].filter(k => !out[k].off && !out[k].missing && out[k].rid);
+      const ks = C.DAY.filter(k => !out[k].off && !out[k].missing && out[k].rid);
       const tot = L().roundM(L().sumMacros(ks.map(k => C.slotMacros(out[k]))));
       out.gap = root.MealPlan.gapOf(tot, src.gen.target.k, src.gen.target.p);
-      out.gapEdited = ['m1', 'm2', 'snack'].some(k => out[k].changed || !!out[k].auto || (out[k].missing && src.gen.slots[k])); } }
+      out.gapEdited = C.DAY.some(k => out[k].changed || !!out[k].auto || (out[k].missing && src.gen.slots[k])); } }
   else out.source = 'classic';
   return out;
 };
@@ -170,7 +176,7 @@ C.slotMacros = s => s && s.rid ? L().recipeMacros(L().recipe(s.rid), s.scale, s.
    'withExtra' = base + the suggested add-on (preview of "what if I add it"). */
 C.plannedTotals = (date, mode) => {
   const p = C.plan(date); mode = mode || 'selected';
-  const ks = ['m1', 'm2', 'snack'].filter(k => !p[k].off && !p[k].missing && p[k].rid); if ((mode === 'withExtra' || (mode === 'selected' && p.extra.on)) && p.extra.rid && !p.extra.missing) ks.push('extra'); /* a slot switched off (2 meals/day) or without a fitting recipe is not counted */
+  const ks = C.DAY.filter(k => !p[k].off && !p[k].missing && p[k].rid); if ((mode === 'withExtra' || (mode === 'selected' && p.extra.on)) && p.extra.rid && !p.extra.missing) ks.push('extra'); /* a slot switched off (2 meals/day) or without a fitting recipe is not counted */
   return L().roundM(L().sumMacros(ks.map(k => C.slotMacros(p[k]))));
 };
 C.setExtraOn = (date, on) => C.setPlanSlot(date, 'extra', { on: !!on });
@@ -240,7 +246,7 @@ C.dailyProgress = date => {
   const pl = root.MealPlan && root.Plans && root.MealPlan.planFor(date);
   if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; if (pd && root.Plans.isTraining(pd) && pd.status !== 'skipped') tasks.push({ k: 'workout', he: 'אימון', v: pd.status === 'done' ? 1 : pd.status === 'partial' ? 0.5 : 0 }); }
   else if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) { const st = C.status(n); tasks.push({ k: 'workout', he: 'אימון', v: st === 'done' ? 1 : st === 'partial' ? 0.5 : 0 }); }
-  ['m1', 'm2', 'snack'].forEach(s => tasks.push({ k: s, he: C.slotNames[s], v: C.slotEntry(date, s) ? 1 : 0 }));
+  { const pl0 = C.plan(date); C.DAY.filter(s => (pl0[s].rid && !pl0[s].off) || C.slotEntry(date, s)).forEach(s => tasks.push({ k: s, he: C.slotNames[s], v: C.slotEntry(date, s) ? 1 : 0 })); }
   tasks.push({ k: 'water', he: 'מים', v: Math.min(1, (dl.water || 0) / C.waterGoalOn(date).ml) });
   { const A = root.Activity, tg = A ? A.targetOn(date) : (g.steps > 0 ? g.steps : null), sv = A ? A.day(date).value : dl.steps; /* RC5: no target → no steps task (nothing to fall short of) */
     if (tg) tasks.push({ k: 'steps', he: 'צעדים', v: Math.min(1, (sv || 0) / tg) }); }
@@ -310,7 +316,7 @@ C.weightSuggestions = () => {
    otherwise by replacing the meal with the closest compliant recipe of the same type. Fixes are marked auto:'pref' and
    reverted when preferences change. Food already logged as eaten is never touched. */
 C.PREF_GROUPS = { dairy: ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'], egg: ['egg', 'egg_white'], chicken: ['chicken_breast', 'chicken_thigh', 'chicken_mince'],
-  fish: ['salmon', 'white_fish', 'tuna_can'], meat: ['beef_lean', 'turkey'] };
+  fish: ['salmon', 'white_fish', 'tuna_can', 'sardines'], meat: ['beef_lean', 'turkey'] };
 C.PREF_HE = { dairy: 'מוצרי חלב', egg: 'ביצים', chicken: 'עוף', fish: 'דגים', meat: 'בשר בקר/הודו' };
 /* veg = vegetarian as defined in this app: no chicken/meat/fish and no eggs (dairy allowed). vegan = also no dairy.
    meals = meals per day in generated menus (2 or 3); maxPrep = max prep+cook minutes for generated menus (null = any). */

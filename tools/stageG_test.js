@@ -1,7 +1,7 @@
 /* Stage G tests (Node, simulated clock): Explain My Plan, Weekly Review, Shopping list & meal prep, Records & milestones,
    Travel mode. Expected values are recomputed independently from the stored data. Writes dist/reports/stageG-test.json. */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
 const { Store: S, Core: C, Plans: PS, Signature: G, NUTRI: N, Logic: L, CATALOG: CT } = globalThis; const F = N.FOODS;
 let pass = 0, fail = 0; const fails = [], sec = {}; let cur = '';
 const T = n => { cur = n; sec[n] = { pass: 0, fail: 0 }; }, ok = (c, m, info) => { if (c) { pass++; sec[cur].pass++; } else { fail++; sec[cur].fail++; if (fails.length < 80) fails.push(cur + ': ' + m + (info !== undefined ? ' → ' + JSON.stringify(info).slice(0, 300) : '')); } };
@@ -43,13 +43,13 @@ setUser(); { const pl = activate('general_90'), t = tr(pl);
 T('G3 shopping list & meal prep');
 setUser(); { const pl = activate('general_90'); C.eatSlot(NOW, 'm1', 1); C.setExtraOn(S.addDays(NOW, 1), true);
   const sh = G.shopping(NOW, 7), exp = {};
-  for (let i = 0; i < 7; i++) { const d = S.addDays(NOW, i), p = C.plan(d); ['m1', 'm2', 'snack', 'extra'].forEach(k => { const s = p[k]; if (!s.rid || s.off || s.missing || (k === 'extra' && !s.on) || C.slotEntry(d, k)) return; const r = L.recipe(s.rid); if (r.est) return; L.recipeIngredients(r, s.ov).forEach(x => { exp[x.f] = (exp[x.f] || 0) + x.g * (s.scale || 1); }); }); }
+  for (let i = 0; i < 7; i++) { const d = S.addDays(NOW, i), p = C.plan(d); C.ALL.forEach(k => { const s = p[k]; if (!s.rid || s.off || s.missing || (k === 'extra' && !s.on) || C.slotEntry(d, k)) return; const r = L.recipe(s.rid); if (r.est) return; L.recipeIngredients(r, s.ov).forEach(x => { exp[x.f] = (exp[x.f] || 0) + x.g * (s.scale || 1); }); }); }
   const got = {}; sh.groups.forEach(g => g.items.forEach(i => { got[i.f] = i.g; }));
   ok(Object.keys(exp).length === Object.keys(got).length && Object.keys(exp).every(f => Math.abs(Math.round(exp[f]) - got[f]) <= 1), `every ingredient total = independent sum over the planned slots (${Object.keys(got).length} items)`);
   ok(!sh.groups.some(g => g.items.some(i => F[i.f].grp !== g.k)), 'items grouped by food group');
   const eg = sh.groups.flatMap(g => g.items).find(i => F[i.f].unit); ok(!eg || eg.units === Math.ceil(eg.g / F[eg.f].unit - 0.05), 'unit foods shown as whole units');
-  const eatenRid = C.plan(NOW).m1.rid; const without = G.shopping(NOW, 1); const m1ings = new Set(L.recipeIngredients(L.recipe(eatenRid), C.plan(NOW).m1.ov).map(x => x.f)), otherIngs = new Set(['m2', 'snack'].filter(k => C.plan(NOW)[k].rid && !C.plan(NOW)[k].missing).flatMap(k => L.recipeIngredients(L.recipe(C.plan(NOW)[k].rid), C.plan(NOW)[k].ov).map(x => x.f)));
-  ok(without.recipeCount === ['m2', 'snack'].filter(k => C.plan(NOW)[k].rid && !C.plan(NOW)[k].missing).length && [...m1ings].filter(f => !otherIngs.has(f)).every(f => !without.groups.some(g => g.items.some(i => i.f === f))), 'already-eaten meal (and its own ingredients) is not on the list');
+  const eatenRid = C.plan(NOW).m1.rid; const without = G.shopping(NOW, 1); const m1ings = new Set(L.recipeIngredients(L.recipe(eatenRid), C.plan(NOW).m1.ov).map(x => x.f)), otherIngs = new Set(C.DAY.filter(k => k !== 'm1' && C.plan(NOW)[k].rid && !C.plan(NOW)[k].missing && !C.plan(NOW)[k].off).flatMap(k => L.recipeIngredients(L.recipe(C.plan(NOW)[k].rid), C.plan(NOW)[k].ov).map(x => x.f)));
+  ok(without.recipeCount === C.DAY.filter(k => k !== 'm1' && C.plan(NOW)[k].rid && !C.plan(NOW)[k].missing && !C.plan(NOW)[k].off).length && [...m1ings].filter(f => !otherIngs.has(f)).every(f => !without.groups.some(g => g.items.some(i => i.f === f))), 'already-eaten meal (and its own ingredients) is not on the list');
   ok(sh.batch.every(b => b.g === got[b.f] && b.meals >= 2 && ['raw', 'dry'].includes(F[b.f].st)), 'batch-cook suggestions = list totals of raw/dry bases used in ≥2 meals');
   G.toggleCheck(Object.keys(got)[0], true); ok(!!G.shoppingChecks().checked[Object.keys(got)[0]], 'checked items are saved'); const bk = S.exportAll(); S.resetAll(); S.importAll(JSON.parse(JSON.stringify(bk))); ok(!!G.shoppingChecks().checked[Object.keys(got)[0]], 'checks survive backup & restore');
   const txt = G.shoppingText(sh, {}); ok(sh.groups.every(g => g.items.every(i => txt.includes(i.he))), 'copied text contains every item');
@@ -93,7 +93,7 @@ setUser(); { const pl = activate('general_90'); ok(!globalThis.MealPlan.pending(
   ok(GL.length >= 8 && ['atta', 'bread', 'pasta', 'oats', 'soy_sauce'].every(f => GL.includes(f)), `gluten foods identified from the catalog (${GL.length})`);
   const pr = S.load('profile'); pr.prefs = Object.assign(C.normPrefs(pr.prefs), { glutenFree: true }); S.save('profile');
   ok(!!globalThis.MealPlan.pending(PS.get(pl.id)), 'turning gluten-free on → menu update offered (needs approval)'); globalThis.MealPlan.applyChange(PS.get(pl.id), 'test');
-  let bad = 0, slots = 0; PS.days(PS.get(pl.id)).forEach(d => { const p = C.plan(d.date); ['m1', 'm2', 'snack', 'extra'].forEach(k => { const s = p[k]; if (!s || !s.rid || s.missing || s.off) return; slots++; L.recipeIngredients(L.recipe(s.rid), s.ov).forEach(x => { if (GL.includes(x.f)) bad++; }); }); });
+  let bad = 0, slots = 0; PS.days(PS.get(pl.id)).forEach(d => { const p = C.plan(d.date); C.ALL.forEach(k => { const s = p[k]; if (!s || !s.rid || s.missing || s.off) return; slots++; L.recipeIngredients(L.recipe(s.rid), s.ov).forEach(x => { if (GL.includes(x.f)) bad++; }); }); });
   ok(bad === 0 && slots > 200, `gluten-free: no gluten food in ${slots} planned meals across the whole plan`);
   const gfR = N.RECIPES.filter(r => !r.ing.some(x => GL.includes(x.f))).length; ok(N.RECIPES.filter(r => !C.conflicts(r, null, { glutenFree: true }).length).length === gfR, `recipe filter count = independent count (${gfR})`); }
 

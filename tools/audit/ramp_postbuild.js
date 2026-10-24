@@ -8,7 +8,7 @@
             later session. This is an upper bound of what the rules allow, not a frequency (Adapt also needs 2 logged sessions
             that met target, effort ≤ 7, the exercise already at "hard", and ≤ 1 step per exercise per 14 days). */
 const path = require('path'); const ROOT = path.resolve(process.argv[2]);
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/adapt.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/adapt.js']) require(path.join(ROOT, f));
 const { Store: S, Plans: PS, PROGRAMS: PG, Planner: P } = globalThis;
 const vol = d => (d.main || []).reduce((s, x) => s + (x.sets || 1) * (typeof x.reps === 'number' ? x.reps : typeof x.sec === 'number' ? x.sec / 3 : 1), 0);
 const reg = d => d.main && d.main.length && !['rest', 'active', 'assess'].includes(d.type) && !d.deload;

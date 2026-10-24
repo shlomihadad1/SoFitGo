@@ -4,7 +4,7 @@
    logged history never changes, every applied change is on a future unlogged day, menus exist for every plan day,
    no exceptions. Deterministic (seeded PRNG). Writes dist/reports/soak-test.json. */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
 const { Store: S, Core: C, Plans: PS, Adapt: A, Signature: G } = globalThis;
 /* three scenarios: different equipment, experience, goal, availability, food preferences and random seeds */
 const SCEN = [

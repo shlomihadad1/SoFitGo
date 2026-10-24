@@ -1,6 +1,6 @@
 /* Authoring helper: raises lean protein sources in each base recipe until it reaches the slot minimum,
    then trims carbs/oil if the slot calorie cap is exceeded. Writes new grams into src/data/nutrition.js and prints a change log. */
-for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const fs=require('fs'); const {Logic:L,NUTRI:N}=globalThis; const F=N.FOODS;
 const MIN={m1:58,m2:70,snack:27}, CAP={m1:880,m2:1000,snack:420};
 const LEAN={chicken_breast:[10,320],chicken_thigh:[10,320],chicken_mince:[10,320],egg_white:[33,264],soya:[5,100],masoor:[5,120],moong:[5,120],toor:[5,120],rajma:[5,120],chana:[5,120],kala_chana:[5,120],besan:[5,110],hung_curd:[25,300],roasted_chana:[5,70],sprouts:[20,250]};

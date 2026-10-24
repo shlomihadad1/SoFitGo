@@ -1,6 +1,6 @@
 /* Builds STAGE-B-REPORT.md from test outputs (dist/reports). */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..'); const R = p => path.join(ROOT, p);
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/store.js']) require(R(f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/store.js']) require(R(f));
 const { PROGRAMS: PG, CATALOG: CT, EXERCISES, Plans: PS, Store: S } = globalThis;
 const J = f => JSON.parse(fs.readFileSync(R('dist/reports/' + f), 'utf8')), LOG = f => fs.readFileSync(R('dist/reports/logs/' + f), 'utf8');
 const m = (f, re) => { const x = LOG(f).match(re); return x ? { pass: +x[1], fail: +x[2] } : { pass: 0, fail: 0 }; };

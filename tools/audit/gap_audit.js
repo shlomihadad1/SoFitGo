@@ -1,6 +1,6 @@
 /* Read-only audit of RC1 open gaps. Run: node gap_audit.js <root> */
 const path=require('path'),ROOT=process.argv[2];
-for (const f of ['src/js/figure.js','src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js','src/data/recipes_intl.js','src/data/catalog.js','src/data/programs.js','src/js/logic.js','src/js/planner.js','src/js/plans.js','src/js/mealplanner.js','src/js/store.js','src/js/core.js']) require(path.join(ROOT,f));
+for (const f of ['src/js/figure.js','src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js','src/data/recipes_intl.js', 'src/data/recipes_med.js','src/data/catalog.js','src/data/programs.js','src/js/logic.js','src/js/planner.js','src/js/plans.js','src/js/mealplanner.js','src/js/store.js','src/js/core.js']) require(path.join(ROOT,f));
 const {Store:S,Core:C,MealPlan:MP,Logic:L,NUTRI:N,CATALOG:CT,PROGRAMS:PG,Planner:P}=globalThis; const NOW='2026-10-19'; S.today=()=>NOW;
 const out={};
 /* 1 ramp */

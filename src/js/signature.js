@@ -99,7 +99,7 @@
     from = from || S().today(); days = days || 7; const F = N().FOODS, items = {}, recipes = {}, dates = [];
     for (let i = 0; i < days; i++) {
       const d = S().addDays(from, i), p = C().plan(d); dates.push(d);
-      ['m1', 'm2', 'snack', 'extra'].forEach(k => { const s = p[k]; if (!s || !s.rid || s.off || s.missing) return; if (k === 'extra' && !s.on) return; if (C().slotEntry && C().slotEntry(d, k)) return; /* already eaten */
+      C().ALL.forEach(k => { const s = p[k]; if (!s || !s.rid || s.off || s.missing) return; if (k === 'extra' && !s.on) return; if (C().slotEntry && C().slotEntry(d, k)) return; /* already eaten */
         const r = L().recipe(s.rid); if (!r || r.est) return; /* restaurant estimates have no shopping list */
         (recipes[r.id] = recipes[r.id] || { id: r.id, he: r.he, n: 0, dates: [], mealprep: (r.tags || []).includes('mealprep') }); recipes[r.id].n++; recipes[r.id].dates.push(d);
         L().recipeIngredients(r, s.ov).forEach(x => { const g = x.g * (s.scale || 1), f = F[x.f]; if (!f) return; const it = items[x.f] = items[x.f] || { f: x.f, he: f.he, grp: f.grp, st: f.st, g: 0, uses: 0, recipes: new Set(), dates: new Set() }; it.g += g; it.uses++; it.recipes.add(r.id); it.dates.add(d); }); });

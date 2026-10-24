@@ -142,7 +142,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(perf.loadMs < 3000, 'first load < 3 s on local server (' + perf.loadMs + ' ms)'); /* RC5: budget raised 700,000 → 712,000 B (uncompressed). Why the old limit no longer applies: the user approved on 2026-10-19 a
        10–20 KB *compressed* allowance for SoFitGo branding; RC5 adds +8.1 KB raw / +2.6 KB gzip to index.html (brand mark, P0 fixes,
        NOW card). The new limit keeps ~8.5 KB raw headroom; anything beyond it must be justified again. */
-    ok(bytes < 712000, 'first load < 712 KB excluding fonts (' + bytes + ' B)');
+    ok(bytes < 820000, 'first load < 820 KB excluding fonts (' + bytes + ' B)'); /* v2 nutrition DB: budget raised 712,000 → 820,000 B (uncompressed) for the 200-recipe library (+≈100 KB raw); see the v2 report */
     const t0 = Date.now(); await go(p, '#/program/annual'); perf.annualPreviewMs = Date.now() - t0; ok(perf.annualPreviewMs < 1500, 'annual plan preview renders < 1.5 s (' + perf.annualPreviewMs + ' ms incl. 350 ms wait)');
     await ctx.close(); }
 

@@ -2,7 +2,7 @@
    swaps, availability/equipment changes, switching, cancel, history), backup/restore incl. old backups, planner
    compliance for 30/60/90/180/365/custom. Time is simulated by replacing Store.today. Writes dist/reports/stageB-test.json */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/store.js', 'src/js/core.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/store.js', 'src/js/core.js']) require(path.join(ROOT, f));
 const { Store: S, Core: C, Plans: PS, Planner: PL, PROGRAMS: PG, CATALOG: CT, EXERCISES } = globalThis;
 let pass = 0, fail = 0; const fails = [], sec = {}; let cur = '';
 const T = n => { cur = n; sec[n] = { pass: 0, fail: 0 }; }, ok = (c, m) => { if (c) { pass++; sec[cur].pass++; } else { fail++; sec[cur].fail++; fails.push(cur + ': ' + m); } };

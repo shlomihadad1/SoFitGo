@@ -1,7 +1,7 @@
 /* Authoring helper v2: chooses structural levers per day so each version lands on its target.
    Levers: short = rounds (2-4) & rest between rounds; std = which main exercises (keeps the first one and ≥1 core item) & walk length;
    long = how many extension exercises, their set count (2-3), extra mobility block, walk length. Content (exercises, reps, per-set rests) is not changed. */
-for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const {Logic:L,PROGRAM:P,EX_BY_ID:E}=globalThis; const fs=require('fs');
 const m=(d,v)=>L.durationBreakdown(d,v).total/60;
 const res={};

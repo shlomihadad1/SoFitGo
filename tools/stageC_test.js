@@ -2,7 +2,7 @@
    swaps, eating log, target changes, plan switching/pausing, backup. Independent re-computation wherever possible.
    Writes dist/reports/stageC-test.json and dist/reports/stageC-data.json (30-day table, variety stats). */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js']) require(path.join(ROOT, f));
 const { Store: S, Core: C, Plans: PS, MealPlan: MP, NUTRI: N, Logic: L, CATALOG: CT } = globalThis; const F = N.FOODS;
 let pass = 0, fail = 0; const fails = [], sec = {}; let cur = '';
 const T = n => { cur = n; sec[n] = { pass: 0, fail: 0 }; }, ok = (c, m) => { if (c) { pass++; sec[cur].pass++; } else { fail++; sec[cur].fail++; if (fails.length < 80) fails.push(cur + ': ' + m); } };
@@ -10,7 +10,7 @@ const REAL = S.today; let NOW = '2026-10-19'; S.today = () => NOW;
 const sum = ings => ings.reduce((t, x) => { const f = F[x.f], k = x.g / 100; t.k += f.k * k; t.p += f.p * k; t.c += f.c * k; t.f += f.f * k; return t; }, { k: 0, p: 0, c: 0, f: 0 });
 const ingsOf = s => { const r = N.RECIPES.find(x => x.id === s.rid); return r.ing.map((x, i) => (s.ov && s.ov[i]) ? Object.assign({}, x, s.ov[i]) : x).map(x => Object.assign({}, x, { g: x.g * (s.scale || 1) })); };
 /* independent blocked-food computation (does not call Core) */
-const G = { dairy: ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'], egg: ['egg', 'egg_white'], chicken: ['chicken_breast', 'chicken_thigh', 'chicken_mince'], fish: ['salmon', 'white_fish', 'tuna_can'], meat: ['beef_lean', 'turkey'] };
+const G = { dairy: ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'], egg: ['egg', 'egg_white'], chicken: ['chicken_breast', 'chicken_thigh', 'chicken_mince'], fish: ['salmon', 'white_fish', 'tuna_can', 'sardines'], meat: ['beef_lean', 'turkey'] };
 const FAM = { soya: ['soya', 'tofu', 'edamame', 'soy_milk', 'soy_sauce'], peanuts: ['peanuts', 'peanut_butter'] };
 const blockedOf = p => { const b = new Set(); const v = p.veg || p.vegan; if (p.dairy === false || p.vegan) G.dairy.forEach(x => b.add(x)); if (p.egg === false || v) G.egg.forEach(x => b.add(x)); if (p.chicken === false || v) G.chicken.forEach(x => b.add(x)); if (p.fish === false || v) G.fish.forEach(x => b.add(x)); if (p.meat === false || v) G.meat.forEach(x => b.add(x)); (p.exclude || []).forEach(x => (FAM[x] || [x]).forEach(y => b.add(y))); return b; };
 const setUser = (o) => { S.resetAll(); NOW = '2026-10-19'; const p = S.load('profile'); Object.assign(p, { age: 32, height: 187, weight: 85, startWeight: 85, sex: 'm', experience: 'beginner', aims: { primary: 'fat_loss', secondary: [] } }, o || {}); p.availability = { days: [1, 3, 5], sessions: 3, prefMin: null, maxMin: 30 }; S.save('profile'); return p; };
@@ -49,14 +49,14 @@ for (const [tid, len] of lengths) {
   let missing = 0, notPlan = 0, extraCounted = 0, sumBad = 0, withinK = 0, protOk = 0, gapDays = 0, gapWrong = 0, capBad = 0, unitBad = 0;
   const seq = [];
   for (const d of dates) {
-    const p = C.plan(d); if (p.source !== 'plan') notPlan++; if (['m1', 'm2', 'snack'].some(k => !p[k].rid)) missing++;
-    const indep = sum(['m1', 'm2', 'snack'].flatMap(k => ingsOf(p[k]))), cb = C.plannedTotals(d, 'base');
-    if (Math.abs(cb.k - indep.k) > 2 || Math.abs(cb.p - indep.p) > 0.3) sumBad++;
+    const p = C.plan(d); if (p.source !== 'plan') notPlan++; if (['m1', 'm2'].some(k => !p[k].rid)) missing++; const PR = C.DAY.filter(k => p[k].rid && !p[k].off); /* v2: meals as set + snacks only when needed */
+    const indep = sum(PR.flatMap(k => ingsOf(p[k]))), cb = C.plannedTotals(d, 'base');
+    if (Math.abs(cb.k - indep.k) > Math.max(2, 0.5 * PR.length) || Math.abs(cb.p - indep.p) > 0.3) sumBad++; /* each dish is rounded on screen (TD-21): ≤0.5 kcal per dish */
     if (Math.abs(C.plannedTotals(d, 'selected').k - cb.k) > 0.5) extraCounted++;
     if (Math.abs(indep.k - t.kcal) <= t.kcal * 0.07) withinK++; if (indep.p >= t.protein - 0.5) protOk++;
     const gp = p.gap && p.gap.p; if (gp) gapDays++; if (!!gp !== (indep.p < t.protein - 0.5) && Math.abs(indep.p - (t.protein - 0.5)) > 0.1) gapWrong++; /* 0.1 g rounding tolerance at the threshold */
-    ['m1', 'm2', 'snack'].forEach(k => { const r = L.recipe(p[k].rid); ingsOf(p[k]).forEach((x, i) => { if (F[x.f].unit && x.g !== r.ing[i].g && !(p[k].ov && p[k].ov[i] && p[k].ov[i].f !== r.ing[i].f)) unitBad++; if (x.g > 500) capBad++; }); });
-    seq.push(['m1', 'm2', 'snack'].map(k => p[k].rid));
+    PR.forEach(k => { const r = L.recipe(p[k].rid); ingsOf(p[k]).forEach((x, i) => { if (F[x.f].unit && x.g !== r.ing[i].g && !(p[k].ov && p[k].ov[i] && p[k].ov[i].f !== r.ing[i].f)) unitBad++; if (x.g > 500) capBad++; }); });
+    seq.push(['m1', 'm2', 'm3', 'snack'].map(k => (p[k].rid && !p[k].off) ? p[k].rid : null));
   }
   const L_ = `${tid}${len ? ':' + len : ''}`;
   ok(dates.length >= (len || PS.stats(pl).total), `${L_}: menu dates cover the plan (${dates.length})`);
@@ -65,11 +65,11 @@ for (const [tid, len] of lengths) {
   ok(extraCounted === 0, `${L_}: optional add-on not counted until selected`);
   ok(gapWrong === 0, `${L_}: protein gap flag matches the numbers (${gapDays} gap days)`);
   ok(unitBad === 0, `${L_}: eggs/slices/tortillas keep the recipe count (steps stay correct)`); ok(capBad === 0, `${L_}: no ingredient above 500 g in a serving`);
-  let consec = 0; for (let i = 1; i < seq.length; i++) for (let k = 0; k < 3; k++) if (seq[i][k] === seq[i - 1][k]) consec++;
+  let consec = 0; for (let i = 1; i < seq.length; i++) for (let k = 0; k < 4; k++) if (seq[i][k] && seq[i][k] === seq[i - 1][k]) consec++;
   ok(consec === 0, `${L_}: no meal repeated on consecutive days`);
   let week = 0; for (let i = 0; i + 7 <= seq.length; i += 7) { const m2 = new Set(seq.slice(i, i + 7).map(x => x[1])); if (m2.size < 6) week++; }
   ok(week === 0, `${L_}: ≥6 different main meals in every 7 days`);
-  const all = seq.flat(), cnt = {}; all.forEach(id => { cnt[id] = (cnt[id] || 0) + 1; });
+  const all = seq.flat().filter(Boolean), cnt = {}; all.forEach(id => { cnt[id] = (cnt[id] || 0) + 1; });
   varietyRows.push({ plan: L_, days: dates.length, distinct: Object.keys(cnt).length, maxUses: Math.max(...Object.values(cnt)), meanUses: +(all.length / Object.keys(cnt).length).toFixed(1), intlShare: +(all.filter(id => L.recipe(id).intl).length / all.length).toFixed(2), withinKcal7pct: withinK, proteinMet: protOk, gapDays, consecutiveRepeats: consec, cuisines: new Set(all.map(id => L.recipe(id).cuisine || 'indian')).size });
   ok(protOk / dates.length >= 0.95, `${L_}: protein target met on ≥95% of days (${protOk}/${dates.length})`);
   ok(withinK / dates.length >= 0.85, `${L_}: calories within ±7% on ≥85% of days (${withinK}/${dates.length})`);
@@ -99,7 +99,7 @@ const prefRows = [];
 for (const c of combos) {
   setUser({ prefs: C.normPrefs(c) }); const pl = activate('general_90'); const ds = datesOf(pl); const bl = blockedOf(c); const t = C.targets();
   let bad = 0, missing = 0, gaps = 0, off = 0; const ids = new Set(); let pMin = 1e9, kMin = 1e9, kMax = 0;
-  for (const d of ds) { const p = C.plan(d); ['m1', 'm2', 'snack', 'extra'].forEach(k => { if (p[k].missing || p[k].off) { if (p[k].missing) missing++; if (p[k].off) off++; return; } if (ingsOf(p[k]).some(x => bl.has(x.f))) bad++; if (k !== 'extra') ids.add(p[k].rid); });
+  for (const d of ds) { const p = C.plan(d); C.ALL.forEach(k => { if (p[k].missing || p[k].off) { if (p[k].missing) missing++; if (p[k].off) off++; return; } if (ingsOf(p[k]).some(x => bl.has(x.f))) bad++; if (k !== 'extra') ids.add(p[k].rid); });
     const bt = C.plannedTotals(d, 'base'); pMin = Math.min(pMin, bt.p); kMin = Math.min(kMin, bt.k); kMax = Math.max(kMax, bt.k); if (p.gap && (p.gap.p || p.gap.kLow)) gaps++; }
   const L_ = JSON.stringify(c);
   ok(bad === 0, `${L_}: no meal with an excluded food anywhere in the 90-day menu`);
@@ -140,7 +140,7 @@ setUser({ prefs: C.normPrefs({ vegan: true, exclude: ['soya'] }) }); { const a =
   ok(C.plan(NOW).source === 'plan' && C.plan(NOW).planId === a.id, 'switch to a plan starting tomorrow: today keeps the previous plan menu');
   ok(C.plan(S.addDays(NOW, 1)).planId === b.id, 'the new plan menu starts on its own start date');
   ok(C.plan(S.addDays(NOW, 2)).planId === b.id && !datesOf(PS.get(a.id)).slice(2).some(d => C.plan(d).planId === a.id), 'the replaced plan does not cover dates after the new plan starts');
-  const bad = ['m1', 'm2', 'snack', 'extra'].filter(k => { const s = C.plan(NOW)[k]; return s.rid && !s.missing && !s.off && C.conflicts(L.recipe(s.rid), s.ov).length; });
+  const bad = C.ALL.filter(k => { const s = C.plan(NOW)[k]; return s.rid && !s.missing && !s.off && C.conflicts(L.recipe(s.rid), s.ov).length; });
   ok(!bad.length, 'today\'s menu still respects vegan + no soy after the switch', bad); }
 
 T('backup & restore');
@@ -155,7 +155,7 @@ setUser(); { const s = S.load('profile'); s.startDate = NOW; s.prefs = Object.as
   C.profile().menuMode = 'fixed'; /* the authored menu stays available (history, menuMode 'fixed') */
   for (let i = 0; i < 30; i++) { const d = S.addDays(NOW, i), p = C.plan(d); ok(p.source === 'classic' && p.m1.rid === N.MENU[i][0] && p.m2.rid === N.MENU[i][1] && p.snack.rid === N.MENU[i][2], 'day ' + (i + 1) + ' uses the fixed 30-day menu without a personal plan'); }
   delete C.profile().menuMode;
-  s.prefs = C.normPrefs({}); S.save('profile'); let ind = 0; for (let i = 0; i < 30; i++) { const p = C.plan(S.addDays(NOW, i)); ['m1', 'm2', 'snack'].forEach(k => { if (['indian', 'himachali'].includes(C.cuisineOf(L.recipe(p[k].rid)))) ind++; }); }
+  s.prefs = C.normPrefs({}); S.save('profile'); let ind = 0; for (let i = 0; i < 30; i++) { const p = C.plan(S.addDays(NOW, i)); C.DAY.filter(k => p[k].rid).forEach(k => { if (['indian', 'himachali'].includes(C.cuisineOf(L.recipe(p[k].rid)))) ind++; }); }
   ok(ind === 0, 'default user (no cuisine chosen): no Indian dish in the 30-day menu (' + ind + ')'); }
 
 /* data for the report: 30-day table for the default profile */

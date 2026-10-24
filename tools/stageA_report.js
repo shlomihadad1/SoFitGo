@@ -1,6 +1,6 @@
 /* Builds STAGE-A-REPORT.md from project data and test outputs (dist/reports). No numbers typed by hand. */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..'); const R = p => path.join(ROOT, p);
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js']) require(R(f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js']) require(R(f));
 const { EXERCISES, NUTRI, CATALOG: CT, PROGRAMS: PG, Planner: PL } = globalThis;
 const J = f => JSON.parse(fs.readFileSync(R('dist/reports/' + f), 'utf8')); const LOG = f => fs.readFileSync(R('dist/reports/logs/' + f), 'utf8');
 const man = JSON.parse(fs.readFileSync(R('MEDIA-MANIFEST.json'), 'utf8')), sA = J('stageA-test.json'), eA = J('e2e-stageA.json'), e2 = J('e2e-results.json');

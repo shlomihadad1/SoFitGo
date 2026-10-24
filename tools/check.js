@@ -1,4 +1,4 @@
-for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const {Logic:L,PROGRAM:P,NUTRI:N,EX_BY_ID:E}=globalThis;
 const T=L.computeTargets({weight:85,height:187,age:32});console.log('targets',T);
 let bad=0;

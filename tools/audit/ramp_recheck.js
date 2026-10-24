@@ -12,7 +12,7 @@ const pairsOf = days => { const last = {}, out = []; days.forEach(d => { if (!re
 const stat = a => { if (!a.length) return { n: 0 }; const s = a.slice().sort((x, y) => x - y); return { n: a.length, over25: a.filter(r => r > 1.25 + 1e-9).length, max: +s[s.length - 1].toFixed(2), p95: +s[Math.floor(s.length * 0.95)].toFixed(2), median: +s[Math.floor(s.length / 2)].toFixed(2) }; };
 const res = {};
 /* Part 1 */
-{ for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
+{ for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
   const { PROGRAMS: PG, Planner: P } = globalThis; const same = [], diff = [], perEx = []; let perExOverWithRamp = 0;
   for (const t of PG.TEMPLATES.filter(t => !t.classic && !(t.needsLibrary || []).length)) for (const level of ['beginner', 'intermediate', 'advanced']) for (const goal of t.goals) for (const spw of [3, 5]) {
     const r = P.build(t.id, { start: '2026-10-19', days: t.custom ? 90 : t.days, profile: { level, days: [0, 1, 2, 3, 4, 5, 6], spw, maxMin: 45, equipment: [] }, goal });

@@ -1,4 +1,4 @@
-for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const {Logic:L,NUTRI:N}=globalThis;
 const T={m1:{k:820,p:50},m2:{k:930,p:62},snack:{k:340,p:25}};
 const PG=new Set(['protein']);const out={};

@@ -2,7 +2,7 @@
    most repeated session) must describe the sessions actually generated — i.e. after the gradual-load ramp.
    Usage: node tools/rc2_dev_test.js [root]   (pass another copy's root to check it; RC1 is expected to FAIL §1). */
 const fs = require('fs'), path = require('path'); const ROOT = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
 const { PROGRAMS: PG, Planner: P } = globalThis; const NOW = '2026-10-19';
 let pass = 0, fail = 0; const fails = []; const ok = (c, m, info) => { if (c) pass++; else { fail++; fails.push(m + (info !== undefined ? ' → ' + JSON.stringify(info).slice(0, 300) : '')); } };
 const sigOf = d => d.type + ':' + d.main.map(x => x.ex + (x.reps || x.sec) + 'x' + x.sets).join(',');

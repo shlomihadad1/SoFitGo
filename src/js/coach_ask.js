@@ -69,7 +69,7 @@ function mealAdjust(d, n) {
   n = n || ''; const MO = root.MealOpt, m = root.Screens.nowModel(d), ctx = context();
   const mode = /חלבון/.test(n) ? 'protein' : /לבשל|בישול|מהיר|זמן|קל להכנה/.test(n) ? 'quick' : /קליל|פחות קלוריות|דיאט/.test(n) ? 'light' : null;
   const lines = [`ההעדפות שנלקחות בחשבון: הגבלות — ${ctx[5].v}; מטבח — ${ctx[6].v || 'לא נבחר'}${C.normPrefs(C.profile().prefs).maxPrep ? `; זמן הכנה עד ${C.normPrefs(C.profile().prefs).maxPrep} דק׳` : ''}.`];
-  const nxt = m.done.find(x => ['m1', 'm2', 'snack'].includes(x.k) && !x.ok);
+  const nxt = m.done.find(x => C.DAY.includes(x.k) && !x.ok);
   if (!nxt || !MO) return { lines: lines.concat('כל הארוחות של היום כבר סומנו. אפשר לשנות מנות לימים הבאים במסך התזונה.'), acts: [{ href: '#/nutrition', label: 'לתפריט' }, { href: '#/settings', label: 'לעדכון העדפות' }] };
   const o = MO.options(d, nxt.k, mode || undefined), r = o.cur;
   if (/לא אוהב|לא טעים|לא בא לי/.test(n) && r) {
@@ -97,7 +97,7 @@ function summary() {
   return { lines, acts: [{ href: '#/progress', label: 'להתקדמות' }], src: 'יומן האימונים' };
 }
 function need() { return { lines: ['כדי לחשב יעדים צריך גיל, גובה ומשקל בפרופיל.'], acts: [{ href: '#/profile', label: 'השלמת הפרופיל' }] }; }
-function nextMeal(d) { const m = root.Screens.nowModel(d), n = m.done.find(x => ['m1', 'm2', 'snack'].includes(x.k) && !x.ok); if (!n) return ''; const pl = C.plan(d)[n.k];
+function nextMeal(d) { const m = root.Screens.nowModel(d), n = m.done.find(x => C.DAY.includes(x.k) && !x.ok); if (!n) return ''; const pl = C.plan(d)[n.k];
   if (!pl || !pl.rid) return ''; const r = L.recipe(pl.rid), mm = L.recipeMacros(r, pl.scale || 1, pl.ov); return `הארוחה הבאה בתפריט: ${r.he} (כ־${r1(mm.p)} ג׳ חלבון, ${r1(mm.k)} קק״ל).`; }
 /* order = priority */
 const T = [

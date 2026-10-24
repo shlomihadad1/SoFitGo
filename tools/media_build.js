@@ -16,7 +16,7 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? proces
 const SRC = path.resolve(ROOT, arg('--src', 'media-src')), OUT = path.resolve(ROOT, arg('--out', 'src/media'));
 const MANIFEST = path.resolve(ROOT, arg('--manifest', 'MEDIA-MANIFEST.json')), DATA = path.resolve(ROOT, arg('--data', 'src/data/media.js'));
 const ALLOW_WEBM_ONLY = process.argv.includes('--allow-webm-only'); // test fixtures only (Chromium cannot play H.264)
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js']) require(path.join(ROOT, f));
 const { EXERCISES, NUTRI, Figure } = globalThis;
 
 const LICENSES = { 'original': 'יצירה מקורית של בעל האפליקציה', 'CC0-1.0': 'Creative Commons Zero', 'CC-BY-4.0': 'Creative Commons Attribution 4.0', 'CC-BY-SA-4.0': 'Creative Commons Attribution-ShareAlike 4.0', 'Pexels': 'Pexels License', 'Unsplash': 'Unsplash License', 'Pixabay': 'Pixabay Content License', 'licensed': 'רישיון מסחרי שנרכש (חובה לצרף מספר רישיון/חשבונית)' };

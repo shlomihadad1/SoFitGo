@@ -2,7 +2,7 @@
    Raises lean protein sources (chicken, soya, legumes, besan, hung curd, roasted chana, sprouts, paneer) until the day reaches
    the protein target, then raises simple carbs (rice, oats, poha, potato, fruit) if calories are under 2200, never above 2450.
    Items whose counts appear in recipe steps (eggs, egg whites, roti/atta, bread) are never adjusted. Writes BASE_ADJ into nutrition.js. */
-for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const fs=require('fs'); const {Logic:L,NUTRI:N}=globalThis; const F=N.FOODS;
 const PT=155, KMIN=2200, KMAX=2450;
 const PRO={chicken_breast:[10,1.35,320],chicken_thigh:[10,1.35,320],chicken_mince:[10,1.35,320],soya:[5,1.5,75],masoor:[5,1.4,115],moong:[5,1.4,115],toor:[5,1.4,115],rajma:[5,1.4,115],chana:[5,1.4,115],kala_chana:[5,1.4,115],besan:[5,1.3,110],hung_curd:[25,1.4,300],roasted_chana:[5,1.4,70],sprouts:[20,1.5,260],paneer:[10,1.25,180]};

@@ -63,7 +63,7 @@ function checkMeal(r, ov) {
 /* the menu of a date as shown (Core.plan output) */
 function checkMenu(date) {
   const c = C(), pl = c.plan(date), out = [];
-  ['m1', 'm2', 'snack', 'extra'].forEach(k => { const s = pl[k]; if (!s || s.off) return;
+  c.ALL.forEach(k => { const s = pl[k]; if (!s || s.off) return;
     if (s.missing) { out.push({ sev: 'block', kind: 'no-valid-meal', slot: k, text: `${c.slotNames[k]}: אין מנה שמתאימה להגבלות`, why: s.blockedNone || '' }); return; }
     if (!s.rid || (k === 'extra' && !pl.extra.on)) return; checkMeal(L().recipe(s.rid), s.ov).issues.filter(x => x.sev !== 'info').forEach(x => out.push(Object.assign({ slot: k }, x))); });
   return { ok: !out.some(x => x.sev === 'block'), issues: out };

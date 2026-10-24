@@ -1,7 +1,7 @@
 /* Fit30 RC1 acceptance tests (Node, simulated clock). Independent recomputation; no test passes unconditionally.
    Writes dist/reports/rc1-test.json (incl. per-day statistics for the calorie-target runs). */
 const fs = require('fs'), path = require('path'), cp = require('child_process'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js']) require(path.join(ROOT, f));
 const { Store: S, Core: C, Plans: PS, MealPlan: MP, Logic: L, NUTRI: N, Signature: G } = globalThis; const F = N.FOODS;
 let pass = 0, fail = 0; const fails = [], sec = {}, stats = {}; let cur = '';
 const T = n => { cur = n; sec[n] = { pass: 0, fail: 0 }; }, ok = (c, m, info) => { if (c) { pass++; sec[cur].pass++; } else { fail++; sec[cur].fail++; fails.push(cur + ': ' + m + (info !== undefined ? ' → ' + JSON.stringify(info).slice(0, 300) : '')); } };
@@ -28,7 +28,7 @@ for (const K of [2500, 3000, 3500, 3700]) for (const [lbl, pf] of [['omnivore', 
 T('2 vegan without soy & peanuts — whole plan');
 { setUser({ goal: 'recomp', weight: 72, prefs: { vegan: true, exclude: ['soya', 'peanuts'] } }); const pl = activate(); const ds = PS.days(PS.get(pl.id)), bl = C.blockedFoods(), t = C.targets();
   let bad = 0, noBreakfast = 0, pShort = 0, pFlag = 0; const pr = [];
-  ds.forEach(d => { const p = C.plan(d.date); ['m1', 'm2', 'snack'].forEach(k => { const s = p[k]; if (s.rid && L.recipeIngredients(L.recipe(s.rid), s.ov).some(x => bl.has(x.f))) bad++; }); if (!p.m1.rid) noBreakfast++;
+  ds.forEach(d => { const p = C.plan(d.date); C.DAY.forEach(k => { const s = p[k]; if (s.rid && L.recipeIngredients(L.recipe(s.rid), s.ov).some(x => bl.has(x.f))) bad++; }); if (!p.m1.rid) noBreakfast++;
     const tot = C.plannedTotals(d.date, 'base'); pr.push(tot.p); if (tot.p < t.protein - 0.5) { pShort++; if (p.gap && p.gap.p) pFlag++; } });
   stats.veganNoSoyNoPeanut = { days: ds.length, avgProtein: Math.round(pr.reduce((a, b) => a + b, 0) / pr.length), target: t.protein, proteinShortDays: pShort, flagged: pFlag };
   ok(bad === 0, `0 restricted foods over ${ds.length} days`); ok(noBreakfast === 0, 'a breakfast every day'); ok(pShort === pFlag, `every protein-short day is flagged (${pFlag}/${pShort})`, stats.veganNoSoyNoPeanut); }
@@ -51,7 +51,7 @@ T('4 RC1 fixes');
   PS.activate(pl, { confirmReplace: true }); const real = MP.menus(PS.get(pl.id)); const same = pv.days.every(d => JSON.stringify(d.slots) === JSON.stringify(real.byDate[d.date].slots));
   ok(same, 'setup preview menu (seed = plan id) is identical to the activated menu for the first 28 days'); }
 /* H-15 */ { setUser({}); const pl = activate(); const first = C.plan(NOW).m2.rid; const p = S.load('profile'); p.nutritionDislike = [first]; S.save('profile'); ok(!!MP.pending(PS.get(pl.id)), 'dislike → menu update pending');
-  MP.applyChange(PS.get(pl.id), 't'); let seen = 0; for (let i = 0; i < 90; i++) { const pp = C.plan(S.addDays(NOW, i)); if (['m1', 'm2', 'snack'].some(k => pp[k].rid === first)) seen++; } ok(seen === 0, 'after approval the disliked dish does not appear in 90 days'); }
+  MP.applyChange(PS.get(pl.id), 't'); let seen = 0; for (let i = 0; i < 90; i++) { const pp = C.plan(S.addDays(NOW, i)); if (C.DAY.some(k => pp[k].rid === first)) seen++; } ok(seen === 0, 'after approval the disliked dish does not appear in 90 days'); }
 /* H-11 */ { setUser({}); const pl = activate(); const ex = G.explain(PS.get(pl.id)), ph = ex.find(s => s.k === 'phases').items;
   ok(ph.every(x => !/×1\.\d/.test(x)), 'explain no longer quotes the template ×volume factor'); const tr = PS.days(PS.get(pl.id)).filter(d => PS.isTraining(d) && !d.deload && !['assess', 'active', 'mob'].includes(d.type) && d.phase.k === 'intro' && (d.main || []).length);
   const avg = Math.round(tr.reduce((a, d) => a + d.main.reduce((x, it) => x + it.sets, 0), 0) / tr.length * 10) / 10; ok(ph[0].includes(String(avg)), `first-phase line shows the plan's actual average sets (${avg})`, ph[0]); }

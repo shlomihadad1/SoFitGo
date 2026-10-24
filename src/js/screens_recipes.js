@@ -21,7 +21,7 @@ Screens.recipe = function (id, date, slot) {
   const r = L.recipe(id); if (!r) return { title: 'לא נמצא', html: '<div class="empty">המתכון לא נמצא</div>', handlers: {} };
   /* day context: when opened from a planned slot, show that day's amounts (BASE_ADJ / swaps / scale) */
   let ctx = null;
-  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date) && ['m1', 'm2', 'snack', 'extra'].includes(slot)) { const ps = C.plan(date)[slot]; if (ps && ps.rid === id) ctx = { date, slot, ov: ps.ov || null, scale: ps.scale || 1 }; }
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date) && C.ALL.includes(slot)) { const ps = C.plan(date)[slot]; if (ps && ps.rid === id) ctx = { date, slot, ov: ps.ov || null, scale: ps.scale || 1 }; }
   const ovs = ctx ? ctx.ov : null, base = ctx ? ctx.scale : 1, ings = L.recipeIngredients(r, ovs);
   const nu = S.load('nutrition'), fav = nu.favorites.includes(id); const svKey = id + '|' + (ctx ? date + slot : ''); const sv = Screens._sv = Screens._sv && Screens._sv.id === svKey ? Screens._sv : { id: svKey, n: 1 };
   const m1 = L.recipeMacros(r, base, ovs), mt = L.recipeMacros(r, base * sv.n, ovs);
@@ -52,7 +52,7 @@ Screens.recipe = function (id, date, slot) {
         root.UI.toast(msg, 3500); root.App.render(); },
       sv: el => { sv.n = Math.max(0.5, Math.min(6, sv.n + +el.dataset.d)); root.App.render(); },
       logNow: () => { const m = L.recipeMacros(r, base * sv.n, ovs); addRecipeEntry(S.today(), r, { slot: null, source: 'recipe', rid: r.id, name: r.he + (sv.n !== 1 ? ' ×' + sv.n : ''), k: m.k, p: m.p, c: m.c, f: m.f, fb: m.fb }); },
-      toPlan: () => root.UI.sheet('הוספה לתפריט', `<label class="field">תאריך<input type="date" id="tp-d" value="${S.today()}"></label><label class="field">במקום<select id="tp-s"><option value="${r.meal}" selected>${C.slotNames[r.meal]}</option></select></label><label class="field">מנות<input type="number" id="tp-n" step="0.25" min="0.25" value="${sv.n}"></label><p class="tiny faint">מחליף את הארוחה המתוכננת בתאריך הזה בלבד. רישומים של מה שנאכל לא משתנים.</p><button class="btn primary" data-act="ok">הוספה</button>`,
+      toPlan: () => root.UI.sheet('הוספה לתפריט', `<label class="field">תאריך<input type="date" id="tp-d" value="${S.today()}"></label><label class="field">במקום<select id="tp-s">${C.ALL.filter(k => C.mealOf(k) === r.meal).map(k => `<option value="${k}" ${k === r.meal ? 'selected' : ''}>${C.slotNames[k]}</option>`).join('')}</select></label><label class="field">מנות<input type="number" id="tp-n" step="0.25" min="0.25" value="${sv.n}"></label><p class="tiny faint">מחליף את הארוחה המתוכננת בתאריך הזה בלבד. רישומים של מה שנאכל לא משתנים.</p><button class="btn primary" data-act="ok">הוספה</button>`,
         { ok: (el, e, close, b) => { const d = b.querySelector('#tp-d').value; if (!d) return; if (C.isPast(d)) { root.UI.toast('אי אפשר לשנות תפריט של יום שעבר מכאן'); return; } C.setPlanSlot(d, b.querySelector('#tp-s').value, { rid: id, ov: null, scale: +b.querySelector('#tp-n').value || 1 }); close(); root.UI.toast('התפריט עודכן'); } })
     } };
 };

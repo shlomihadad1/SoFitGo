@@ -3,7 +3,7 @@
    rejected / legal-review (external candidates from VIDEO-RESEARCH-REPORT, 2026-10-18 — none integrated).
    Writes VIDEO-CATALOG-RC1.csv + dist/reports/video-catalog-rc1.json and prints coverage. */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/tutorials.js', 'src/data/tutorials_media.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/tutorials.js', 'src/data/tutorials_media.js']) require(path.join(ROOT, f));
 const { CATALOG: CT, NUTRI: N, TUTORIALS: TU, TUTORIAL_MEDIA: TM } = globalThis;
 const SAMPLED = { squat: ['https://mixkit.co/free-stock-video/a-young-woman-wearing-a-black-sportswear-outfit-performs-squats-52106/', 'נדחה — לא תואם (קטלבל)'], pushup: ['https://uppbeat.io/stock-video/asset/fit-woman-doing-push-ups-and-downward-dog-53772', 'דורש בדיקה משפטית — רישיון לא מצוין; לא הוטמע'], glute_bridge: ['https://www.storyblocks.com/video/stock/young-man-stretching-spine-bending-imitating-bridge-exercise-347503387', 'נדחה — לא תואם, ובתשלום'] };
 const rows = [];

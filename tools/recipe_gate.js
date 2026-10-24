@@ -5,7 +5,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const ctx = { console }; ctx.window = ctx; ctx.self = ctx; vm.createContext(ctx);
-for (const f of ['src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/js/logic.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
+for (const f of ['src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/js/logic.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 const N = ctx.NUTRI, F = N.FOODS, R = N.RECIPES, L = ctx.Logic;
 const rows = [], byName = {}, bySet = {};
 for (const r of R) {

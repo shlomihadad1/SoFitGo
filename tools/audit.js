@@ -1,6 +1,6 @@
 /* Audit: (1) every number in recipe steps vs ingredient amounts, (2) dietary tags vs actual ingredients,
    (3) every BASE_ADJ entry: original → adjusted, nutrient effect, whether step text quotes that ingredient's amount. Writes dist/reports/audit.json */
-for (const f of ['src/js/figure.js','src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/js/figure.js','src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const fs=require('fs'); const {NUTRI:N,Logic:L}=globalThis; const F=N.FOODS;
 const out={stepNumbers:[],tagIssues:[],adj:[],adjTextConflicts:[]};
 const QUOTE={ 'ג׳ אורז':'rice','ג׳ אטה':'atta','ג׳ שמן':'oil','ג׳ דהי':'curd','ג׳ פניר':'paneer','ג׳ חומוס קלוי':'roasted_chana','ג׳ עוף':'chicken_breast','ג׳ סויה':'soya' };

@@ -79,9 +79,10 @@
   /* Recipe facts derived from ingredients */
   const ALLERGEN_OF = { atta: 'gluten', maida: 'gluten', bread: 'gluten', noodles: 'gluten', oats: 'gluten_may', curd: 'milk', hung_curd: 'milk', milk: 'milk', paneer: 'milk', ghee: 'milk', egg: 'egg', egg_white: 'egg', soya: 'soy', peanuts: 'peanut',
     pasta: 'gluten', couscous: 'gluten', bulgur: 'gluten', tortilla: 'gluten', soy_sauce: ['soy', 'gluten'], tofu: 'soy', edamame: 'soy', soy_milk: 'soy', peanut_butter: 'peanut',
-    salmon: 'fish', white_fish: 'fish', tuna_can: 'fish', greek_yogurt: 'milk', cottage: 'milk', feta: 'milk', mozzarella: 'milk', almonds: 'tree_nut', tahini: 'sesame' };
-  const ALLERGEN_HE = { gluten: 'גלוטן', gluten_may: 'עלול להכיל גלוטן (שיבולת שועל)', milk: 'חלב', egg: 'ביצים', soy: 'סויה', peanut: 'בוטנים', fish: 'דגים', tree_nut: 'אגוזים (שקדים)', sesame: 'שומשום (טחינה)' };
-  const MEAT = ['chicken_breast', 'chicken_thigh', 'chicken_mince', 'beef_lean', 'turkey'], FISH = ['salmon', 'white_fish', 'tuna_can'], EGG = ['egg', 'egg_white'], DAIRY = ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'];
+    salmon: 'fish', white_fish: 'fish', tuna_can: 'fish', greek_yogurt: 'milk', cottage: 'milk', feta: 'milk', mozzarella: 'milk', almonds: 'tree_nut', tahini: 'sesame',
+    pita_ww: 'gluten', barley: 'gluten', sardines: 'fish', walnuts: 'tree_nut', hummus_spread: 'sesame' }; /* nutrition DB v2 foods */
+  const ALLERGEN_HE = { gluten: 'גלוטן', gluten_may: 'עלול להכיל גלוטן (שיבולת שועל)', milk: 'חלב', egg: 'ביצים', soy: 'סויה', peanut: 'בוטנים', fish: 'דגים', tree_nut: 'אגוזים (שקדים / אגוזי מלך)', sesame: 'שומשום (טחינה)' };
+  const MEAT = ['chicken_breast', 'chicken_thigh', 'chicken_mince', 'beef_lean', 'turkey'], FISH = ['salmon', 'white_fish', 'tuna_can', 'sardines'], EGG = ['egg', 'egg_white'], DAIRY = ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'];
   const CUISINE_BY_ID = { chicken_thukpa: 'tibetan', chicken_momos: 'tibetan', r_thukpa_momo: 'tibetan', madra_chicken: 'himachali', kala_chana_curry_rice: 'himachali', mushroom_matar_soya_roti: 'himachali' };
   const CUISINE_HE = { indian: 'הודי', himachali: 'הימאצ׳לי', tibetan: 'טיבטי', international: 'בינלאומי', mediterranean: 'ים־תיכוני', italian: 'איטלקי', mexican: 'מקסיקני', middle_eastern: 'מזרח תיכוני', american: 'אמריקאי', asian: 'אסייתי', greek: 'יווני', israeli: 'ישראלי', moroccan: 'מרוקאי' };
   function recipeFacts(r) {

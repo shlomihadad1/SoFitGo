@@ -1,6 +1,6 @@
 /* Content & logic tests (Node). Expected values are computed independently from the raw data tables,
    not by calling the same app function that is being checked. Writes a durations report to dist/reports. */
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/js/logic.js', 'src/js/store.js', 'src/js/core.js']) require('../' + f);
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/js/logic.js', 'src/js/store.js', 'src/js/core.js']) require('../' + f);
 const fs = require('fs'), path = require('path');
 const { Logic: L, PROGRAM: P, NUTRI: N, EXERCISES: EX, EX_BY_ID: E, Figure, Store: S, Core: C } = globalThis;
 let pass = 0, fail = 0; const fails = [];

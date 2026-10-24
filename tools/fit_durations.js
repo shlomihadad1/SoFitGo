@@ -1,5 +1,5 @@
 /* Authoring helper: searches the structural levers (rounds, exercise selection, extras, walk length) per day. */
-for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js','src/js/logic.js']) require('../'+f);
+for (const f of ['src/data/exercises.js','src/data/workouts.js','src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js','src/js/logic.js']) require('../'+f);
 const {Logic:L,PROGRAM:P,EX_BY_ID:E}=globalThis;
 const sec=(d,v)=>L.durationBreakdown(d,v).total/60;
 const out={};

@@ -1,7 +1,7 @@
 /* Writes STAGE-C-REPORT.md from the test logs and dist/reports/stageC-{test,data}.json. Every number comes from a file
    produced by an actual test run; nothing here is typed by hand except labels and explanations. */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..'), REP = path.join(ROOT, 'dist/reports');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/js/logic.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/js/logic.js']) require(path.join(ROOT, f));
 const { NUTRI: N, Logic: L, CATALOG: CT } = globalThis; const F = N.FOODS;
 const LOG = f => { try { return fs.readFileSync(path.join(REP, 'logs', f), 'utf8'); } catch (e) { return ''; } };
 const m = (f, re) => { const x = LOG(f).match(re); return x ? { pass: +x[1], fail: +x[2] } : null; };

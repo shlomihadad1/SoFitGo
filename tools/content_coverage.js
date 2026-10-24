@@ -2,7 +2,7 @@
    steps; media is counted as it really is (generated illustration / real photo / video) — nothing is counted as media that is not
    in the media manifest. Writes docs/CONTENT-COVERAGE.md. Usage: node tools/content_coverage.js [--write] */
 const fs = require('fs'), path = require('path'); global.window = global;
-const D = f => require(path.join(__dirname, '../src/data', f)); ['exercises.js', 'nutrition.js', 'recipes_intl.js', 'catalog.js', 'media.js'].forEach(D);
+const D = f => require(path.join(__dirname, '../src/data', f)); ['exercises.js', 'nutrition.js', 'recipes_intl.js', 'recipes_med.js', 'catalog.js', 'media.js'].forEach(D);
 const E = EXERCISES, R = NUTRI.RECIPES, M = MEDIA; let pass = 0, fail = 0; const fails = [];
 const ok = (c, m) => { if (c) pass++; else { fail++; fails.push(m); } };
 const exRow = e => { const m = CATALOG.exMeta(e.id), md = M.ex[e.id] || {};

@@ -1,7 +1,7 @@
 /* Writes MEDIA-QUEUE.md: the work queue for every missing media asset, with a shot specification taken from the
    exercise/recipe data (start position, movement, end position, key cues; dish, quantities, key steps). */
 const fs = require('fs'), path = require('path'); const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js']) require(path.join(ROOT, f));
 const { EXERCISES, NUTRI, CATALOG: CT } = globalThis;
 const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'MEDIA-MANIFEST.json'), 'utf8'));
 const miss = (role, id) => man.items.find(i => i.role === role && i.target.id === id && i.status === 'missing');

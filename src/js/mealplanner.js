@@ -12,6 +12,10 @@
   const VERSION = 1;
   const GAP = { m1: 4, m2: 6, snack: 3 }; /* minimum days before the same recipe returns in a slot (when the pool allows) */
   const SLOTS3 = ['m1', 'm2', 'snack'];
+  /* Nutrition DB v2: a dish keeps an ordinary serving — portions may move only between ×0.75 and ×1.35 of the recipe (BDA portion
+     guidance); the day reaches its target by choosing whole dishes (2–3 meals as the user set + up to 2 snacks when needed), and a
+     remaining shortfall is shown as a real gap instead of an oversized plate. */
+  const LO = 0.75, HIof = T => Math.min(1.6, Math.max(1.35, (T || 2000) / 2000 * 1.15)); /* the upper limit grows with the energy need: a recipe serving is sized for an ordinary ≈2,000 kcal day (food-labelling reference), so a 3,000 kcal day may use up to ×1.6 servings — never more */
   const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
   const r5 = g => Math.max(5, Math.round(g / 5) * 5);
 
@@ -26,18 +30,21 @@
       const m = L().recipeMacros(r, 1, ov);
       /* Stage H1: calorie capacity = the most this dish can reach within the same portion caps portion() uses
          (unit foods fixed). Used only to avoid choosing dishes that cannot reach a high target. */
-      const capK = L().recipeIngredients(r, ov).reduce((s, x) => { const f = N().FOODS[x.f]; const g = f.unit ? x.g : Math.min(capOf(x.f), x.g * (isProt(x.f) ? 2.5 : 2.4)); return s + f.k * g / 100; }, 0);
+      const capK = L().recipeIngredients(r, ov).reduce((s, x) => { const f = N().FOODS[x.f]; const g = f.unit ? x.g : Math.min(capOf(x.f), x.g * HIof(params.kcal)); return s + f.k * g / 100; }, 0);
       out[r.meal].push({ r, ov, fav: fav.has(r.id), min: (r.prep || 0) + (r.cook || 0), protein: mainProtein(r), dens: m.k ? m.p / m.k * 100 : 0, capK });
     }
-    /* M10.4 · cuisine preference (only when the user chose one): keep dishes of the chosen cuisines; if a slot would have too few,
-       other SAFE dishes are added back and the menu says so (never presented as matching the chosen cuisine) */
-    const cset = C().cuisineSet(params.prefs);
-    if (cset) SLOTS3.concat('extra').forEach(k => { const ok = out[k].filter(c => cset.has(C().cuisineOf(c.r))), min = k === 'extra' ? 1 : 3;
-      out[k].forEach(c => { c.cuOk = cset.has(C().cuisineOf(c.r)); c.cuMain = C().cuisineMainOk(c.r, params.prefs); });
-      const explicit = (params.prefs.cuisines || []).length || (params.prefs.region && params.prefs.region.consent && params.prefs.region.group);
-      const need = explicit ? min : params.kcal > 3200 ? 1e9 : (k === 'extra' ? 2 : 6); /* very high energy targets need the whole library's capacity */ /* default mix: only when the pool stays rich enough for variety and targets; otherwise all safe dishes, scored */
-      const ind = C().CUISINE_GROUPS.indian ? new Set(C().CUISINE_GROUPS.indian.codes) : new Set(), nonInd = explicit ? [] : out[k].filter(c => !ind.has(C().cuisineOf(c.r)));
-      if (ok.length >= need) out[k] = ok; else if (!explicit && params.kcal <= 3200 && nonInd.length >= (k === 'extra' ? 2 : GAP[k] + 1)) out[k] = nonInd; /* only when the wider non-Indian pool still keeps the no-repeat rule; very high targets keep the whole library */ /* default mix too small (e.g. no dairy): widen to other non-default cuisines before the Indian-heavy original menu */ else if (k !== 'extra' && explicit) out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); });
+    /* cuisine & library. Default (no explicit cuisine): the v2 Mediterranean/Israeli library only (enough dishes per slot for the
+       no-repeat rule, else other non-Indian dishes, else everything safe). Explicit cuisine (M10.4): keep dishes of the chosen
+       cuisines from both libraries (v2 preferred in scoring); if too few, other safe dishes are added and the menu says so. */
+    const cset = C().cuisineSet(params.prefs), explicit = (params.prefs.cuisines || []).length || (params.prefs.region && params.prefs.region.consent && params.prefs.region.group);
+    const ind = C().CUISINE_GROUPS.indian ? new Set(C().CUISINE_GROUPS.indian.codes) : new Set();
+    SLOTS3.concat('extra').forEach(k => {
+      out[k].forEach(c => { c.cuOk = !cset || cset.has(C().cuisineOf(c.r)); c.cuMain = cset ? C().cuisineMainOk(c.r, params.prefs) : false; c.legacy = k !== 'extra' && !c.r.v2; });
+      if (k === 'extra') { if (cset) { const ok = out[k].filter(c => c.cuOk); if (ok.length >= (explicit ? 1 : 2)) out[k] = ok; } return; }
+      const enough = GAP[k] + 1;
+      if (!explicit) { const v2 = out[k].filter(c => c.r.v2 && c.cuOk), nonInd = out[k].filter(c => !ind.has(C().cuisineOf(c.r)));
+        out[k] = v2.length >= enough ? v2 : nonInd.length >= enough ? nonInd : out[k]; }
+      else if (cset) { const ok = out[k].filter(c => c.cuOk); if (ok.length >= 3) out[k] = ok; else out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); } });
     if (params.maxPrep) SLOTS3.forEach(k => { const quick = out[k].filter(c => c.min <= params.maxPrep); if (quick.length >= 3) out[k] = quick; else out.notes.push(`אין מספיק מנות ל"${C().slotNames[k]}" שמוכנות תוך ${params.maxPrep} דק׳ — נכללו גם מנות ארוכות יותר.`); });
     return out;
   }
@@ -57,14 +64,14 @@
     const orig = {}; present.forEach(k => { orig[k] = L().recipeIngredients(L().recipe(day.slots[k].rid), day.slots[k].ov); });
     const fixed = new Map(); /* key k:i → grams held fixed (unit foods, or foods that reached their cap) */
     present.forEach(k => orig[k].forEach((x, i) => { if (N().FOODS[x.f].unit) fixed.set(k + ':' + i, x.g); }));
-    const P = (Pt || 0) * 1.03, K = T * 0.98; let sp = 1, sc = 1;
+    const P = (Pt || 0) * 1.03, K = T * 0.98, HI = HIof(T); let sp = 1, sc = 1;
     for (let it = 0; it < 4; it++) {
       let Fp = 0, Fk = 0, Pp = 0, Kp = 0, Po = 0, Ko = 0;
       present.forEach(k => orig[k].forEach((x, i) => { const key = k + ':' + i; const m = L().ingMacros(fixed.has(key) ? { f: x.f, g: fixed.get(key) } : x);
         if (fixed.has(key)) { Fp += m.p; Fk += m.k; } else if (isProt(x.f)) { Pp += m.p; Kp += m.k; } else { Po += m.p; Ko += m.k; } }));
       const D = Pp * Ko - Po * Kp; let ok = false;
-      if (Pt && Math.abs(D) > 1e-6) { sp = ((P - Fp) * Ko - Po * (K - Fk)) / D; sc = (Pp * (K - Fk) - Kp * (P - Fp)) / D; ok = sp >= 0.6 && sp <= 2.5 && sc >= 0.5 && sc <= 2.4; }
-      if (!ok) { sp = Pt ? (Pp ? (P - Fp - Po) / Pp : 1) : (Kp + Ko ? (K - Fk) / (Kp + Ko) : 1); sp = Math.max(0.6, Math.min(2.5, sp)); sc = Pt ? (Ko ? Math.max(0.5, Math.min(2.4, (K - Fk - sp * Kp) / Ko)) : 1) : Math.max(0.5, Math.min(2.4, sp)); }
+      if (Pt && Math.abs(D) > 1e-6) { sp = ((P - Fp) * Ko - Po * (K - Fk)) / D; sc = (Pp * (K - Fk) - Kp * (P - Fp)) / D; ok = sp >= LO && sp <= HI && sc >= LO && sc <= HI; }
+      if (!ok) { sp = Pt ? (Pp ? (P - Fp - Po) / Pp : 1) : (Kp + Ko ? (K - Fk) / (Kp + Ko) : 1); sp = Math.max(LO, Math.min(HI, sp)); sc = Pt ? (Ko ? Math.max(LO, Math.min(HI, (K - Fk - sp * Kp) / Ko)) : 1) : Math.max(LO, Math.min(HI, sp)); }
       let newly = 0; present.forEach(k => orig[k].forEach((x, i) => { const key = k + ':' + i; if (fixed.has(key)) return; const g = x.g * (isProt(x.f) ? sp : sc), c = capOf(x.f); if (g > c) { fixed.set(key, c); newly++; } }));
       if (!newly) break;
     }
@@ -82,66 +89,77 @@
 
   /* generate menus for a continuous date range under one parameter set; `state` carries variety history across segments */
   function genRange(params, dates, state, seed) {
-    const P = pool(params), slots = (params.meals === 2 ? ['m1', 'm2'] : SLOTS3), notes = P.notes.slice(); const out = [];
-    slots.forEach(k => { if (!P[k].length) notes.push(`אין אף מנה מתאימה ל"${C().slotNames[k]}" עם ההעדפות שנבחרו.`); });
+    const P = pool(params), mains = params.meals === 2 ? ['m1', 'm2'] : ['m1', 'm2', 'm3'], SN = ['snack', 'snack2'], notes = P.notes.slice(); const out = [];
+    const PK = k => k === 'm3' ? 'm2' : k === 'snack2' ? 'snack' : k; /* dinner draws on the main-dish pool, the 2nd snack on the snack pool */
+    mains.concat('snack').forEach(k => { if (!P[PK(k)].length) notes.push(`אין אף מנה מתאימה ל"${C().slotNames[k]}" עם ההעדפות שנבחרו.`); });
     const T = params.kcal, Pt = params.protein;
+    const SHARE = params.meals === 2 ? { m1: 0.38, m2: 0.45, snack: 0.1, snack2: 0.1 } : { m1: 0.25, m2: 0.3, m3: 0.27, snack: 0.1, snack2: 0.1 };
     for (const date of dates) {
-      const day = { date, slots: {}, notes: [], gap: null };
-      const used = new Set();
-      for (const k of slots) {
-        const cand = P[k].filter(c => !used.has(c.r.id)); if (!cand.length) { day.slots[k] = null; continue; }
-        const gap = Math.min(GAP[k], Math.max(0, cand.length - 1)), last = state.last[k] || {};
-        const fresh = cand.filter(c => last[c.r.id] == null || state.i - last[c.r.id] > gap);
-        let list = fresh.length ? fresh : cand;
-        /* Stage H1: when the target is high, a dish that cannot reach 75% of this slot's share even at full portions is dropped
-           from the shortlist if any dish (fresh or not) can — variety yields only where it would prevent reaching the target */
-        { const SH = params.meals === 2 ? { m1: 0.45, m2: 0.55 } : { m1: 0.33, m2: 0.45, snack: 0.22 }, nk = T ? T * SH[k] * 0.75 : 0;
-          if (nk) { const able = list.filter(c => c.capK >= nk); if (able.length) list = able; else { const any = cand.filter(c => c.capK >= nk); if (any.length) list = any; } } }
-        const prevProt = k === 'm2' ? state.prevProt : null;
-        /* protein density vs what the user's targets need (g protein per 100 kcal); low-protein dishes still appear, less often */
-        const need = Pt && T ? Pt / T * 100 : 0;
-        const SHARE = params.meals === 2 ? { m1: 0.45, m2: 0.55 } : { m1: 0.33, m2: 0.45, snack: 0.22 }, needK = T ? T * SHARE[k] : 0;
-        const score = c => (state.use[c.r.id] || 0) * 10 + Math.max(0, need - c.dens) * 8 + Math.max(0, needK - c.capK) / 100 * 4 + (c.protein && c.protein === prevProt && list.length > 3 ? 6 : 0) - (c.fav ? 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000; /* M10.4: chosen cuisine first, favourite cuisine slightly preferred */
-        const pick = list.slice().sort((a, b) => score(a) - score(b))[0];
-        used.add(pick.r.id); state.use[pick.r.id] = (state.use[pick.r.id] || 0) + 1; (state.last[k] = state.last[k] || {})[pick.r.id] = state.i;
-        if (k === 'm2') state.prevProt = pick.protein;
-        day.slots[k] = { rid: pick.r.id, ov: pick.ov };
+      const day = { date, slots: {}, notes: [], gap: null, off: {} };
+      const used = new Set(), lastOf = k => (state.last[PK(k)] = state.last[PK(k)] || {});
+      const shortlist = (k, cand) => { const pk = PK(k), gap = Math.min(GAP[pk], Math.max(0, cand.length - 1)), last = lastOf(k);
+        const fresh = cand.filter(c => last[c.r.id] == null || state.i - last[c.r.id] > gap); let list = fresh.length ? fresh : cand;
+        /* Stage H1: with a high target, prefer dishes whose capacity (within the portion limits) reaches 75% of the slot's share */
+        const nk = T ? T * SHARE[k] * 0.75 : 0; if (nk) { const able = list.filter(c => c.capK >= nk); if (able.length) list = able; else { const any = cand.filter(c => c.capK >= nk); if (any.length) list = any; } }
+        return list; };
+      const need = Pt && T ? Pt / T * 100 : 0;
+      const score = (k, list) => c => (state.use[c.r.id] || 0) * 10 + Math.max(0, need - c.dens) * 8 + Math.max(0, (T ? T * SHARE[k] : 0) - c.capK) / 100 * 4 + (c.protein && c.protein === state.prevProt && k !== 'm1' && list.length > 3 ? 6 : 0)
+        - (c.fav ? 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (c.legacy ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000;
+      const take = (k, c) => { used.add(c.r.id); state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; lastOf(k)[c.r.id] = state.i; day.slots[k] = { rid: c.r.id, ov: c.ov }; };
+      for (const k of mains) {
+        const cand = P[PK(k)].filter(c => !used.has(c.r.id)); if (!cand.length) { day.slots[k] = null; continue; }
+        const list = shortlist(k, cand), pick = list.slice().sort((a, b) => score(k, list)(a) - score(k, list)(b))[0];
+        take(k, pick); if (k !== 'm1') state.prevProt = pick.protein;
       }
-      // portions toward the user's targets
-      const present = slots.filter(k => day.slots[k]);
+      /* snacks: ranked now, added only if the day needs them (fewest snacks that put energy and protein within the rules) */
+      const sc0 = P.snack.filter(c => !used.has(c.r.id)), sl = sc0.length ? shortlist('snack', sc0) : [], ranked = sl.slice().sort((a, b) => score('snack', sl)(a) - score('snack', sl)(b));
+      const pair = r0 => [r0[0], r0.find(c => r0[0] && c.r.id !== r0[0].r.id && c.protein !== r0[0].protein) || r0[1]].filter(Boolean);
+      const dense = sl.slice().sort((a, b) => b.dens - a.dens || score('snack', sl)(a) - score('snack', sl)(b));
+      const variants = [pair(ranked), pair(dense)]; let snackPick = variants[0]; /* the denser pair is tried only if the usual one cannot meet protein */
+      let present = mains.filter(k => day.slots[k]);
       if (T && present.length) {
-        const base0 = JSON.parse(JSON.stringify(day.slots));
-        portion(day, present, T, Pt);
-        /* repair: if protein is still short, or calories fall outside ±7% (lean days where portions hit their caps), try other
-           candidates for the snack, then the first meal — denser ones for protein, less protein-dense ones for calories */
-        const cur = () => tot(Object.fromEntries(present.map(k => [k, day.slots[k]])));
         const shortP = t => Pt && t.p < Pt - 0.5, offK = t => t.k < T * 0.93 || t.k > T * 1.07, bad = t => shortP(t) || offK(t);
-        for (const k of ['snack', 'm1'].filter(x => present.includes(x))) { const t0 = cur(); if (!bad(t0)) break;
+        const cur = () => tot(Object.fromEntries(present.map(k => [k, day.slots[k]])));
+        const mains0 = JSON.parse(JSON.stringify(day.slots)); let best = null;
+        for (const sp of variants) { for (let n = 0; n <= sp.length; n++) { if (n === 0 && sp !== variants[0]) continue;
+          day.slots = JSON.parse(JSON.stringify(mains0)); for (let i = 0; i < n; i++) day.slots[SN[i]] = { rid: sp[i].r.id, ov: sp[i].ov };
+          const pr = mains.filter(k => day.slots[k]).concat(SN.slice(0, n)); present = pr; portion(day, pr, T, Pt); const t = cur();
+          const cost = Math.abs(t.k - T) / T + (shortP(t) ? (Pt - t.p) / Pt * 2 : 0);
+          if (!bad(t)) { best = { n, sp, ok: true, slots: JSON.parse(JSON.stringify(day.slots)) }; break; }
+          if (!best || cost < best.cost) best = { n, sp, cost, slots: JSON.parse(JSON.stringify(day.slots)) }; } if (best && best.ok) break; }
+        snackPick = best.sp; day.slots = best.slots; present = mains.filter(k => day.slots[k]).concat(SN.slice(0, best.n));
+        for (let i = 0; i < best.n; i++) { const c = snackPick[i]; used.add(c.r.id); state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; lastOf(SN[i])[c.r.id] = state.i; }
+        const base0 = JSON.parse(JSON.stringify(mains0)); for (let i = 0; i < best.n; i++) base0[SN[i]] = { rid: snackPick[i].r.id, ov: snackPick[i].ov }; /* UNSCALED dishes: every portion() call starts from the recipe serving, so limits never compound */
+        /* repair: if protein is still short, or calories fall outside ±7%, try other candidates for the snacks, breakfast and
+           dinner — denser ones for protein, lighter or richer ones for calories (same shortlist rules) */
+        const adopt = (k, c) => { used.add(c.r.id); used.delete(base0[k].rid); state.use[base0[k].rid]--; state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; lastOf(k)[c.r.id] = state.i; delete lastOf(k)[base0[k].rid]; base0[k] = { rid: c.r.id, ov: c.ov }; };
+        const tryC = (k, c) => { Object.keys(base0).forEach(x => { day.slots[x] = JSON.parse(JSON.stringify(base0[x])); }); day.slots[k] = { rid: c.r.id, ov: c.ov }; portion(day, present, T, Pt); };
+        const fresh = (k, c) => (lastOf(k)[c.r.id] == null || state.i - lastOf(k)[c.r.id] > Math.min(GAP[PK(k)], P[PK(k)].length - 1));
+        const order = SN.concat('m1', 'm3', 'm2').filter(x => present.includes(x));
+        for (const k of order) { const t0 = cur(); if (!bad(t0)) break;
           const byP = shortP(t0), dir = byP ? -1 : (t0.k < T * 0.93 ? 1 : -1);
-          const tried = P[k].filter(c => !used.has(c.r.id) && c.r.id !== base0[k].rid && ((state.last[k] || {})[c.r.id] == null || state.i - state.last[k][c.r.id] > Math.min(GAP[k], P[k].length - 1))).sort((x, y) => dir * (x.dens - y.dens)).slice(0, 6);
-          for (const c of tried) { const save = JSON.parse(JSON.stringify(day.slots)); Object.keys(base0).forEach(x => { day.slots[x] = JSON.parse(JSON.stringify(base0[x])); }); day.slots[k] = { rid: c.r.id, ov: c.ov }; portion(day, present, T, Pt);
-            const t1 = cur(); if (!bad(t1) || (byP && !shortP(t1))) { used.add(c.r.id); used.delete(base0[k].rid); state.use[base0[k].rid]--; state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; (state.last[k] = state.last[k] || {})[c.r.id] = state.i; delete state.last[k][base0[k].rid]; base0[k] = { rid: c.r.id, ov: c.ov }; break; }
+          const tried = P[PK(k)].filter(c => !used.has(c.r.id) && fresh(k, c)).sort((x, y) => byP ? (y.dens - x.dens) : dir * (y.capK - x.capK)).slice(0, 6);
+          for (const c of tried) { const save = JSON.parse(JSON.stringify(day.slots)); tryC(k, c);
+            const t1 = cur(); if (!bad(t1) || (byP && !shortP(t1))) { adopt(k, c); break; }
             day.slots = save; }
         }
-        /* fat balance: the fat target follows computeTargets (25% of energy; carbs are the remainder, so with energy and protein on
-           target, fat on target also puts carbs on target). If the day's fat is >20% off, try the other snack / breakfast candidates
-           (same shortlist rules) and keep one only if energy and protein stay within the rules AND fat moves clearly closer. */
+        /* fat balance: fat target as computeTargets (25% of energy; carbs are the remainder, so with energy, protein and fat on target
+           carbs are too). If fat is >20% off, try other snack / breakfast candidates; keep one only if energy and protein stay within
+           the rules AND fat moves clearly closer. */
         { const Ft = Math.round(T * 0.25 / 9 / 5) * 5, fo = t => Math.abs(t.f - Ft);
-          for (const k of ['snack', 'm1'].filter(x => present.includes(x))) { const t0 = cur(); if (fo(t0) <= Ft * 0.2 || bad(t0)) break;
-            const tried = P[k].filter(c => !used.has(c.r.id) && c.r.id !== base0[k].rid && ((state.last[k] || {})[c.r.id] == null || state.i - state.last[k][c.r.id] > Math.min(GAP[k], P[k].length - 1)));
-            let best = null, bestF = fo(t0) - 3;
-            for (const c of tried.slice(0, 12)) { const save = JSON.parse(JSON.stringify(day.slots)); Object.keys(base0).forEach(x => { day.slots[x] = JSON.parse(JSON.stringify(base0[x])); }); day.slots[k] = { rid: c.r.id, ov: c.ov }; portion(day, present, T, Pt);
-              const t1 = cur(); if (!bad(t1) && fo(t1) < bestF) { best = c; bestF = fo(t1); } day.slots = save; }
-            if (best) { const c = best; Object.keys(base0).forEach(x => { day.slots[x] = JSON.parse(JSON.stringify(base0[x])); }); day.slots[k] = { rid: c.r.id, ov: c.ov }; portion(day, present, T, Pt);
-              used.add(c.r.id); used.delete(base0[k].rid); state.use[base0[k].rid]--; state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; (state.last[k] = state.last[k] || {})[c.r.id] = state.i; delete state.last[k][base0[k].rid]; base0[k] = { rid: c.r.id, ov: c.ov }; } } }
-        /* TD-21: the stored totals and the gap use the SAME sum the screen shows (C.plannedTotals: each dish rounded, then
-           summed). The repair loop above still uses `tot`, so the chosen dishes and portions are unchanged. */
+          for (const k of order.filter(x => x !== 'm3')) { const t0 = cur(); if (fo(t0) <= Ft * 0.2 || bad(t0)) break;
+            const tried = P[PK(k)].filter(c => !used.has(c.r.id) && fresh(k, c));
+            let bestC = null, bestF = fo(t0) - 3;
+            for (const c of tried.slice(0, 12)) { const save = JSON.parse(JSON.stringify(day.slots)); tryC(k, c);
+              const t1 = cur(); if (!bad(t1) && fo(t1) < bestF) { bestC = c; bestF = fo(t1); } day.slots = save; }
+            if (bestC) { tryC(k, bestC); adopt(k, bestC); } } }
+        /* TD-21: stored totals and the gap use the SAME sum the screen shows (C.plannedTotals: each dish rounded, then summed) */
         const t = shown(Object.fromEntries(present.map(k => [k, day.slots[k]])));
-        day.totals = t; day.gap = gapOf(t, T, Pt); day.target = { k: T, p: Pt || null }; /* TD-22: kept so the gap can be re-checked after the day is edited */
-      } else if (present.length) day.totals = tot(Object.fromEntries(present.map(k => [k, day.slots[k]])));
+        day.totals = t; day.gap = gapOf(t, T, Pt); day.target = { k: T, p: Pt || null };
+      } else if (present.length) { if (snackPick[0]) { day.slots.snack = { rid: snackPick[0].r.id, ov: snackPick[0].ov }; present.push('snack'); } day.totals = tot(Object.fromEntries(present.map(k => [k, day.slots[k]]))); }
+      ['m3', 'snack', 'snack2'].forEach(k => { if (!day.slots[k] && !(k === 'm3' && mains.includes('m3'))) { day.off[k] = true; delete day.slots[k]; } });
       // optional protein add-on — suggested, never counted until the user selects it
       if (P.extra.length) { const ex = P.extra.slice().sort((a, b) => (hash(seed + date + a.r.id) % 97) - (hash(seed + date + b.r.id) % 97))[0]; day.slots.extra = { rid: ex.r.id, ov: ex.ov }; }
-      if (params.meals === 2) day.off = { snack: true };
       state.i++; out.push(day);
     }
     return { days: out, notes };

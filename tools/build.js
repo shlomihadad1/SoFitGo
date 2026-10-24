@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const R = p => path.join(__dirname, '..', p);
 const read = p => fs.readFileSync(R(p), 'utf8');
-const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/activity.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js', 'src/js/ui.js', 'src/js/mediaui.js', 'src/js/screens_home.js', 'src/js/screens_workout.js', 'src/js/screens_nutrition.js', 'src/js/screens_progress.js', 'src/js/screens_plan.js', 'src/js/screens_signature.js', 'src/js/run.js', 'src/js/main.js'];
+const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/activity.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js', 'src/js/ui.js', 'src/js/mediaui.js', 'src/js/screens_home.js', 'src/js/screens_workout.js', 'src/js/screens_nutrition.js', 'src/js/screens_progress.js', 'src/js/screens_plan.js', 'src/js/screens_signature.js', 'src/js/run.js', 'src/js/main.js'];
 /* RC1: help & tutorials are a separate chunk (help.js) — fetched only when the help screen opens and precached by the
    service worker for offline use; the single-file artifact inlines it. Keeps the first-load budget (700 KB) intact. */
 const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/screens_help.js'];
@@ -45,7 +45,7 @@ let esb = null; try { esb = require('esbuild'); } catch (e) { /* esbuild not ins
 const minJs = (code, f) => esb && !process.env.FIT30_NOMIN ? `/* ${f} */` + esb.transformSync(code, { loader: 'js', minifyWhitespace: true, minifySyntax: true, legalComments: 'none', charset: 'utf8', target: 'esnext' }).code : `/* ${f} */\n` + code;
 const css = esb && !process.env.FIT30_NOMIN ? esb.transformSync(cssSrc, { loader: 'css', minifyWhitespace: true, charset: 'utf8' }).code : cssSrc;
 /* first-load budget: recipe media records with no media at all are dropped from the shipped copy (Media.* treats a missing record as "none") */
-const slim = (f, t) => f === 'src/data/media.js' ? t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}') : t;
+const slim = (f, t) => f === 'src/data/media.js' ? t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}').replace(/"[sl]Bytes":\d+,|"sha":"[0-9a-f]+",|,"origin":"generated"/g, '') : t; /* first-load copy: drop metadata the app never reads (sizes, hash, origin stay in src/data/media.js for the media tests) */
 const js = JS.map(f => minJs(slim(f, read(f)), f)).join('\n');
 const lazyJs = LAZY.map(f => minJs(read(f), f)).join('\n');
 const extraJs = EXTRA.map(f => minJs(read(f), f)).join('\n');

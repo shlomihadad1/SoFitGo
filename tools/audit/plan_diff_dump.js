@@ -4,7 +4,7 @@
    a missing library), levels, goals, 1–6 sessions/week, day sets, 10–120 min, equipment sets, exclusions, no-jump, custom
    lengths 1–365 and pauses. */
 const path = require('path'), crypto = require('crypto'), ROOT = path.resolve(process.argv[2]);
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
 const { PROGRAMS: PG, Planner: P, EXERCISES: EX } = globalThis; const H = s => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
 let seed = 20261018; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648, pick = a => a[Math.floor(rnd() * a.length)];
 const T = PG.TEMPLATES.filter(t => !t.classic), cases = [];

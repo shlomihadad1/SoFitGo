@@ -3,7 +3,7 @@
    source data independently of the code under test where possible. Writes dist/reports/stageA-test.json */
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
-for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
+for (const f of ['src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js']) require(path.join(ROOT, f));
 const { EXERCISES, NUTRI, CATALOG: CT, PROGRAMS: PG, Planner: PL, MEDIA } = globalThis;
 let pass = 0, fail = 0; const fails = [], sec = {}; let cur = '';
 const T = n => { cur = n; sec[n] = { pass: 0, fail: 0 }; };
@@ -22,7 +22,7 @@ EXERCISES.forEach(e => { const m = CT.EX_META[e.id];
 });
 ok(Object.keys(CT.EX_META).every(id => EXERCISES.some(e => e.id === id)), 'no meta for unknown exercise ids');
 /* Stage C: lists extended with the new international foods (independent of catalog.js) */
-const DAIRY = ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'], EGG = ['egg', 'egg_white'], MEAT = ['chicken_breast', 'chicken_thigh', 'chicken_mince', 'beef_lean', 'turkey', 'salmon', 'white_fish', 'tuna_can'], SOY = ['soya', 'tofu', 'edamame', 'soy_milk', 'soy_sauce'], PEANUT = ['peanuts', 'peanut_butter'];
+const DAIRY = ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_yogurt', 'cottage', 'feta', 'mozzarella'], EGG = ['egg', 'egg_white'], MEAT = ['chicken_breast', 'chicken_thigh', 'chicken_mince', 'beef_lean', 'turkey', 'salmon', 'white_fish', 'tuna_can', 'sardines'], SOY = ['soya', 'tofu', 'edamame', 'soy_milk', 'soy_sauce'], PEANUT = ['peanuts', 'peanut_butter'];
 NUTRI.RECIPES.forEach(r => { const f = CT.recipeFacts(r), fs_ = r.ing.map(x => x.f);
   ok(f.allergens.includes('egg') === fs_.some(x => EGG.includes(x)), r.id + ' egg allergen');
   ok(f.allergens.includes('milk') === fs_.some(x => DAIRY.includes(x)), r.id + ' milk allergen');
