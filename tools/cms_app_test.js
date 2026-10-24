@@ -51,4 +51,10 @@ CMS.apply(rows.map(x => x.kind === 'config' ? Object.assign({}, x, { status: 'ar
 ok(!CMS.isOff('fridge') && Core.normPrefs({}).meals === 3 && !globalThis.FIT30_DEFAULTS, 'reset to default (archived settings): modules back on, built-in defaults back');
 CMS.apply([]);
 ok(!CMS.app.ntext && !Object.keys(CMS.app.layout).length, 'nothing served → built-in texts and layout');
+/* Nutrition Calculation Trace: deterministic, sums to the same numbers the app shows, carries provenance */
+{ const L = globalThis.Logic, N = globalThis.NUTRI; let bad = 0, n = 0;
+  N.RECIPES.filter(r => !r.est).forEach(r => { [1, 1.25].forEach(sc => { n++; const t = L.recipeTrace(r, sc), m = L.recipeMacros(r, sc); if (['k', 'p', 'c', 'f', 'fb'].some(k => Math.abs(t.total[k] - m[k]) > (k === 'k' ? 1 : 0.11)) || t.missing.length) bad++; }); });
+  ok(bad === 0 && n > 600, 'trace: for every recipe (×1 and ×1.25) the traced total equals the shown values; no missing foods', { bad, n });
+  const t = L.recipeTrace(L.recipe('md_shakshuka')); ok(t.formula === L.FORMULA && t.rows.every(x => x.per100 && x.g > 0) && t.rows.some(x => x.f === 'red_pepper' && /USDA/.test(x.src || '')), 'trace: formula version, per-100 g values and USDA source id on verified foods');
+  ok(JSON.stringify(L.recipeTrace(L.recipe('md_shakshuka'))) === JSON.stringify(t), 'trace: deterministic'); }
 console.log(`cms app-control tests: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);

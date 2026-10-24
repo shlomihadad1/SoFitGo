@@ -23,6 +23,16 @@ function recipeMacros(r, scale, overrides) {
   const m = sumMacros(recipeIngredients(r, overrides).map(ingMacros));
   return roundM({ k: m.k * s, p: m.p * s, c: m.c * s, f: m.f * s, fb: m.fb * s });
 }
+/* Nutrition Calculation Trace: how a dish's numbers were computed — per ingredient: food id, grams, per-100 g values used,
+   contribution, source and verification code. Deterministic (same inputs → same trace). FORMULA bumps when the method changes. */
+const FORMULA = 'ingredients×per100g·v1';
+function recipeTrace(r, scale, overrides) {
+  const s = scale == null ? 1 : scale, F = N().FOODS, rows = [], missing = [], ms = [];
+  recipeIngredients(r, overrides).forEach(x => { const fd = F[x.f]; if (!fd) { missing.push(x.f); return; } const g = x.g * s, m = ingMacros({ f: x.f, g }); ms.push(m);
+    rows.push({ f: x.f, he: fd.he, st: fd.st, g: Math.round(g * 10) / 10, per100: { k: fd.k, p: fd.p, c: fd.c, f: fd.f, fb: fd.fb }, got: roundM(m), src: fd.src || null, chk: fd.chk || null }); });
+  const raw = sumMacros(ms);
+  return { formula: FORMULA, recipe: r.id, scale: s, rows, total: roundM(raw), missing };
+}
 const RB = () => { const o = {}; N().RECIPES.forEach(r => { o[r.id] = r; }); return o; };
 let _rb = null; function recipe(id) { if (!_rb) _rb = RB(); return _rb[id]; }
 function _resetRecipeIndex() { _rb = null; } /* Admin CMS: a published new recipe joins the index */
@@ -138,5 +148,5 @@ function swapCandidates(slotRecipe, all) {
     .map(o => Object.assign(o, { score: Math.abs(o.m.k - base.k) / 100 + Math.abs(o.m.p - base.p) / 8, flags: compareMacros(base, o.m) }))
     .sort((x, y) => x.score - y.score);
 }
-root.Logic = { _resetRecipeIndex, ingMacros, sumMacros, roundM, recipeIngredients, recipeMacros, recipe, computeTargets, VERSIONS, VERSION_TARGET, versionParts, hasVersions, buildSteps, estimateMinutes, durationBreakdown, setWork, REP_SEC, TEMPO_SEC, TRANS_SEC, exerciseUsage, suggestSwapGrams, compareMacros, swapCandidates };
+root.Logic = { _resetRecipeIndex, recipeTrace, FORMULA, ingMacros, sumMacros, roundM, recipeIngredients, recipeMacros, recipe, computeTargets, VERSIONS, VERSION_TARGET, versionParts, hasVersions, buildSteps, estimateMinutes, durationBreakdown, setWork, REP_SEC, TEMPO_SEC, TRANS_SEC, exerciseUsage, suggestSwapGrams, compareMacros, swapCandidates };
 })(typeof window !== 'undefined' ? window : globalThis);

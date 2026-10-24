@@ -1,6 +1,6 @@
 # SoFitGo — Master Requirements Matrix (single source of truth)
 
-Last update: 2026-10-24 · Branch `fix/default-cuisine` · Repo `shlomihadad1/SoFitGo` (private; default branch `main`)
+Last update: 2026-10-25 · Branch `fix/default-cuisine` · Repo `shlomihadad1/SoFitGo` (private; default branch `main`)
 
 This file supersedes the scattered status notes, which remain as history: `BACKLOG-SOFITGO.md`, `KNOWN-ISSUES.md`, `docs/INNOVATION-PROPOSALS-M8.md`, `docs/M9-SCOPE.md`, `docs/RELEASE-CANDIDATE-M12.md`, `docs/BUG-STATUS-M10.2.md`, `docs/AI-ARCHITECTURE.md` and others. Each requirement lists its evidence. Nothing here is marked done without a test, a file, or a measurement behind it.
 
@@ -185,6 +185,69 @@ The mirror pages are third-party copies of FDC. The FDC site itself was not reac
 | Any CMS | **V** (local emulator) / B (live) | Modules: recipes & menus, exercise instructions, media inventory (upload **B**: needs a Storage bucket), roles, history/rollback, 10 guides, code-only settings list. Tests: `rls_cms_test` (server-side authorization, PostgreSQL RLS), `cms_content_test` (loader), `e2e_admin` (browser, local Supabase emulator). **Not applied to the live project** — migration `20261025000100_sofitgo_cms.sql` needs owner approval; see `docs/CMS.md` |
 | Backend capacity | **I** | Supabase is already used for accounts (migration `20261020000100`). A local emulator with real Postgres + RLS exists for testing (`tools/supa_local.js`, `tools/pg_local.sh`) |
 | Plan | — | Stage D in §15: modules recipes → exercises → media, with roles enforced by RLS, draft/publish, revisions and rollback. Implemented and tested locally only; the live migration needs owner approval |
+
+---
+
+## 10A. Full App Control CMS (directive of 25.10.2026)
+
+The existing `#/admin` was extended in place; nothing was rebuilt. All areas share one server workflow: draft (editor) → validation → live preview → publish with confirmation (admin) → history → rollback or reset to default. The live Supabase project is **not** migrated (needs owner approval), so every "V" below comes from the local emulator: real PostgreSQL 16 with RLS, plus Playwright Chromium/WebKit emulation.
+
+### 10A.1 Audit of earlier fixes (re-checked on this branch)
+
+| Item | Status | Evidence |
+|---|---|---|
+| First-load budget < 820,000 B | **V** | `e2e_stageA` (budget unchanged). The CMS loader is in `cms.js`, which loads only when content is cached or a backend is configured. |
+| Lazy CMS / admin chunks | **V** | `tools/build.js`: CMSC → `cms.js`; ADMIN → `admin.js` (admin.js + admin_app.js); `cms-catalog.js` loads only in the texts tab. |
+| Recipe / exercise editor stability (typing never lost, exercise `bad` array) | **V** | `e2e_admin` 40/40 |
+| Nutrition calculations from ingredients | **V** | `nutrition_v2_test`, `cms_content_test`, `e2e_menu_structure` |
+| Meal journal | **V**. The intermittent crash is explained; see 10A.4 | `e2e_meal_journal` |
+| Permissions, history, rollback | **V** (local) | `rls_cms_test` (72 checks), `e2e_admin`, `e2e_app_control` |
+| Mobile / WebKit | **V** (emulation only, **not** a device) | WebKit runs in §16 |
+
+### 10A.2 Requirement traceability
+
+| Requirement | Implementation | Schema / config | Evidence | Status | Limitation / dependency |
+|---|---|---|---|---|---|
+| **A. Global texts:** search by text / key / screen / file | `admin_app.js` `texts()`; catalog `tools/text_catalog.js` → `cms-catalog.js` (≈3,250 app-owned Hebrew strings with files and screens) | `cms_content` kind `text`, id `t_<hash>_<len>` | `e2e_app_control` (texts) | **V** | Only static strings. Text built from a value in code (for example "3 ארוחות") is flagged "משולב בערך משתנה" and may not be replaceable. |
+| Where used; single and bulk edit; original / proposed / preview | `textEditor()`, `bulkCard()`; bulk creates **drafts only** | — | `e2e_app_control` (bulk) | **V** | Bulk is capped at 50 per run. |
+| Tokens, numbers and `{vars}` preserved; no markup | `checkText` (`cms_content.js`) + `cms_valid` (SQL) | `cms_valid()` | `cms_app_test`, `rls_cms_test` | **V** | — |
+| Missing translations / duplicates / unused | Filters "בלי נוסח אנגלי", "בשימוש ביותר ממקום אחד"; orphaned overrides listed | — | UI counts (`data-cms-tcounts`) | **P** | English is a developer preview (`?lang=en`). Only overrides are tracked; the code has no full key system. |
+| User content never overwritten | `textApply` skips inputs, textareas, `[contenteditable]`, `[data-user]` and admin screens; only exact whole-node matches | — | `e2e_app_control` (button still works) | **P** | A user-typed value identical to an app string could be matched (no global `data-user` marking yet). |
+| Security-critical text not editable | Validation, server and auth errors stay in code (`admin.js`, `account.js` are excluded from the catalog when they hold errors) | — | code review | **P** | The catalog includes `account.js` labels. Server-side messages are not affected. |
+| **B. Screen editor:** component registry, order, show/hide, spacing, alignment, nav order | `REG` (`cms_content.js`), `layoutApply`, `navApply`; UI `layout()` with accessible ▲▼ buttons | kind `layout`, ids `home`, `nutrition`, `nav` | `e2e_app_control` (layout, navigation, keyboard focus) | **V** | Supported screens: home, nutrition, bottom navigation. Code-defined parts are listed as such. No drag-and-drop (accessible buttons instead). |
+| Required / safety components cannot be hidden | `REG` flag; `checkLayout` `l_hide` | — | `cms_app_test` | **V** | — |
+| Preview at mobile and desktop sizes | `frame()` iframe `?cmspreview=1` applies the unsaved rows | — | `e2e_app_control` (preview order) | **V** | Emulation in the admin's browser. |
+| No code editor / HTML / JS | Only data with whitelisted values | `cms_valid` | `rls_cms_test` (injection refused) | **V** | — |
+| **C. Design tokens:** colours, fonts, sizes, radii, spacing, shadow; contrast; presets; reset; history | `TOKENS`, `checkTheme`, `contrastIssues`, `themeApply`; UI `design()` | kind `theme`, ids `active`, `preset_*` | `cms_app_test`, `e2e_app_control` (design), `rls_cms_test` | **V** | Dark theme only; a light theme is accepted only if every contrast pair passes. 9 hex colours in components and 28 in JS illustrations stay fixed. |
+| Logos, coach artwork, illustrations | — | — | — | **B** | Needs Storage (D). |
+| **D. Media library** (search, metadata, usage, replace, safe delete, upload) | Read-only inventory (`admin.js` `media()`) | Setup in `docs/CMS-STORAGE-SETUP.md` (bucket, policies, size and type limits) | `e2e_admin` (blocker shown) | **P / B** | Upload is **not** claimed. It needs the `cms-media` bucket and approval. |
+| **E. Content operations:** recipes, nutrition, exercises | Existing editors | kinds `recipe`, `exercise` | `e2e_admin` | **V** | Food values, new exercises and motion figures stay in code. |
+| Meal plans / dietary defaults | Settings: default meals (2/3), flex meal | kind `config` | `cms_app_test`, `e2e_app_control` | **V** | Targets, formula and portion limits are code-only (safety). |
+| Video / tutorial catalogue, coach content, travel content | Text overrides only | `text` | — | **P** | No dedicated editors; tutorials are recorded per build. |
+| **F. Feature and config control:** module switches, defaults, notice, effect timing | `checkConfig`, `isOff`, `post()`; UI `settings()` with a timing table | kind `config`, id `app` | `e2e_app_control` (settings) | **V** | 7 modules can be switched off. The table lists what needs a rebuild or is external (Storage, Health, AI, payments, push). |
+| **G. Permissions, RLS, no self-grant** | Unchanged model, extended to the new kinds | `cms_*` functions | `rls_cms_test`, `e2e_app_control` (403s) | **V** (local) | Live migration needs approval. |
+| Audit log (who / what / when) | `cms_revisions` (publish, archive, restore, rollback, grant, revoke) + `cms_audit_list()`; UI `audit()` | `cms_audit_list(integer)` | `rls_cms_test`, `e2e_app_control` (audit) | **V** | Saving a draft is not logged. |
+| Stale edits / concurrency | `base_version` check in `cms_publish` | — | `rls_cms_test` | **V** | — |
+| Destructive confirmations | Publish, reset and bulk sheets need a checkbox | — | `e2e_app_control` | **V** | — |
+| **Phase 3:** invalid publication never corrupts | Server `cms_valid`; app validates every row and ignores invalid ones | — | `e2e_app_control` (corrupted row → built-in values) | **V** | — |
+| Remote content unavailable → fallback; offline cache | `fit30.cms` cache; offline reload applies the cache | — | `e2e_app_control` (offline, service worker) | **V** | — |
+| No flash of built-in content | `main.js` boot waits up to 1.5 s for `cms.js` when a cache exists | — | `e2e_app_control` (first paint) | **V** | First visit on a new device shows built-in content until the first fetch (no cache yet). |
+
+### 10A.3 Prioritised gaps
+
+1. **Live activation (B):** apply the CMS migration and add the owner row (owner approval).
+2. **Media upload (B):** Storage bucket and policies (`docs/CMS-STORAGE-SETUP.md`), then the upload UI and metadata kind.
+3. **Text coverage (P):** mark user-content spots with `data-user` globally, and move dynamic sentences to tokenised i18n keys (`{n} ארוחות`) so they become editable.
+4. **More screens in the layout registry (P):** progress, workouts, settings.
+5. **Dedicated editors (P):** tutorials catalogue, coach prompts, travel content.
+6. **Real-device testing (N):** iPhone Safari and Android Chrome.
+
+### 10A.4 Intermittent `e2e_meal_journal` crash: investigation
+
+- **Symptom:** in the full run on 34cf44a the suite crashed at a click (30 s timeout) in group "A · undo and unmark". It passed when run alone.
+- **Reproduction:** the slot list was logged at the failing step. The original test clicks `[data-slot=snack]`. In 3 of 4 reproduced runs the day had **no snack** (`uneat:m1 uneat:m2 eat:m3`).
+- **Cause:** the v2 menu engine adds a snack only when the day needs one. The menu is seeded by the plan id, which is random per test run. The failure therefore depends on the plan id, not on load, timing or the CMS. Isolation runs against three builds are recorded in §16.
+- **Fix (test only, justified):** the third meal is the slot that is actually still unmarked, with a check that it exists. No timeout was changed. Other suites that checked allergy and cuisine leaks only on m1, m2 and snack now check all five slots.
 
 ---
 

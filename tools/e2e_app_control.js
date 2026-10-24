@@ -170,8 +170,10 @@ const SEED = () => { localStorage.clear(); Store.resetAll(); const pr = Store.lo
     ok(await u.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim().toUpperCase()) === '#CCFF00' && await u.locator('#view').isVisible(), 'a corrupted published item is rejected by the app; built-in values used, nothing half-applied');
     await uc.close(); }
 
+  G = 'system status';
+  await admin(a, 'status'); { const tx = await a.locator('[data-cms-status]').innerText(); ok(/ספק AI[\s\S]*לא מוגדר/.test(tx) && /תשלומים[\s\S]*לא קיים/.test(tx) && /אנליטיקה[\s\S]*לא מחובר/.test(tx) && /Supabase[\s\S]*מחובר/.test(tx), 'status shows real connections only ("not configured" for AI, Storage, payments, analytics)'); }
   G = 'mobile, RTL, desktop';
-  for (const t of ['texts', 'layout', 'design', 'settings', 'audit']) { await admin(a, t); const w = await a.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth, dir: getComputedStyle(document.querySelector('[data-cms]')).direction }));
+  for (const t of ['texts', 'layout', 'design', 'settings', 'audit', 'status']) { await admin(a, t); const w = await a.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth, dir: getComputedStyle(document.querySelector('[data-cms]')).direction }));
     ok(w.sw <= w.iw + 1 && w.dir === 'rtl', `${t}: no horizontal scroll at 390 px, RTL`, w); }
   { const { p: d, ctx: dc } = await mk('desktop'); await login(d, 'admin@app.test'); await admin(d, 'design'); ok(await d.locator('[data-cms-design]').count() === 1, 'desktop: design area renders'); await dc.close(); }
   ok(aerr.length === 0, 'no JS errors (admin)', aerr); ok(errs.length === 0, 'no JS errors (editor)', errs);

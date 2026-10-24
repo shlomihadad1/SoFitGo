@@ -199,9 +199,27 @@ function audit() {
     <div class="list" data-cms-audit-list>${rows.map(x => `<div class="li"><div class="grow"><div class="t">${esc(AH[x.action] || x.action)} · ${esc(KH[x.kind] || x.kind)}${x.kind === 'role' ? '' : ' · ' + esc(x.item_id)}${x.version ? ' v' + x.version : ''}</div><div class="s">${esc(String(x.at).slice(0, 16).replace('T', ' '))} · <span class="ltr">${esc(x.actor_email || 'לא ידוע')}</span>${x.note ? ' · ' + esc(x.note) : ''}</div></div></div>`).join('') || '<p class="small muted">אין עדיין פעולות.</p>'}</div>${btn('auReload', 'רענון')}</section>`;
 }
 
+/* ════════ 6. system status: what is connected — never a fabricated metric ════════ */
+function status() {
+  const be = root.FIT30_BACKEND, A2 = root.Account && root.Account.state(), cfgOn = !!(C.app.config), nPub = Object.values(st.content).filter(x => x.status === 'published').length;
+  const rows = [
+    ['שרת (Supabase): חשבונות ותוכן', be ? 'מחובר' : 'לא מחובר', be ? 'good' : 'warn', be ? `כתובת השרת מוגדרת בגרסה הזו. ${A2 && A2.signedIn ? 'את/ה מחובר/ת.' : ''}` : 'אין שרת מוגדר בגרסה הזו.'],
+    ['מערכת הניהול (טבלאות CMS)', st.loaded && !st.err ? 'פעילה' : 'לא זמינה', st.loaded && !st.err ? 'good' : 'warn', `${nPub} פריטים מפורסמים. ההרשאות נבדקות בשרת.`],
+    ['ספק AI (מאמן / ניהול)', 'לא מוגדר', 'warn', 'אין מודל מחובר. Sofit עונה מכללים מקומיים ומסומן "לא AI". ראו docs/AI-INFRA-AUDIT.md.'],
+    ['העלאת מדיה (Storage)', 'לא מוגדר', 'warn', 'אין bucket. ההגדרה הנדרשת ב־docs/CMS-STORAGE-SETUP.md.'],
+    ['תשלומים ומנויים', 'לא קיים', 'warn', 'אין מודל הרשאות בתשלום ואין ספק תשלומים. שום רכישה לא מוצגת.'],
+    ['Apple Health / Health Connect', 'דורש אפליקציה נייטיב', 'warn', 'אפליקציית דפדפן לא יכולה לקרוא את הנתונים האלה. צעדים: הזנה ידנית או CSV.'],
+    ['אנליטיקה של שימוש', 'לא מחובר', 'warn', 'לא נאסף מידע שימוש. אין נתונים להצגה.'],
+    ['תוצאות בדיקות אוטומטיות', 'לא מחובר', 'warn', 'התוצאות נשמרות במאגר הקוד (דוח הדרישות §16), לא בשרת.'],
+    ['הגדרות אפליקציה פעילות', cfgOn ? 'פעילות' : 'ברירת מחדל', cfgOn ? 'good' : '', cfgOn ? 'מודולים כבויים: ' + ((C.app.config.off || []).map(k => MOD_HE[k]).join(', ') || 'אין') : 'לא פורסמו הגדרות.']];
+  return `<section class="card stack" data-cms-status><h3>מצב מערכת</h3><p class="small muted">מה מחובר באמת לגרסה הזו. אין כאן מספרים מומצאים: מה שלא מחובר מוצג כ"לא מחובר".</p>
+    <div class="list">${rows.map(([a, b, c, d]) => `<div class="li"><div class="grow"><div class="t">${esc(a)}</div><div class="s">${esc(d)}</div></div><span class="pill ${c}" data-status="${esc(b)}">${esc(b)}</span></div>`).join('')}</div>
+    <p class="tiny faint">גרסה ${esc(root.FIT30_BUILD || '')}</p></section>`;
+}
+
 /* ── registration ── */
-EXT.tabs.push(['texts', 'טקסטים', 'exercises'], ['layout', 'מסכים ופריסה', 'texts'], ['design', 'עיצוב', 'layout'], ['settings', 'הגדרות אפליקציה', 'design'], ['audit', 'יומן שינויים', 'roles']);
-Object.assign(EXT.views, { texts, layout, design, settings, audit });
+EXT.tabs.push(['texts', 'טקסטים', 'exercises'], ['layout', 'מסכים ופריסה', 'texts'], ['design', 'עיצוב', 'layout'], ['settings', 'הגדרות אפליקציה', 'design'], ['audit', 'יומן שינויים', 'roles'], ['status', 'מצב מערכת', 'audit']);
+Object.assign(EXT.views, { texts, layout, design, settings, audit, status });
 EXT.open.text = id => { st.tab = 'texts'; S.tsel = id; loadCat().then(() => root.App.render()); };
 EXT.open.layout = id => { st.tab = 'layout'; S.lscreen = id; root.App.render(); };
 EXT.open.theme = () => { st.tab = 'design'; S.theme = null; root.App.render(); };
