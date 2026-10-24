@@ -25,7 +25,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   await go('#/'); const today = await p.evaluate(() => Store.today());
   const st = () => p.evaluate(() => { const c = document.querySelector('[data-now]'); if (!c) return null; const nx = c.querySelector('[data-now-next]');
     return { next: nx ? nx.dataset.nowNext : null, nextText: nx ? nx.textContent : '', q: c.querySelector('.now-q').textContent, done: [...c.querySelectorAll('[data-done]')].map(x => ({ k: x.dataset.done, ok: x.getAttribute('aria-pressed') === 'true' })), small: (c.querySelector('[data-now-small]') || {}).textContent || '', text: c.textContent }; });
-  const truth = () => p.evaluate(d => { const t = Core.dailyProgress(d).tasks; const pl = Core.plan(d); return { workout: (t.find(x => x.k === 'workout') || {}).v, meals: ['m1', 'm2', 'snack'].filter(k => pl[k] && pl[k].rid && !pl[k].off && !pl[k].missing).map(k => ({ k, eaten: !!Core.slotEntry(d, k) })), water: Core.daily(d).water || 0, goal: Core.waterGoalOn(d).ml /* M10: personal hydration target */ }; }, today);
+  const truth = () => p.evaluate(d => { const t = Core.dailyProgress(d).tasks; const pl = Core.plan(d); return { workout: (t.find(x => x.k === 'workout') || {}).v, meals: Core.DAY.filter(k => pl[k] && pl[k].rid && !pl[k].off && !pl[k].missing).map(k => ({ k, eaten: !!Core.slotEntry(d, k) })), water: Core.daily(d).water || 0, goal: Core.waterGoalOn(d).ml /* M10: personal hydration target */ }; }, today);
   G = 'card reflects stored data';
   let s = await st(), t = await truth();
   ok(!!s, 'NOW card shown on home once a plan is active');
