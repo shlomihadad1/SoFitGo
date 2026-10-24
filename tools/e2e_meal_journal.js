@@ -64,12 +64,17 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   ok((await stored()).length === 1 && await p.locator('[data-act=eat][data-slot=m2]').count() === 1, '"ביטול סימון" removes the record and shows the neutral button again');
   await p.locator('.toast [data-toast-act]').click(); await p.waitForTimeout(350);
   ok(JSON.stringify(await stored()) === JSON.stringify(before) && await sumK() === kBefore, 'undo of "ביטול סימון" restores the same record (same id, same calories)');
-  await p.locator('[data-act=eat][data-slot=snack]').click(); await p.waitForTimeout(300); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(350);
-  ok((await stored()).length === 3, 'snack marked'); await p.locator('.toast [data-toast-act]').click(); await p.waitForTimeout(350);
+  /* the third meal is whichever planned slot is still unmarked. Since the v2 engine, a snack appears only when the day needs one and
+     the menu is seeded by the (random) plan id, so a hard-coded 'snack' slot was absent in ~3 of 4 runs → click timeout (root cause of
+     the intermittent crash in the full run; reproduced 3/4 with the slot list logged). */
+  const S3 = await p.evaluate(() => (document.querySelector('[data-act=eat][data-slot]') || {}).dataset.slot);
+  ok(['snack', 'snack2', 'm3'].includes(S3), 'a third planned meal is available to mark', S3);
+  await p.locator(`[data-act=eat][data-slot=${S3}]`).click(); await p.waitForTimeout(300); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(350);
+  ok((await stored()).length === 3, 'third meal marked'); await p.locator('.toast [data-toast-act]').click(); await p.waitForTimeout(350);
   ok(JSON.stringify(await stored()) === JSON.stringify(before) && await sumK() === kBefore, 'undo of marking removes only the new record; totals back to before');
-  await go('#/'); const homeCheck = p.locator('button.check[data-act=eat][data-slot=snack]');
+  await go('#/'); const homeCheck = p.locator(`button.check[data-act=eat][data-slot=${S3}]`);
   ok(await homeCheck.getAttribute('aria-pressed') === 'false', 'home: unconsumed meal check is not pressed');
-  await homeCheck.click(); await p.waitForTimeout(350); ok((await stored()).length === 3 && await p.locator('button.check[data-slot=snack]').getAttribute('aria-pressed') === 'true', 'home: tap marks the meal');
+  await homeCheck.click(); await p.waitForTimeout(350); ok((await stored()).length === 3 && await p.locator(`button.check[data-slot=${S3}]`).getAttribute('aria-pressed') === 'true', 'home: tap marks the meal');
   await p.locator('.toast [data-toast-act]').click(); await p.waitForTimeout(350); ok(JSON.stringify(await stored()) === JSON.stringify(before), 'home: undo restores the journal exactly');
 
   G = 'B · same recipe through other paths';
