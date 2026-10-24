@@ -289,3 +289,24 @@ The 43-idea master list (13 original + 30 added) is **not stored in the reposito
 ## 16. Test results and delivery
 
 Filled in for each delivery. See the latest entry at the end of this file.
+
+### Delivery — commit 34cf44a, build 215f134837 (CMS integrated)
+
+The test results below were all run on this final build. The pre-CMS results, which were run on build a681ddaaca, no longer apply.
+
+| Check | Result |
+|---|---|
+| Full regression (`tools/run_all.sh`, 62 suites) | 61 suites passed; 26,642 checks, 0 failures. One suite failed. |
+| Failed suite | `e2e_meal_journal` crashed once with a click timeout during the full run. Re-run on its own on the same build, it passed twice (33/33). It is recorded as a timing failure under load and remains open. |
+| WebKit engine (`BROWSER=webkit`, Playwright emulation, **not a real device**) | `e2e_menu_structure` 41/41, `e2e_content` 9/9, `e2e_m11_meals` 31/31, `e2e_food_global` 29/29, `e2e_m104_fixes` 104/104, `e2e_admin` 40/40 |
+| Server-side CMS security (real PostgreSQL 16 + RLS, local emulator) | `rls_cms_test` 54/54 |
+| CMS behaviour verified in `rls_cms_test` | No self-grant; no owner via the API; an editor cannot publish; a reviewer is read-only; drafts and history are private; a stale draft is refused; history covers publish, archive, restore and rollback; a revoked role takes effect immediately |
+| CMS flow in the browser | `e2e_admin` 40/40: edit, then preview and validation, publish, the app shows the new content, rollback, the app follows the rollback, archive |
+| First-load budget | 806,849 B, under the 820,000 B budget. To get there, the CMS loader was moved to an on-demand `cms.js` and the validation texts to `admin.js` (it had been 824,212 B). The budget itself is unchanged. |
+| ZIP | `sofitgo-beta-215f134837-34cf44a.zip` (3,009,363 B). `unzip -t` passed. The build id in `sw.js` and `index.html` matches. `cms.js` and `admin.js` are included. No secret keys found. |
+
+**Not done or not testable here:**
+- The CMS migration has not been applied to the live Supabase. This needs the owner's approval.
+- Media upload is blocked; it needs a Storage bucket.
+- Nothing was tested on a real device.
+- No merge to main and no deploy.
