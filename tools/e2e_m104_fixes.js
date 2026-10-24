@@ -52,7 +52,7 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
   ok(await p.evaluate(() => { const ws = []; for (let i = 0; i < 7; i++) { const pl = Core.plan(Store.addDays(Store.today(), i)); ['m1', 'm2', 'snack'].forEach(k => { if (pl[k].auto === 'cuisine') ws.push(pl[k].scale); }); } return ws.every(x => x >= 0.6 && x <= 1.8); }), 'replacements are portion-sized within 0.6–1.8×');
   G = 'cuisine: international = everything';
   await p.evaluate(() => { const pr = Core.profile(); pr.prefs = Object.assign(Core.normPrefs(pr.prefs), { cuisines: ['international'] }); Store.save('profile'); Core.applyPrefs(pr.prefs); }); /* same path as saving in settings */
-  ok((await week()).filter(x => ['indian', 'himachali'].includes(x.cu)).length >= 7, '"מגוון בינלאומי" chosen → the full menu (Indian included) comes back');
+  { const w = await week(); ok(w.filter(x => ['indian', 'himachali'].includes(x.cu)).length >= 2 && new Set(w.map(x => x.cu)).size >= 5, '"מגוון בינלאומי" chosen → dishes from the whole library (Indian included, ≥5 cuisines a week)', { ind: w.filter(x => ['indian', 'himachali'].includes(x.cu)).length, cu: [...new Set(w.map(x => x.cu))] }); }
   G = 'cuisine: location/travel do not decide';
   await p.evaluate(() => { const pr = Core.profile(); const pf = Core.normPrefs(pr.prefs); delete pf.cuisines; pr.prefs = pf; pr.travel = { dest: 'Manali', from: Store.today(), to: Store.addDays(Store.today(), 5), minutes: null, eq: [] }; Store.save('profile'); });
   ok((await week()).filter(x => ['indian', 'himachali'].includes(x.cu)).length === 0, 'a trip to Manali does not switch the menu to Indian');

@@ -92,7 +92,7 @@
     const P = pool(params), mains = params.meals === 2 ? ['m1', 'm2'] : ['m1', 'm2', 'm3'], SN = ['snack', 'snack2'], notes = P.notes.slice(); const out = [];
     const PK = k => k === 'm3' ? 'm2' : k === 'snack2' ? 'snack' : k; /* dinner draws on the main-dish pool, the 2nd snack on the snack pool */
     mains.concat('snack').forEach(k => { if (!P[PK(k)].length) notes.push(`אין אף מנה מתאימה ל"${C().slotNames[k]}" עם ההעדפות שנבחרו.`); });
-    const T = params.kcal, Pt = params.protein;
+    const T = params.kcal, Pt = params.protein, all = !C().cuisineSet(params.prefs); /* 'מגוון בינלאומי' = the whole library, both generations, no preference */
     const SHARE = params.meals === 2 ? { m1: 0.38, m2: 0.45, snack: 0.1, snack2: 0.1 } : { m1: 0.25, m2: 0.3, m3: 0.27, snack: 0.1, snack2: 0.1 };
     for (const date of dates) {
       const day = { date, slots: {}, notes: [], gap: null, off: {} };
@@ -104,7 +104,7 @@
         return list; };
       const need = Pt && T ? Pt / T * 100 : 0;
       const score = (k, list) => c => (state.use[c.r.id] || 0) * 10 + Math.max(0, need - c.dens) * 8 + Math.max(0, (T ? T * SHARE[k] : 0) - c.capK) / 100 * 4 + (c.protein && c.protein === state.prevProt && k !== 'm1' && list.length > 3 ? 6 : 0)
-        - (c.fav ? 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (c.legacy ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000;
+        - (c.fav ? 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (c.legacy && !all ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000;
       const take = (k, c) => { used.add(c.r.id); state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; lastOf(k)[c.r.id] = state.i; day.slots[k] = { rid: c.r.id, ov: c.ov }; };
       for (const k of mains) {
         const cand = P[PK(k)].filter(c => !used.has(c.r.id)); if (!cand.length) { day.slots[k] = null; continue; }
