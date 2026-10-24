@@ -1,0 +1,175 @@
+-- SoFitGo · Admin CMS (content management) — recipes and exercises managed in Supabase, published to the app without a rebuild.
+-- NOT applied to any live project. Owner applies it after review (see docs/CMS.md). Re-runnable (idempotent).
+--
+-- Security model (enforced by PostgreSQL row-level security and SECURITY DEFINER functions — never by the browser):
+--   • roles: owner > admin > editor > reviewer, stored in public.cms_members. Nobody can grant a role to themselves; only an owner
+--     can grant or revoke roles; the FIRST owner is created once by the project owner with one SQL statement in the dashboard
+--     (docs/CMS.md) — there is no API path that creates an owner.
+--   • public.cms_content: what users receive. Everyone (anon/authenticated) may read rows with status published or archived
+--     (archived rows tell the app to stop offering an item). Only members may read anything else. No direct writes at all:
+--     every change goes through cms_publish / cms_archive / cms_restore / cms_rollback, which check the caller's role.
+--   • public.cms_drafts: working copies — members only. Editors, admins and owners may write; reviewers read only.
+--   • public.cms_revisions: append-only history written by the functions; members may read it.
+--   • No service-role key is needed by the app or the admin screens.
+
+create table if not exists public.cms_members (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  role text not null check (role in ('owner', 'admin', 'editor', 'reviewer')),
+  granted_by uuid references auth.users (id) on delete set null,
+  granted_at timestamptz not null default now()
+);
+create table if not exists public.cms_content (
+  kind text not null check (kind in ('recipe', 'exercise')),
+  item_id text not null check (item_id ~ '^[a-z0-9_]{2,64}$'),
+  status text not null check (status in ('published', 'archived')),
+  data jsonb not null check (jsonb_typeof(data) = 'object' and pg_column_size(data) < 65536),
+  version integer not null check (version > 0),
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (kind, item_id)
+);
+create table if not exists public.cms_drafts (
+  kind text not null check (kind in ('recipe', 'exercise')),
+  item_id text not null check (item_id ~ '^[a-z0-9_]{2,64}$'),
+  data jsonb not null check (jsonb_typeof(data) = 'object' and pg_column_size(data) < 65536),
+  base_version integer not null default 0,
+  note text check (note is null or length(note) <= 500),
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (kind, item_id)
+);
+create table if not exists public.cms_revisions (
+  id bigserial primary key,
+  kind text not null,
+  item_id text not null,
+  version integer not null,
+  action text not null check (action in ('publish', 'archive', 'restore', 'rollback')),
+  data jsonb not null,
+  note text,
+  actor uuid references auth.users (id) on delete set null,
+  at timestamptz not null default now()
+);
+create index if not exists cms_revisions_item on public.cms_revisions (kind, item_id, version);
+
+alter table public.cms_members enable row level security;
+alter table public.cms_content enable row level security;
+alter table public.cms_drafts enable row level security;
+alter table public.cms_revisions enable row level security;
+
+-- the caller's CMS role (null for everyone else). SECURITY DEFINER so policies can read cms_members without recursion.
+create or replace function public.cms_role() returns text
+language sql stable security definer set search_path = '' as $$
+  select m.role from public.cms_members m where m.user_id = (select auth.uid());
+$$;
+create or replace function public.cms_rank(r text) returns integer
+language sql immutable set search_path = '' as $$
+  select case r when 'owner' then 4 when 'admin' then 3 when 'editor' then 2 when 'reviewer' then 1 else 0 end;
+$$;
+
+drop policy if exists cms_members_read on public.cms_members;
+create policy cms_members_read on public.cms_members for select to authenticated
+  using (user_id = (select auth.uid()) or public.cms_rank(public.cms_role()) >= 3);
+
+drop policy if exists cms_content_read on public.cms_content;
+create policy cms_content_read on public.cms_content for select to anon, authenticated
+  using (status in ('published', 'archived'));
+
+drop policy if exists cms_drafts_read on public.cms_drafts;
+create policy cms_drafts_read on public.cms_drafts for select to authenticated using (public.cms_rank(public.cms_role()) >= 1);
+drop policy if exists cms_drafts_insert on public.cms_drafts;
+create policy cms_drafts_insert on public.cms_drafts for insert to authenticated
+  with check (public.cms_rank(public.cms_role()) >= 2 and updated_by = (select auth.uid()));
+drop policy if exists cms_drafts_update on public.cms_drafts;
+create policy cms_drafts_update on public.cms_drafts for update to authenticated
+  using (public.cms_rank(public.cms_role()) >= 2) with check (public.cms_rank(public.cms_role()) >= 2 and updated_by = (select auth.uid()));
+drop policy if exists cms_drafts_delete on public.cms_drafts;
+create policy cms_drafts_delete on public.cms_drafts for delete to authenticated using (public.cms_rank(public.cms_role()) >= 2);
+
+drop policy if exists cms_revisions_read on public.cms_revisions;
+create policy cms_revisions_read on public.cms_revisions for select to authenticated using (public.cms_rank(public.cms_role()) >= 1);
+
+revoke all on public.cms_members, public.cms_content, public.cms_drafts, public.cms_revisions from anon, authenticated;
+grant select on public.cms_content to anon, authenticated;
+grant select on public.cms_members, public.cms_revisions to authenticated;
+grant select, insert, update, delete on public.cms_drafts to authenticated;
+
+-- publish the draft of (kind, item_id). admin/owner only. Optimistic check: the draft must be based on the current version.
+create or replace function public.cms_publish(p_kind text, p_item text, p_note text default null) returns json
+language plpgsql security definer set search_path = '' as $$
+declare d public.cms_drafts; c public.cms_content; v integer;
+begin
+  if public.cms_rank(public.cms_role()) < 3 then raise exception using errcode = '42501', message = 'cms: publishing needs the admin role'; end if;
+  select * into d from public.cms_drafts where kind = p_kind and item_id = p_item;
+  if not found then raise exception using errcode = 'P0001', message = 'cms: no draft to publish'; end if;
+  select * into c from public.cms_content where kind = p_kind and item_id = p_item for update;
+  v := coalesce(c.version, 0);
+  if d.base_version <> v then raise exception using errcode = 'P0001', message = 'cms: the draft is based on an older version — reload and review'; end if;
+  insert into public.cms_content (kind, item_id, status, data, version, updated_by, updated_at)
+    values (p_kind, p_item, 'published', d.data, v + 1, auth.uid(), now())
+    on conflict (kind, item_id) do update set status = 'published', data = excluded.data, version = excluded.version, updated_by = excluded.updated_by, updated_at = now();
+  insert into public.cms_revisions (kind, item_id, version, action, data, note, actor) values (p_kind, p_item, v + 1, 'publish', d.data, coalesce(p_note, d.note), auth.uid());
+  delete from public.cms_drafts where kind = p_kind and item_id = p_item;
+  return json_build_object('kind', p_kind, 'item_id', p_item, 'version', v + 1);
+end $$;
+
+-- archive (users stop receiving the item; history is kept) / restore (published again, same data). admin/owner only.
+create or replace function public.cms_set_status(p_kind text, p_item text, p_status text, p_note text default null) returns json
+language plpgsql security definer set search_path = '' as $$
+declare c public.cms_content;
+begin
+  if public.cms_rank(public.cms_role()) < 3 then raise exception using errcode = '42501', message = 'cms: archiving needs the admin role'; end if;
+  if p_status not in ('published', 'archived') then raise exception using errcode = 'P0001', message = 'cms: bad status'; end if;
+  select * into c from public.cms_content where kind = p_kind and item_id = p_item for update;
+  if not found then raise exception using errcode = 'P0001', message = 'cms: item is not published'; end if;
+  if c.status = p_status then return json_build_object('kind', p_kind, 'item_id', p_item, 'version', c.version); end if;
+  update public.cms_content set status = p_status, version = c.version + 1, updated_by = auth.uid(), updated_at = now() where kind = p_kind and item_id = p_item;
+  insert into public.cms_revisions (kind, item_id, version, action, data, note, actor)
+    values (p_kind, p_item, c.version + 1, case p_status when 'archived' then 'archive' else 'restore' end, c.data, p_note, auth.uid());
+  return json_build_object('kind', p_kind, 'item_id', p_item, 'version', c.version + 1, 'status', p_status);
+end $$;
+
+-- roll back to an earlier revision: its data is published again as a NEW version (nothing is deleted). admin/owner only.
+create or replace function public.cms_rollback(p_kind text, p_item text, p_version integer, p_note text default null) returns json
+language plpgsql security definer set search_path = '' as $$
+declare r public.cms_revisions; c public.cms_content;
+begin
+  if public.cms_rank(public.cms_role()) < 3 then raise exception using errcode = '42501', message = 'cms: rollback needs the admin role'; end if;
+  select * into r from public.cms_revisions where kind = p_kind and item_id = p_item and version = p_version order by id desc limit 1;
+  if not found then raise exception using errcode = 'P0001', message = 'cms: no such version'; end if;
+  select * into c from public.cms_content where kind = p_kind and item_id = p_item for update;
+  update public.cms_content set status = 'published', data = r.data, version = c.version + 1, updated_by = auth.uid(), updated_at = now() where kind = p_kind and item_id = p_item;
+  insert into public.cms_revisions (kind, item_id, version, action, data, note, actor) values (p_kind, p_item, c.version + 1, 'rollback', r.data, coalesce(p_note, 'rollback to v' || p_version), auth.uid());
+  delete from public.cms_drafts where kind = p_kind and item_id = p_item;
+  return json_build_object('kind', p_kind, 'item_id', p_item, 'version', c.version + 1);
+end $$;
+
+-- role management: owner only; never on oneself; 'owner' cannot be granted through the API.
+create or replace function public.cms_set_role(p_email text, p_role text) returns json
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid;
+begin
+  if public.cms_role() is distinct from 'owner' then raise exception using errcode = '42501', message = 'cms: only the owner manages roles'; end if;
+  if p_role is not null and p_role not in ('admin', 'editor', 'reviewer') then raise exception using errcode = 'P0001', message = 'cms: role must be admin, editor or reviewer'; end if;
+  select id into uid from auth.users where lower(email) = lower(p_email);
+  if uid is null then raise exception using errcode = 'P0001', message = 'cms: no account with this e-mail (the person must sign up first)'; end if;
+  if uid = auth.uid() then raise exception using errcode = '42501', message = 'cms: you cannot change your own role'; end if;
+  if exists (select 1 from public.cms_members where user_id = uid and role = 'owner') then raise exception using errcode = '42501', message = 'cms: an owner cannot be changed here'; end if;
+  if p_role is null then delete from public.cms_members where user_id = uid;
+  else insert into public.cms_members (user_id, role, granted_by) values (uid, p_role, auth.uid())
+       on conflict (user_id) do update set role = excluded.role, granted_by = excluded.granted_by, granted_at = now(); end if;
+  return json_build_object('user_id', uid, 'role', p_role);
+end $$;
+
+-- members list with e-mail (admin/owner only), for the roles screen
+create or replace function public.cms_members_list() returns json
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if public.cms_rank(public.cms_role()) < 3 then raise exception using errcode = '42501', message = 'cms: admin role needed'; end if;
+  return coalesce((select json_agg(json_build_object('email', u.email, 'role', m.role, 'granted_at', m.granted_at) order by m.granted_at)
+    from public.cms_members m join auth.users u on u.id = m.user_id), '[]'::json);
+end $$;
+
+revoke all on function public.cms_publish(text, text, text), public.cms_set_status(text, text, text, text), public.cms_rollback(text, text, integer, text),
+  public.cms_set_role(text, text), public.cms_members_list(), public.cms_role() from public, anon;
+grant execute on function public.cms_publish(text, text, text), public.cms_set_status(text, text, text, text), public.cms_rollback(text, text, integer, text),
+  public.cms_set_role(text, text), public.cms_members_list(), public.cms_role() to authenticated;

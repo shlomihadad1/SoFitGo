@@ -24,7 +24,7 @@
     const pf = C().normPrefs(params.prefs), bl = C().blockedFoods(pf), out = { m1: [], m2: [], snack: [], extra: [], notes: [] };
     const fav = new Set((S().load('nutrition').favorites) || []), dis = new Set(params.dislike || []);
     for (const r of N().RECIPES) {
-      if (r.est || dis.has(r.id) || !out[r.meal]) continue;
+      if (r.est || r.archived || dis.has(r.id) || !out[r.meal]) continue; /* archived through the CMS: kept for history, not offered */
       const cs = C().conflicts(r, null, pf); let ov = null;
       if (cs.length) { if (!cs.every(c => c.side)) continue; ov = {}; let ok = true; cs.forEach(c => { const sub = C().subFor({ f: c.f, g: c.g }, pf); if (sub && !bl.has(sub.f)) ov[c.idx] = sub; else ok = false; }); if (!ok) continue; }
       const m = L().recipeMacros(r, 1, ov);
@@ -177,7 +177,7 @@
   const memo = new Map();
   function menus(plan) {
     ensure(plan); const { first, last } = range(plan);
-    const key = JSON.stringify([plan.id, first, last, plan.nutrition.segments, N().RECIPES.length, (S().load('nutrition').favorites || []).length]);
+    const key = JSON.stringify([plan.id, first, last, plan.nutrition.segments, N().RECIPES.length, N().CMS_V || '', (S().load('nutrition').favorites || []).length]);
     if (memo.has(key)) return memo.get(key);
     const segs = plan.nutrition.segments.slice().sort((a, b) => a.fromDate < b.fromDate ? -1 : 1), state = { i: 0, use: {}, last: {}, prevProt: null };
     const byDate = {}; const notes = [];
@@ -230,7 +230,7 @@
     const params = paramsOn(date); if (!params || !params.kcal || !params.protein) return null;
     if (!baseline) baseline = currentParams();
     const nu = S().load('nutrition'), ed = Math.floor(Date.parse(date + 'T12:00:00Z') / 864e5), a0 = ed - (ed % 14), anchor = new Date(a0 * 864e5).toISOString().slice(0, 10);
-    const key = JSON.stringify([anchor, pkey(params), N().RECIPES.length, (nu.favorites || []).length]);
+    const key = JSON.stringify([anchor, pkey(params), N().RECIPES.length, N().CMS_V || '', (nu.favorites || []).length]);
     let g = autoMemo.get(key); if (!g) { if (autoMemo.size > 40) autoMemo.clear(); g = generate(params, anchor, 14, 'auto' + anchor); autoMemo.set(key, g); }
     const d = g.days.find(x => x.date === date); if (!d) return null;
     return { planId: null, auto: true, slots: d.slots, off: d.off, gap: d.gap, totals: d.totals, target: d.target, notes: g.notes };

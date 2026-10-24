@@ -25,6 +25,7 @@ function recipeMacros(r, scale, overrides) {
 }
 const RB = () => { const o = {}; N().RECIPES.forEach(r => { o[r.id] = r; }); return o; };
 let _rb = null; function recipe(id) { if (!_rb) _rb = RB(); return _rb[id]; }
+function _resetRecipeIndex() { _rb = null; } /* Admin CMS: a published new recipe joins the index */
 
 /* Mifflin–St Jeor. Sex constant: male +5, female −161; when not given, the midpoint (−78) is used and flagged as an
    estimate. Activity factor 1.55 = training ~5×/week + ~8–10k steps. deficit: share below maintenance (negative = surplus). */
@@ -132,10 +133,10 @@ function compareMacros(a, b) { // returns warning flags if materially different
 }
 function swapCandidates(slotRecipe, all) {
   const base = recipeMacros(slotRecipe);
-  return all.filter(r => r.meal === slotRecipe.meal && r.id !== slotRecipe.id)
+  return all.filter(r => r.meal === slotRecipe.meal && r.id !== slotRecipe.id && !r.archived)
     .map(r => ({ r, m: recipeMacros(r) }))
     .map(o => Object.assign(o, { score: Math.abs(o.m.k - base.k) / 100 + Math.abs(o.m.p - base.p) / 8, flags: compareMacros(base, o.m) }))
     .sort((x, y) => x.score - y.score);
 }
-root.Logic = { ingMacros, sumMacros, roundM, recipeIngredients, recipeMacros, recipe, computeTargets, VERSIONS, VERSION_TARGET, versionParts, hasVersions, buildSteps, estimateMinutes, durationBreakdown, setWork, REP_SEC, TEMPO_SEC, TRANS_SEC, exerciseUsage, suggestSwapGrams, compareMacros, swapCandidates };
+root.Logic = { _resetRecipeIndex, ingMacros, sumMacros, roundM, recipeIngredients, recipeMacros, recipe, computeTargets, VERSIONS, VERSION_TARGET, versionParts, hasVersions, buildSteps, estimateMinutes, durationBreakdown, setWork, REP_SEC, TEMPO_SEC, TRANS_SEC, exerciseUsage, suggestSwapGrams, compareMacros, swapCandidates };
 })(typeof window !== 'undefined' ? window : globalThis);

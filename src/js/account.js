@@ -269,7 +269,7 @@ async function init() {
   if (sess) { await accessToken(); if (sess) { if (sync.owner === uid()) await syncNow(); else if (!sync.owner) await afterLogin(); } }
   emit();
 }
-root.Account = { available: !!CFG, SECTIONS, state, init, signUp, signIn, signOut, recover, resend, updatePassword, deleteAccount, migrate, resolveConflict, restoreBackup, syncNow, pushDirty,
+root.Account = { available: !!CFG, api: (p, o) => http(p, o), SECTIONS, state, init, signUp, signIn, signOut, recover, resend, updatePassword, deleteAccount, migrate, resolveConflict, restoreBackup, syncNow, pushDirty,
   submitReport, myReports, loadConfig, handleRedirect, photoCount, message, validate, hasLocalData, lastRedirect: null, _debug: { http, refresh, get sync() { return sync; }, get sess() { return sess; } } };
 init();
 })(window);

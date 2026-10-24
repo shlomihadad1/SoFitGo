@@ -24,8 +24,8 @@ const denied = r => !!r.err && /row-level security|permission denied|violates|im
   for (const m of migs) { const r = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations', m), 'utf8')); ok(!r.err, `migration ${m} applies cleanly`, r.err); }
   for (const m of migs) { const r = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations', m), 'utf8')); ok(!r.err, `migration ${m} can be re-run without error (no duplicate objects)`, r.err); }
   const rls = psql(DB, `select string_agg(relname || ':' || relrowsecurity, ',' order by relname) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r';`).out;
-  ok(rls === 'app_config:true,bug_reports:true,profiles:true,user_state:true', 'RLS is enabled on every public table', rls);
-  const pol = psql(DB, `select count(*) from pg_policies where schemaname = 'public';`).out; ok(+pol === 11, '11 explicit policies exist', pol);
+  ok(rls === 'app_config:true,bug_reports:true,cms_content:true,cms_drafts:true,cms_members:true,cms_revisions:true,profiles:true,user_state:true', 'RLS is enabled on every public table (incl. the 4 CMS tables, tested in rls_cms_test.js)', rls);
+  const pol = psql(DB, `select count(*) from pg_policies where schemaname = 'public';`).out; ok(+pol === 18, '18 explicit policies exist (11 accounts + 7 CMS)', pol);
   const noPolicyTables = psql(DB, `select string_agg(c.relname, ',') from pg_class c where c.relnamespace='public'::regnamespace and c.relkind='r' and c.relrowsecurity and not exists (select 1 from pg_policies p where p.schemaname='public' and p.tablename=c.relname);`).out;
   ok(!noPolicyTables, 'no table has RLS enabled without a policy', noPolicyTables);
   psql(DB, `insert into auth.users (id, email) values ('${A}', 'a@test.invalid'), ('${B}', 'b@test.invalid');`);

@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const R = p => path.join(__dirname, '..', p);
 const read = p => fs.readFileSync(R(p), 'utf8');
-const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/activity.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js', 'src/js/ui.js', 'src/js/mediaui.js', 'src/js/screens_home.js', 'src/js/screens_workout.js', 'src/js/screens_nutrition.js', 'src/js/screens_progress.js', 'src/js/screens_plan.js', 'src/js/screens_signature.js', 'src/js/run.js', 'src/js/main.js'];
+const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/data/workouts.js', 'src/data/nutrition.js', 'src/data/recipes_intl.js', 'src/data/recipes_med.js', 'src/data/catalog.js', 'src/data/programs.js', 'src/data/media.js', 'src/js/logic.js', 'src/js/planner.js', 'src/js/plans.js', 'src/js/mealplanner.js', 'src/js/store.js', 'src/js/core.js', 'src/js/cms_content.js', 'src/js/activity.js', 'src/js/insights.js', 'src/js/adapt.js', 'src/js/signature.js', 'src/js/ui.js', 'src/js/mediaui.js', 'src/js/screens_home.js', 'src/js/screens_workout.js', 'src/js/screens_nutrition.js', 'src/js/screens_progress.js', 'src/js/screens_plan.js', 'src/js/screens_signature.js', 'src/js/run.js', 'src/js/main.js'];
 /* RC1: help & tutorials are a separate chunk (help.js) — fetched only when the help screen opens and precached by the
    service worker for offline use; the single-file artifact inlines it. Keeps the first-load budget (700 KB) intact. */
 const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/screens_help.js'];
@@ -10,6 +10,7 @@ const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/sc
 const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js', 'src/js/meal_options.js', 'src/js/sync_tools.js', 'src/js/gate.js', 'src/js/gate_ui.js', 'src/js/food_prefs_ui.js'];
 /* M10: accounts + sync + legal drafts — loaded only when the user opens the account screen or already has a session */
 const ACCOUNT = ['src/js/account.js', 'src/js/screens_account.js'];
+const ADMIN = ['src/js/admin.js']; /* Admin CMS chunk (route #/admin), loaded after account.js */
 /* M10: backend configuration comes from the environment at build time (never from files in the repository).
    Only the Supabase PROJECT URL and the PUBLISHABLE (anon) key may be embedded — both are public by design; data is protected
    by the database's Row Level Security. A secret / service-role key is refused so it can never reach a browser. */
@@ -37,7 +38,7 @@ window.SOFITGO_CONFIG = { supabaseUrl: '', publishableKey: '' };
 `;
 const RUNTIME_CFG = "(function(){var w=window,c=w.SOFITGO_CONFIG;if(w.FIT30_BACKEND||!c||!c.supabaseUrl||!c.publishableKey)return;var u=String(c.supabaseUrl).trim().replace(/\\/+$/,''),k=String(c.publishableKey).trim(),ok=(/^https:\\/\\/[a-z0-9-]+\\.supabase\\.co$/.test(u)||/^http:\\/\\/(localhost|127\\.0\\.0\\.1):\\d+$/.test(u))&&(/^sb_publishable_[A-Za-z0-9_-]{8,}$/.test(k)||(function(){try{return /^eyJ/.test(k)&&JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role==='anon'}catch(e){return false}})());if(!ok){console.warn('sofitgo-config.js ignored: needs https://<project>.supabase.co and a PUBLISHABLE key');return}w.FIT30_BACKEND={url:u,key:k,channel:'beta',source:'config'}})();";
 const cssSrc = read('src/css/styles.css');
-const jsSrc = JS.concat(LAZY, EXTRA, ACCOUNT).filter(f => f !== 'src/data/tutorials_media.js' /* generated FROM this build by tools/tutorials_build.js; excluded so recording does not change the id it records */).map(f => `/* ${f} */\n` + read(f)).join('\n');
+const jsSrc = JS.concat(LAZY, EXTRA, ACCOUNT, ADMIN).filter(f => f !== 'src/data/tutorials_media.js' /* generated FROM this build by tools/tutorials_build.js; excluded so recording does not change the id it records */).map(f => `/* ${f} */\n` + read(f)).join('\n');
 const hash = crypto.createHash('sha1').update(cssSrc + jsSrc + read('src/js/debug_layout.js') + read('tools/build.js') + JSON.stringify(BACKEND) /* M10: a build for another backend/channel is a different build */ /* RC5: the service worker and manifest are generated here, so their changes must change the build id too */).digest('hex').slice(0, 10);
 /* Size: whitespace + comments are stripped per file with esbuild (no identifier renaming, no syntax rewriting, UTF-8 kept),
    so the shipped code is the same program as src/. FIT30_NOMIN=1 builds the unminified version for debugging. */
@@ -50,6 +51,7 @@ const js = JS.map(f => minJs(slim(f, read(f)), f)).join('\n');
 const lazyJs = LAZY.map(f => minJs(read(f), f)).join('\n');
 const extraJs = EXTRA.map(f => minJs(read(f), f)).join('\n');
 const accountJs = ACCOUNT.map(f => minJs(read(f), f)).join('\n');
+const adminJs = ADMIN.map(f => minJs(read(f), f)).join('\n');
 const FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap">';
 const SHELL = '<header class="top" id="top"></header><main id="view" aria-live="polite"></main><nav class="nav" id="nav" aria-label="ניווט ראשי"></nav><noscript><p style="padding:20px">יש להפעיל JavaScript כדי להשתמש באפליקציה.</p></noscript>';
 /* Brand (RC5): ONE switch for every user-facing app name. Technical identifiers (storage keys 'fit30.*', cache names
@@ -98,7 +100,7 @@ fs.writeFileSync(path.join(out, 'sw.js'), `/* Service worker
    - videos are NOT cached and not intercepted (range requests go straight to the network) — no offline video
    - fonts cached at runtime */
 const CACHE = 'fit30-${hash}', MEDIA = 'fit30-media-v1', MEDIA_MAX = 160;
-const ASSETS = ['./', 'index.html', 'help.js', 'extra.js', 'account.js', 'sofitgo-config.js', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'${BRAND.extra.concat(BRAND.logo ? [BRAND.logo.word, BRAND.logo.sym] : []).map(f => `, '${f}'`).join('')}];
+const ASSETS = ['./', 'index.html', 'help.js', 'extra.js', 'account.js', 'admin.js', 'sofitgo-config.js', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'${BRAND.extra.concat(BRAND.logo ? [BRAND.logo.word, BRAND.logo.sym] : []).map(f => `, '${f}'`).join('')}];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('fit30-') && k !== CACHE && k !== MEDIA && k !== 'fit30-fonts').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 const trim = c => c.keys().then(ks => ks.length > MEDIA_MAX ? Promise.all(ks.slice(0, ks.length - MEDIA_MAX).map(k => c.delete(k))) : null);
@@ -131,6 +133,7 @@ if (BRAND.logo) for (const f of [BRAND.logo.word, BRAND.logo.sym]) fs.copyFileSy
 fs.writeFileSync(path.join(out, 'help.js'), lazyJs);
 fs.writeFileSync(path.join(out, 'extra.js'), extraJs);
 fs.writeFileSync(path.join(out, 'account.js'), accountJs);
+fs.writeFileSync(path.join(out, 'admin.js'), adminJs);
 /* RC5: layout diagnostics, fetched only with ?debug=layout (not precached, not in the first-load budget) */
 fs.writeFileSync(path.join(out, 'debug-layout.js'), minJs(read('src/js/debug_layout.js'), 'src/js/debug_layout.js'));
 fs.writeFileSync(path.join(out, 'README.txt'), `${BRAND.name} — אפליקציית כושר ותזונה (PWA)

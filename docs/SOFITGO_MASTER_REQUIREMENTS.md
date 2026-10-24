@@ -182,7 +182,7 @@ The mirror pages are third-party copies of FDC. The FDC site itself was not reac
 
 | Requirement | Status | Note |
 |---|---|---|
-| Any CMS | **N** | None exists. Content is static JS (`src/data/*.js`) |
+| Any CMS | **V** (local emulator) / B (live) | Modules: recipes & menus, exercise instructions, media inventory (upload **B**: needs a Storage bucket), roles, history/rollback, 10 guides, code-only settings list. Tests: `rls_cms_test` (server-side authorization, PostgreSQL RLS), `cms_content_test` (loader), `e2e_admin` (browser, local Supabase emulator). **Not applied to the live project** — migration `20261025000100_sofitgo_cms.sql` needs owner approval; see `docs/CMS.md` |
 | Backend capacity | **I** | Supabase is already used for accounts (migration `20261020000100`). A local emulator with real Postgres + RLS exists for testing (`tools/supa_local.js`, `tools/pg_local.sh`) |
 | Plan | — | Stage D in §15: modules recipes → exercises → media, with roles enforced by RLS, draft/publish, revisions and rollback. Implemented and tested locally only; the live migration needs owner approval |
 
@@ -251,7 +251,7 @@ The 43-idea master list (13 original + 30 added) is **not stored in the reposito
 | Menu structure: day-part meals, optional add-on | **V** | `e2e_menu_structure` |
 | Nutrition engine from targets (macro-aware) | **V** | `nutrition_v2_test` |
 | Nutrition DB v2 (200 recipes, sources) | **V** | §4 |
-| Admin CMS (two specs, incl. guides and impact explanations) | **N** → Stage D | §10 |
+| Admin CMS (two specs, incl. guides and impact explanations) | **V** locally / B live | §10, `docs/CMS.md` |
 | SMTP/email | **S** | The owner confirmed email works and asked not to re-check it |
 
 ---
@@ -263,7 +263,7 @@ The 43-idea master list (13 original + 30 added) is **not stored in the reposito
 | Desktop browser (Chromium) | **V**: full suite (§16) |
 | iPhone Safari | **Emulated only.** WebKit (Playwright) runs for 9 suites plus iPhone 13 viewport emulation. No physical device |
 | Android Chrome | **Emulated only.** Chromium mobile emulation. No physical device |
-| Admin authorization and publishing | **N** until Stage D |
+| Admin authorization and publishing | **V** on the local emulator (Chromium iPhone 13 emulation + 1280 px desktop); not on the live project or a device |
 
 ---
 
@@ -283,7 +283,7 @@ The 43-idea master list (13 original + 30 added) is **not stored in the reposito
 | A | This matrix | done (this file) |
 | B | Critical fixes: no open P0 known; nutrition correctness (D11–D13, 15 USDA values) | done |
 | C | Core completion items that need no external decision (Contextual Shortcuts v2, Grocery v3, Weekly Reset) | queued after D |
-| D | CMS module 1, recipes: RLS roles, draft/publish, revisions, rollback, validation, preview, app loader; then exercises; then media (Storage, blocked) | in progress |
+| D | CMS: recipes + exercises + roles + history/rollback + guides + media inventory | done locally (V on emulator); live activation and media upload blocked on owner approval |
 | F/G | Full regression, emulated mobile, ZIP | §16 |
 
 ## 16. Test results and delivery

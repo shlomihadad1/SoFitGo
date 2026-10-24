@@ -1,0 +1,95 @@
+/* Admin CMS · server-side authorization tests on a REAL PostgreSQL 16 (same harness as rls_test.js): every statement runs as the
+   API role (anon / authenticated + JWT claims), so row-level security and the role-checked functions decide — not app code.
+   Roles: owner, admin, editor, reviewer, plain user. Proves: public sees only published/archived content; drafts, revisions and
+   the member list are private; editors draft but cannot publish; reviewers read only; nobody can grant themselves a role or
+   create an owner through the API; publish / archive / restore / rollback keep a complete history; stale drafts are refused.
+   Usage: PGHOST=/tmp PGPORT=54329 node tools/rls_cms_test.js */
+const { execFileSync } = require('child_process'); const fs = require('fs'), path = require('path');
+const ROOT = path.join(__dirname, '..'), DB = 'sofitgo_cms_test';
+const PG = { host: process.env.PGHOST || '/tmp', port: process.env.PGPORT || '54329', user: process.env.PGUSER || 'postgres' };
+const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m: m + (i !== undefined && !c ? ' → ' + JSON.stringify(i).slice(0, 300) : '') });
+const psql = (db, sql) => { try { return { out: execFileSync('psql', ['-h', PG.host, '-p', PG.port, '-U', PG.user, '-d', db, '-v', 'ON_ERROR_STOP=1', '-Atq', '-X'], { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim() }; } catch (e) { return { err: String(e.stderr || e.message) }; } };
+const lit = s => "'" + String(s).replace(/'/g, "''") + "'";
+const as = (role, sub, stmt) => psql(DB, `begin;\nset local role ${role};\nset local request.jwt.claims to ${lit(sub ? JSON.stringify({ sub, role }) : '')};\n${stmt};\ncommit;`);
+const U = { owner: '10000000-0000-4000-8000-000000000001', admin: '10000000-0000-4000-8000-000000000002', editor: '10000000-0000-4000-8000-000000000003', reviewer: '10000000-0000-4000-8000-000000000004', user: '10000000-0000-4000-8000-000000000005' };
+const by = (who, s) => as('authenticated', U[who], s), anon = s => as('anon', null, s);
+const denied = r => !!r.err && /row-level security|permission denied|42501|needs the|role needed|role must be|only the owner|cannot change|cannot be changed/i.test(r.err);
+const R1 = JSON.stringify({ he: 'סלט עדשים', en: 'Lentil Salad', meal: 'm2', cuisine: 'israeli', ing: [{ f: 'lentils', g: 60 }], steps: ['א', 'ב'], prep: 5, cook: 20 });
+const R2 = JSON.stringify({ he: 'סלט עדשים ולימון', en: 'Lentil Lemon Salad', meal: 'm2', cuisine: 'israeli', ing: [{ f: 'lentils', g: 70 }], steps: ['א', 'ב'], prep: 5, cook: 20 });
+const draft = (who, id, data, base) => by(who, `insert into public.cms_drafts (kind, item_id, data, base_version, updated_by) values ('recipe', ${lit(id)}, ${lit(data)}::jsonb, ${base || 0}, ${lit(U[who])}) on conflict (kind, item_id) do update set data = excluded.data, base_version = excluded.base_version, updated_by = excluded.updated_by`);
+
+(() => {
+  G = 'setup';
+  psql('postgres', `drop database if exists ${DB};`); ok(!psql('postgres', `create database ${DB};`).err, 'fresh test database');
+  ok(!psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/test/local_supabase_shim.sql'), 'utf8')).err, 'Supabase shim applied');
+  const migs = fs.readdirSync(path.join(ROOT, 'supabase/migrations')).filter(f => f.endsWith('.sql')).sort();
+  for (const m of migs) { const r = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations', m), 'utf8')); ok(!r.err, `migration ${m} applies`, r.err); }
+  for (const m of migs) { const r = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations', m), 'utf8')); ok(!r.err, `migration ${m} re-runs cleanly`, r.err); }
+  psql(DB, `insert into auth.users (id, email) values ${Object.entries(U).map(([k, id]) => `('${id}', '${k}@test.invalid')`).join(', ')};`);
+  const rls = psql(DB, `select string_agg(relname || ':' || relrowsecurity, ',' order by relname) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname like 'cms_%';`).out;
+  ok(rls === 'cms_content:true,cms_drafts:true,cms_members:true,cms_revisions:true', 'RLS enabled on every CMS table', rls);
+
+  G = 'bootstrap: no API path to become owner or admin';
+  ok(denied(by('user', `insert into public.cms_members (user_id, role) values ('${U.user}', 'owner')`)), 'a user cannot insert themselves as owner');
+  ok(denied(by('user', `select public.cms_set_role('user@test.invalid', 'admin')`)), 'a non-owner cannot grant roles');
+  ok(denied(anon(`select public.cms_set_role('user@test.invalid', 'admin')`)), 'anonymous cannot call role management');
+  psql(DB, `insert into public.cms_members (user_id, role) values ('${U.owner}', 'owner');`); /* the one documented manual step (dashboard SQL) */
+  ok(by('owner', `select public.cms_role()`).out === 'owner', 'the owner row was created by the documented manual step only');
+  ok(denied(by('owner', `select public.cms_set_role('owner@test.invalid', 'admin')`)), 'the owner cannot change their own role');
+  ok(denied(by('owner', `select public.cms_set_role('user@test.invalid', 'owner')`)), '"owner" cannot be granted through the API');
+  for (const r of ['admin', 'editor', 'reviewer']) ok(!by('owner', `select public.cms_set_role('${r}@test.invalid', '${r}')`).err, `owner grants ${r}`);
+  ok(denied(by('admin', `select public.cms_set_role('user@test.invalid', 'editor')`)), 'an admin cannot grant roles');
+  ok(denied(by('editor', `update public.cms_members set role = 'admin' where user_id = '${U.editor}'`)) || by('editor', `select role from public.cms_members where user_id = '${U.editor}'`).out === 'editor', 'an editor cannot promote themselves');
+  ok(by('editor', `select role from public.cms_members where user_id = '${U.editor}'`).out === 'editor', 'editor role unchanged');
+  ok(by('user', `select count(*) from public.cms_members`).out === '0', 'a plain user sees no member rows');
+  ok(by('admin', `select count(*) from public.cms_members`).out === '4', 'an admin sees the member list');
+  ok(!by('admin', `select public.cms_members_list()`).err && denied(by('editor', `select public.cms_members_list()`)), 'member list with e-mails: admin yes, editor no');
+
+  G = 'drafts';
+  ok(!draft('editor', 'lentil_salad', R1).err, 'editor saves a draft');
+  ok(denied(draft('reviewer', 'x_rev', R1)), 'reviewer cannot write drafts');
+  ok(denied(draft('user', 'x_user', R1)), 'plain user cannot write drafts');
+  ok(denied(as('authenticated', U.editor, `insert into public.cms_drafts (kind, item_id, data, updated_by) values ('recipe', 'spoof', '{}'::jsonb, '${U.admin}')`)), 'a draft cannot be saved under someone else\'s name');
+  ok(by('reviewer', `select count(*) from public.cms_drafts`).out === '1', 'reviewer can read drafts');
+  ok(by('user', `select count(*) from public.cms_drafts`).out === '0' && anon(`select count(*) from public.cms_drafts`).err, 'plain user and anonymous cannot read drafts');
+
+  G = 'publish';
+  ok(denied(by('editor', `select public.cms_publish('recipe', 'lentil_salad')`)), 'editor cannot publish');
+  ok(denied(by('user', `select public.cms_publish('recipe', 'lentil_salad')`)), 'plain user cannot publish');
+  ok(denied(anon(`select public.cms_publish('recipe', 'lentil_salad')`)), 'anonymous cannot publish');
+  ok(anon(`select count(*) from public.cms_content`).out === '0', 'nothing public before publishing');
+  const p1 = by('admin', `select public.cms_publish('recipe', 'lentil_salad', 'first')`); ok(!p1.err && /"version" : 1/.test(p1.out), 'admin publishes v1', p1);
+  ok(anon(`select data->>'he' from public.cms_content where item_id = 'lentil_salad'`).out === 'סלט עדשים', 'anonymous reads the published item');
+  ok(by('admin', `select count(*) from public.cms_drafts where item_id = 'lentil_salad'`).out === '0', 'the draft is cleared after publishing');
+  ok(denied(by('admin', `update public.cms_content set data = '{}'::jsonb`)) || by('admin', `select count(*) from public.cms_content where data = '{}'::jsonb`).out === '0', 'no direct writes to published content, even for an admin');
+  ok(denied(anon(`delete from public.cms_content`)) || anon(`select count(*) from public.cms_content`).out === '1', 'anonymous cannot delete content');
+  ok(denied(by('user', `insert into public.cms_content (kind, item_id, status, data, version) values ('recipe', 'evil', 'published', '{}'::jsonb, 1)`)), 'plain user cannot inject content');
+  ok(by('user', `select count(*) from public.cms_revisions`).out === '0' && by('reviewer', `select count(*) from public.cms_revisions`).out === '1', 'history: hidden from users, visible to reviewers');
+  /* stale draft: based on v0 while v1 exists */
+  draft('editor', 'lentil_salad', R2, 0);
+  const stale = by('admin', `select public.cms_publish('recipe', 'lentil_salad')`); ok(!!stale.err && /older version/.test(stale.err), 'a draft based on an older version is refused (no silent overwrite)', stale);
+  draft('editor', 'lentil_salad', R2, 1);
+  ok(/"version" : 2/.test(by('admin', `select public.cms_publish('recipe', 'lentil_salad', 'second')`).out || ''), 'publish v2 from a current draft');
+
+  G = 'archive, restore, rollback';
+  ok(denied(by('editor', `select public.cms_set_status('recipe', 'lentil_salad', 'archived')`)), 'editor cannot archive');
+  ok(!by('admin', `select public.cms_set_status('recipe', 'lentil_salad', 'archived')`).err && anon(`select status from public.cms_content where item_id = 'lentil_salad'`).out === 'archived', 'admin archives; the public sees status archived (app stops offering it)');
+  ok(!by('admin', `select public.cms_set_status('recipe', 'lentil_salad', 'published')`).err, 'admin restores');
+  ok(denied(by('editor', `select public.cms_rollback('recipe', 'lentil_salad', 1)`)), 'editor cannot roll back');
+  const rb = by('admin', `select public.cms_rollback('recipe', 'lentil_salad', 1)`); ok(!rb.err && /"version" : 5/.test(rb.out), 'rollback to v1 is published as a NEW version (5)', rb);
+  ok(anon(`select data->>'he' from public.cms_content where item_id = 'lentil_salad'`).out === 'סלט עדשים', 'after rollback the public sees the v1 data again');
+  ok(by('admin', `select string_agg(action || ':' || version, ',' order by version) from public.cms_revisions`).out === 'publish:1,publish:2,archive:3,restore:4,rollback:5', 'complete history: nothing deleted, every action recorded', by('admin', `select string_agg(action || ':' || version, ',' order by version) from public.cms_revisions`).out);
+  ok(denied(by('admin', `delete from public.cms_revisions`)) || by('admin', `select count(*) from public.cms_revisions`).out === '5', 'history cannot be deleted through the API');
+  ok(denied(by('owner', `select public.cms_set_role('editor@test.invalid', null)`)) === false && by('editor', `select public.cms_role()`).out === '', 'owner revokes a role; the person immediately loses access');
+  ok(denied(draft('editor', 'after_revoke', R1)), 'a revoked editor can no longer write');
+
+  G = 'no secrets needed';
+  const defs = psql(DB, `select string_agg(prosrc, ' ') from pg_proc where proname like 'cms_%'`).out || '';
+  ok(!/service_role|secret/i.test(defs), 'CMS functions rely on the caller\'s token, not a service key');
+  ok(psql(DB, `select bool_and(prosecdef) from pg_proc where proname in ('cms_publish','cms_set_status','cms_rollback','cms_set_role','cms_members_list','cms_role')`).out === 't', 'privileged functions are SECURITY DEFINER with role checks inside');
+  ok(psql(DB, `select bool_and(array_to_string(proconfig, ',') like '%search_path=%') from pg_proc where proname like 'cms_%' and prosecdef`).out === 't', 'every SECURITY DEFINER function pins search_path');
+
+  if (!process.env.KEEP) psql('postgres', `drop database if exists ${DB};`);
+  let pass = 0, fail = 0; const groups = {}; for (const r of res) { console.log(`${r.ok ? 'PASS' : 'FAIL'} [${r.g}] ${r.m}`); r.ok ? pass++ : fail++; }
+  console.log(`\ncms rls tests: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);
+})();

@@ -29,7 +29,7 @@ const ENV = root.FIT30_ENV || 'pwa';
 
 const tr = k => (root.I18N ? root.I18N.t(k) : k);
 const NAV = [ { h: '#/', k: 'home', i: 'home' }, { h: '#/calendar', k: 'calendar', i: 'cal' }, { h: '#/workouts', k: 'workouts', i: 'dumbbell' }, { h: '#/nutrition', k: 'nutrition', i: 'food' }, { h: '#/progress', k: 'progress', i: 'chart' } ];
-const SECTION = { account: 'settings', legal: 'settings', coach: 'home', travel: 'home', planb: 'home', feedback: 'settings', fridge: 'nutrition', activity: 'progress', help: 'settings', explain: 'workouts', review: 'progress', records: 'progress', shopping: 'nutrition', home: 'home', calendar: 'calendar', workouts: 'workouts', day: 'workouts', library: 'workouts', ex: 'workouts', nutrition: 'nutrition', recipes: 'nutrition', recipe: 'nutrition', 'nearby': 'nutrition', targets: 'nutrition', progress: 'progress', settings: 'settings', programs: 'workouts', program: 'workouts', media: 'settings', profile: 'settings', setup: 'workouts', plan: 'workouts', pday: 'workouts', install: 'settings' };
+const SECTION = { admin: 'settings', account: 'settings', legal: 'settings', coach: 'home', travel: 'home', planb: 'home', feedback: 'settings', fridge: 'nutrition', activity: 'progress', help: 'settings', explain: 'workouts', review: 'progress', records: 'progress', shopping: 'nutrition', home: 'home', calendar: 'calendar', workouts: 'workouts', day: 'workouts', library: 'workouts', ex: 'workouts', nutrition: 'nutrition', recipes: 'nutrition', recipe: 'nutrition', 'nearby': 'nutrition', targets: 'nutrition', progress: 'progress', settings: 'settings', programs: 'workouts', program: 'workouts', media: 'settings', profile: 'settings', setup: 'workouts', plan: 'workouts', pday: 'workouts', install: 'settings' };
 
 function route() {
   const h = (location.hash || '#/').replace(/^#\/?/, ''); const [name, arg, ...rest] = h.split('/');
@@ -70,6 +70,7 @@ function screenFor(r) {
     case 'travel': return Screens.travel ? Screens.travel() : extraLoading('נסיעה ושינוי בתוכניות', '#/planb');
     case 'help': return Screens.help ? Screens.help() : helpLoading();
     case 'account': return Screens.account ? Screens.account(r.arg) : accountLoading('חשבון וסנכרון', '#/settings');
+    case 'admin': if (Screens.admin) return Screens.admin(r.arg); App.loadChunk('account.js').then(() => App.loadChunk('admin.js')).then(() => App.render(), () => { const v = document.querySelector('[data-extra-loading]'); if (v) v.innerHTML = '<p class="small warn">לא ניתן לטעון את ממשק הניהול כרגע. נדרש חיבור לאינטרנט.</p>'; }); return { title: 'ניהול תוכן', back: '#/settings', html: '<section class="card" data-extra-loading><p class="small muted">טוען…</p></section>', handlers: {} }; /* Admin CMS */
     case 'legal': return Screens.legal ? Screens.legal(r.arg) : accountLoading('פרטיות ותנאי הבטא', '#/account');
     default: return Screens.home();
   }

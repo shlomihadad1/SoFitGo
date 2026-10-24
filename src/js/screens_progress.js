@@ -156,7 +156,7 @@ Screens.settings = function () {
       <div class="grid2"><label class="field">שעת אימון<input type="time" id="ics-t" value="07:00"></label><label class="field">התראה לפני (דק׳)<input type="number" id="ics-a" inputmode="numeric" value="15"></label></div><button class="btn" data-act="ics">${icon('cal')} ${root.Plans && root.Plans.active() ? 'יצירת קובץ יומן לתוכנית האישית' : 'יצירת קובץ יומן ל־30 הימים'}</button></section>
     <section class="card"><h2>גיבוי ושחזור</h2>
       <div class="banner info small">${icon('info')}<div>כל הנתונים נשמרים <b>רק במכשיר ובדפדפן הזה</b> (Local Storage). אין שרת ואין ענן. מחיקת נתוני האתר ב־Safari, או מעבר לטלפון אחר, ימחקו אותם — לכן חשוב לגבות. גיבוי אחרון: <b>${meta.lastBackup ? esc(S.fmtDate(meta.lastBackup.slice(0, 10))) : 'עדיין לא'}</b>. נפח בשימוש: ~${kb} KB.</div></div>
-      <div class="btns"><button class="btn primary" data-act="export">${icon('share')} ייצוא גיבוי</button><button class="btn" data-act="import">שחזור מגיבוי</button></div>
+      <div class="btns"><button class="btn primary" data-act="export">${icon('share')} ייצוא גיבוי</button><button class="btn" data-act="import">שחזור מגיבוי</button></div>${root.FIT30_BACKEND ? `<p class="tiny"><a href="#/admin" data-admin-link>ניהול תוכן (לצוות מורשה בלבד)</a></p>` : ''}
       <p class="tiny faint">הגיבוי כולל פרופיל, הגדרות, אימונים, יומן תזונה ומדידות. לא כולל תמונות.</p></section>
     <section class="card"><h2>התקנה במסך הבית</h2><a class="btn" href="#/install">${icon('phone')} הוראות התקנה ומצב לא מקוון</a></section>
     <section class="card"><h2>פרופיל ותוכנית אישית</h2><div class="btns"><a class="btn" href="#/profile">${icon('edit')} הפרופיל שלי</a><a class="btn" href="#/plan">${icon('route')} התוכנית שלי</a></div></section>

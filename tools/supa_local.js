@@ -10,7 +10,8 @@ const http = require('http'), crypto = require('crypto'), { execFile } = require
 const PORT = +(process.argv[2] || 54321), DB = process.env.SUPA_DB || 'sofitgo_local', KEY = 'sb_publishable_LOCALTESTKEY_not_a_secret';
 const PG = ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', DB, '-v', 'ON_ERROR_STOP=1', '-Atq', '-X'];
 const SECRET = crypto.randomBytes(32); let JWT_EXP = +(process.env.SUPA_JWT_EXP || 3600); let CONFIRM = process.env.SUPA_CONFIRM === '1'; let MAILFAIL = ''; /* '', 'rate' or 'blocked' — reproduces the hosted mailer's refusals */
-const TABLES = ['profiles', 'user_state', 'bug_reports', 'app_config'], RPCS = ['delete_my_account'];
+const TABLES = ['profiles', 'user_state', 'bug_reports', 'app_config', 'cms_content', 'cms_drafts', 'cms_revisions', 'cms_members'], RPCS = ['delete_my_account'];
+const RPC_JSON = ['cms_publish', 'cms_set_status', 'cms_rollback', 'cms_set_role', 'cms_members_list', 'cms_role']; /* functions with named arguments that return JSON (PostgREST: POST body = arguments) */
 let offline = false; /* test hook: simulate a network failure (requests are dropped) */
 const lit = s => "'" + String(s).replace(/'/g, "''") + "'";
 const dq = s => { const t = '$j' + crypto.randomBytes(4).toString('hex') + '$'; return t + s + t; };
@@ -93,6 +94,8 @@ async function handle(req, res, body) {
   const prefer = String(req.headers.prefer || ''), rep = /return=representation/.test(prefer);
   try {
     let m;
+    if ((m = p.match(/^\/rest\/v1\/rpc\/([a-z_]+)$/)) && req.method === 'POST' && RPC_JSON.includes(m[1])) { const args = Object.entries(J || {}).map(([k, v]) => `${ident(k)} => ${v === null ? 'null' : typeof v === 'number' ? String(+v) : lit(v)}`).join(', ');
+      const r = await sql(pre + `select coalesce(to_json(public.${ident(m[1])}(${args}))::text, 'null');\ncommit;`); if (r.err) { const e = pgErr(r.err); return send(res, e.status, e.body); } return send(res, 200, JSON.parse(r.out || 'null')); }
     if ((m = p.match(/^\/rest\/v1\/rpc\/([a-z_]+)$/)) && req.method === 'POST') { if (!RPCS.includes(m[1])) return send(res, 404, { code: 'PGRST202', message: 'function not found' });
       const r = await sql(pre + `select public.${ident(m[1])}();\ncommit;`); if (r.err) { const e = pgErr(r.err); return send(res, e.status, e.body); } return send(res, 204); }
     if (!(m = p.match(/^\/rest\/v1\/([a-z_]+)$/)) || !TABLES.includes(m[1])) return send(res, 404, { code: 'PGRST205', message: 'table not found' });
