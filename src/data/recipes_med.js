@@ -3,27 +3,27 @@
    NIH/NHLBI DASH, NHS Eatwell Guide, BDA portion sizes and the ISSN protein position stand. Nothing is copied from those sources.
    Every recipe is ONE ordinary serving (BDA portion sizes: cooked meat ≈90 g / fish ≈140 g, grains 50–75 g dry, pulses ≈150 g,
    oil 5–10 g, nuts ≤30 g). Nutrition = ingredient grams × per-100 g reference values of NUTRI.FOODS — the same method as the rest of
-   the app; nothing is entered by hand. New foods: USDA SR Legacy reference values (chk 'a' = Atwater-consistency checked; not yet
-   re-verified against FoodData Central online — listed in the report). Steps refer to the ingredient list instead of quoting grams. */
+   the app; nothing is entered by hand. New foods: USDA SR Legacy values, verified 24.10.2026 against the FoodData Central SR Legacy records (read through the
+   getfoodfacts.com FDC mirror; red pepper through ReciPal's USDA NDB 11821 record) — chk 'x', FDC id in `src`. Steps refer to the ingredient list instead of quoting grams. */
 (function (root) {
   'use strict';
   const N = root.NUTRI, F = N.FOODS;
-  const food = (id, o) => { if (F[id]) throw new Error('food exists: ' + id); F[id] = Object.assign({ chk: 'a', v2: true }, o); };
-  food('lentils', { he: 'עדשים ירוקות/חומות (יבש)', st: 'dry', k: 352, p: 24.6, c: 63.4, f: 1.1, fb: 10.7, grp: 'legume' });
-  food('brown_rice', { he: 'אורז מלא (יבש)', st: 'dry', k: 370, p: 7.9, c: 77.2, f: 2.9, fb: 3.5, grp: 'carb' });
-  food('pita_ww', { he: 'פיתה מחיטה מלאה (≈60 ג׳)', st: 'ready', k: 266, p: 9.8, c: 55, f: 2.6, fb: 7.4, grp: 'carb', unit: 60, unitHe: 'פיתה' });
-  food('barley', { he: 'גריסי פנינה (יבש)', st: 'dry', k: 352, p: 9.9, c: 77.7, f: 1.2, fb: 15.6, grp: 'carb' });
-  food('sardines', { he: 'סרדינים בשימורים (מסוננים)', st: 'ready', k: 208, p: 24.6, c: 0, f: 11.5, fb: 0, grp: 'protein' });
-  food('walnuts', { he: 'אגוזי מלך', st: 'ready', k: 654, p: 15.2, c: 13.7, f: 65.2, fb: 6.7, grp: 'fat' });
-  food('dates', { he: 'תמרים (מג׳הול)', st: 'ready', k: 277, p: 1.8, c: 75, f: 0.2, fb: 6.7, grp: 'fruit' });
-  food('red_pepper', { he: 'פלפל אדום', st: 'raw', k: 31, p: 1, c: 6, f: 0.3, fb: 2.1, grp: 'veg' });
-  food('hummus_spread', { he: 'ממרח חומוס (מוכן)', st: 'ready', k: 166, p: 7.9, c: 14.3, f: 9.6, fb: 6, grp: 'legume' });
-  food('beet', { he: 'סלק', st: 'raw', k: 43, p: 1.6, c: 9.6, f: 0.2, fb: 2.8, grp: 'veg' });
-  food('pear', { he: 'אגס', st: 'ready', k: 57, p: 0.4, c: 15, f: 0.1, fb: 3.1, grp: 'fruit' });
-  food('grapes', { he: 'ענבים', st: 'ready', k: 69, p: 0.7, c: 18, f: 0.2, fb: 0.9, grp: 'fruit' });
-  food('watermelon', { he: 'אבטיח', st: 'ready', k: 30, p: 0.6, c: 7.6, f: 0.2, fb: 0.4, grp: 'fruit' });
-  food('olives', { he: 'זיתים', st: 'ready', k: 115, p: 0.8, c: 6.3, f: 10.7, fb: 3.2, grp: 'fat' });
-  food('squash', { he: 'דלעת ערמונים', st: 'raw', k: 45, p: 1, c: 11.7, f: 0.1, fb: 2, grp: 'veg' });
+  const food = (id, o) => { if (F[id]) throw new Error('food exists: ' + id); F[id] = Object.assign({ chk: 'x', v2: true }, o); };
+  food('lentils', { he: 'עדשים ירוקות/חומות (יבש)', st: 'dry', k: 352, p: 24.6, c: 63.4, f: 1.1, fb: 10.7, grp: 'legume' , src: 'USDA SR Legacy FDC 172420'});
+  food('brown_rice', { he: 'אורז מלא (יבש)', st: 'dry', k: 367, p: 7.5, c: 76.2, f: 3.2, fb: 3.6, grp: 'carb' , src: 'USDA SR Legacy FDC 169703'});
+  food('pita_ww', { he: 'פיתה מחיטה מלאה (≈60 ג׳)', st: 'ready', k: 262, p: 9.8, c: 55.9, f: 1.7, fb: 6.1, grp: 'carb', unit: 60, unitHe: 'פיתה' , src: 'USDA SR Legacy FDC 174916'});
+  food('barley', { he: 'גריסי פנינה (יבש)', st: 'dry', k: 352, p: 9.9, c: 77.7, f: 1.2, fb: 15.6, grp: 'carb' , src: 'USDA SR Legacy FDC 170284'});
+  food('sardines', { he: 'סרדינים בשימורים (מסוננים)', st: 'ready', k: 208, p: 24.6, c: 0, f: 11.4, fb: 0, grp: 'protein' , src: 'USDA SR Legacy FDC 175139'});
+  food('walnuts', { he: 'אגוזי מלך', st: 'ready', k: 654, p: 15.2, c: 13.7, f: 65.2, fb: 6.7, grp: 'fat' , src: 'USDA SR Legacy FDC 170187'});
+  food('dates', { he: 'תמרים (מג׳הול)', st: 'ready', k: 277, p: 1.8, c: 75, f: 0.2, fb: 6.7, grp: 'fruit' , src: 'USDA SR Legacy FDC 168191'});
+  food('red_pepper', { he: 'פלפל אדום', st: 'raw', k: 26, p: 1, c: 6, f: 0.3, fb: 2, grp: 'veg' , src: 'USDA SR Legacy NDB 11821'});
+  food('hummus_spread', { he: 'ממרח חומוס (מוכן)', st: 'ready', k: 237, p: 7.8, c: 15, f: 17.8, fb: 5.5, grp: 'legume' , src: 'USDA SR Legacy FDC 174289'});
+  food('beet', { he: 'סלק', st: 'raw', k: 43, p: 1.6, c: 9.6, f: 0.2, fb: 2.8, grp: 'veg' , src: 'USDA SR Legacy FDC 169145'});
+  food('pear', { he: 'אגס', st: 'ready', k: 57, p: 0.4, c: 15.2, f: 0.1, fb: 3.1, grp: 'fruit' , src: 'USDA SR Legacy FDC 169118'});
+  food('grapes', { he: 'ענבים', st: 'ready', k: 69, p: 0.7, c: 18.1, f: 0.2, fb: 0.9, grp: 'fruit' , src: 'USDA SR Legacy FDC 174683'});
+  food('watermelon', { he: 'אבטיח', st: 'ready', k: 30, p: 0.6, c: 7.6, f: 0.2, fb: 0.4, grp: 'fruit' , src: 'USDA SR Legacy FDC 167765'});
+  food('olives', { he: 'זיתים', st: 'ready', k: 116, p: 0.8, c: 6, f: 10.9, fb: 1.6, grp: 'fat' , src: 'USDA SR Legacy FDC 169094'});
+  food('squash', { he: 'דלעת ערמונים', st: 'raw', k: 45, p: 1, c: 11.7, f: 0.1, fb: 2, grp: 'veg' , src: 'USDA SR Legacy FDC 169295'});
   /* recipe helper: ingredients as "food:grams,…"; role = the food's group; description generated from the recipe's own data */
   const MEAL_HE = { m1: 'ארוחת בוקר', m2: 'ארוחה עיקרית', snack: 'ארוחת ביניים' };
   const X = (id, he, en, meal, cuisine, ings, steps, subs, equip, o) => {

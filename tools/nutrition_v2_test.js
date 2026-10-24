@@ -42,8 +42,8 @@ ok(V2.every(r => !/(\d+)\s*ג׳/.test(r.steps.join(' '))), 'steps refer to the i
 
 T('3 value consistency');
 const newFoods = Object.entries(F).filter(([, f]) => f.v2);
-ok(newFoods.every(([, f]) => Math.abs(f.k - (4 * f.p + 4 * f.c + 9 * f.f)) <= f.k * 0.16), 'new foods: kcal agrees with 4/4/9 within 16% (fruit/veg use specific factors)', newFoods.map(([k, f]) => [k, f.k, Math.round(4 * f.p + 4 * f.c + 9 * f.f)]));
-ok(newFoods.every(([, f]) => f.chk === 'a'), 'new foods state how they were checked (chk)');
+ok(newFoods.every(([, f]) => Math.abs(f.k - (4 * f.p + 4 * f.c + 9 * f.f)) <= f.k * (['veg', 'fruit'].includes(f.grp) ? 0.2 : 0.1)), 'new foods: kcal agrees with 4/4/9 (≤10%; fruit/veg ≤20% — USDA uses food-specific factors)', newFoods.map(([k, f]) => [k, f.k, Math.round(4 * f.p + 4 * f.c + 9 * f.f)]));
+ok(newFoods.every(([, f]) => f.chk === 'x' && /USDA SR Legacy (FDC|NDB) \d+/.test(f.src || '')), 'new foods: verified against a USDA SR Legacy record, id stated (chk x + src)');
 const incons = V2.filter(r => { const a = L.recipeMacros(r), b = indep(r.ing); return Math.abs(a.k - b.k) > 1 || Math.abs(a.p - b.p) > 0.15 || Math.abs(a.c - b.c) > 0.15 || Math.abs(a.f - b.f) > 0.15; }).map(r => r.id);
 ok(!incons.length, 'recipe values = sum of ingredient values (calculated, not typed in)', incons);
 const atw = V2.filter(r => { const b = indep(r.ing); return Math.abs(b.k - (4 * b.p + 4 * b.c + 9 * b.f)) > b.k * 0.12; }).map(r => r.id);

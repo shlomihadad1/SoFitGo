@@ -52,6 +52,13 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     ok(r.pastSame && r.src === 'auto', 'past days keep the menu they were shown with after the targets change', r);
     ok(r.futureChanged && r.seg === 2, 'today and later days are rebuilt for the new targets', r); }
   await reset();
+  G = 'macro deviations shown';
+  { const r = await p.evaluate(async () => { const out = []; const T = Store.today(), t = Core.targets();
+      for (let i = 0; i < 14; i++) { const d = Store.addDays(T, i), x = Core.plannedTotals(d), f = Math.abs(x.f - t.fat) > t.fat * 0.15, c = Math.abs(x.c - t.carbs) > t.carbs * 0.15; location.hash = '#/nutrition/' + d; await new Promise(r => setTimeout(r, 150));
+        const el = document.querySelector('[data-macro-dev]'), flag = el ? el.dataset.macroDev : ''; out.push({ d, want: (f ? 'f' : '') + (c ? 'c' : ''), got: flag }); }
+      return out; });
+    ok(r.every(x => x.want === x.got), 'fat / carb deviation over ±15% is stated on the day (and only then)', r.filter(x => x.want !== x.got));
+    ok(r.some(x => x.want), 'at least one tested day has a stated deviation (the check is not vacuous)', r); }
   G = 'screen structure';
   await reset(); await go('#/nutrition'); await p.waitForTimeout(500);
   const scr = await p.evaluate(() => { const box = document.querySelector('[data-day-meals]'), cards = [...box.querySelectorAll('.slot')], pl = Core.plan(Store.today()), PRS = Core.DAY.filter(k => pl[k].rid && !pl[k].off);
