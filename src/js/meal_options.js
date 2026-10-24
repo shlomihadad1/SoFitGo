@@ -75,7 +75,8 @@ function confirmSwap(date, slot, rid, done, o) {
         close2(); if (saved === false) { root.UI.toast('השמירה נכשלה — ההחלפה לא נשמרה'); root.App.render(); return done && done(false); }
         let msg = 'הארוחה הוחלפה והסיכום עודכן';
         if (doReb) { const pl = C.plan(date), fr = free.filter(k => pl[k].rid), res = C.boostDay(Object.fromEntries(fr.map(k => [k, { rid: pl[k].rid, ov: pl[k].ov }])), t.protein - C.slotMacros(pl[slot]).p, C.normPrefs(C.profile().prefs), { kMin: 0, kMax: t.kcal + 100 - C.slotMacros(pl[slot]).k }); /* targets for the OTHER free meals; no carb top-up */
-          const ch = Object.keys(res.ov); ch.forEach(k => C.setPlanSlot(date, k, { rid: pl[k].rid, ov: res.ov[k], scale: pl[k].scale || 1, auto: false }));
+          const pNow = fr.reduce((a, k) => a + C.slotMacros(pl[k]).p, 0), pNew = fr.reduce((a, k) => a + C.slotMacros(Object.assign({}, pl[k], res.ov[k] ? { ov: res.ov[k] } : {})).p, 0);
+          const ch = pNew > pNow + 0.5 ? Object.keys(res.ov) : []; /* applied only if it really adds protein (never shrinks other meals) */ ch.forEach(k => C.setPlanSlot(date, k, { rid: pl[k].rid, ov: res.ov[k], scale: pl[k].scale || 1, auto: false }));
           msg = ch.length ? `הארוחה הוחלפה, והוגדלו מנות ב־${ch.length} ארוחות נוספות` : 'הארוחה הוחלפה; לא היה מקום להגדיל מנות בשאר הארוחות'; }
         root.UI.toast(msg); root.App.render(); return done && done(true); },
       no: (b2, e2, close2) => { close2(); return done && done(false); } });
