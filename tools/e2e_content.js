@@ -34,8 +34,9 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   await go('#/workouts'); await p.waitForTimeout(500); await p.locator('[data-act=tab][data-t=library]').first().click(); await p.waitForTimeout(500); const ex1 = p.locator('#view a[href^="#/ex/"]').first(); const exh = await ex1.getAttribute('href'); await ex1.click(); await p.waitForTimeout(400);
   ok(await p.evaluate(() => location.hash) === exh && await p.locator('#view ol.steps li').count() >= 3, 'opening an exercise from the library shows its steps');
   G = 'media status';
+  const NR = await p.evaluate(() => NUTRI.RECIPES.length);
   await go('#/media'); await p.waitForTimeout(1200); const mt = await p.locator('main').innerText();
-  ok(/הוראות ביצוע מלאות לתרגילים[\s\S]{0,40}57\/57/.test(mt) && /הוראות הכנה מלאות למתכונים[\s\S]{0,40}144\/144/.test(mt), 'coverage rows: 57/57 exercises, 144/144 recipes with full written guidance', mt.slice(0, 400));
+  ok(/הוראות ביצוע מלאות לתרגילים[\s\S]{0,40}57\/57/.test(mt) && new RegExp('הוראות הכנה מלאות למתכונים[\\s\\S]{0,40}' + NR + '/' + NR).test(mt), 'coverage rows: 57/57 exercises, every recipe (now 344) with full written guidance', mt.slice(0, 400));
   ok(/סרטוני הדגמה לתרגילים[\s\S]{0,20}0\/57/.test(mt), 'video count reported as it is (0/57) — nothing fake');
   ok(!/: חסר/.test(mt), 'no "חסר" labels on items that have written guidance');
   G = 'errors'; ok(!errs.length, 'no JS errors', errs);
