@@ -111,14 +111,14 @@ window.addEventListener('resize', () => App.stickyH());
 App.render = function () {
   App.figStops.forEach(f => f && f()); App.figStops = [];
   const r = route(); let scr;
-  try { scr = screenFor(r); } catch (e) { console.error(e); scr = { title: 'שגיאה', html: `<div class="banner bad">${icon('info')}<div>אירעה שגיאה בהצגת המסך: ${esc(e.message)}. הנתונים שלכם לא נפגעו.</div></div><a class="btn" href="#/">לבית</a>`, handlers: {} }; }
+  try { scr = root.CMS && root.CMS.isOff(r.name) ? { title: 'לא זמין', back: '#/', html: `<div class="banner info" data-cms-module-off>${icon('info')}<div>האזור הזה כבוי כרגע בהגדרות האפליקציה. הנתונים שלך לא נמחקו.</div></div><a class="btn" href="#/">לבית</a>`, handlers: {} } : screenFor(r); } catch (e) { console.error(e); scr = { title: 'שגיאה', html: `<div class="banner bad">${icon('info')}<div>אירעה שגיאה בהצגת המסך: ${esc(e.message)}. הנתונים שלכם לא נפגעו.</div></div><a class="btn" href="#/">לבית</a>`, handlers: {} }; }
   const sec = SECTION[r.name] || 'home';
   const back = scr.back ? `<a class="icon-btn" href="${scr.back}" aria-label="חזרה">${icon('back')}</a>` : BRAND_MARK;
   /* M10: on Home the logo is the header — the redundant visible "בית" is dropped; the h1 stays (layout + screen readers) */
   const topEl = document.getElementById('top'), navEl = document.getElementById('nav'); /* M10: header/nav are rewritten only when they change (no logo flash on every tap) */
   const topHtml = `<div class="top-in">${back}<h1>${r.name === 'home' ? `<span class="sr-only">${esc(scr.title)}</span>` : esc(scr.title)}</h1><a class="icon-btn" href="#/settings" aria-label="הגדרות" ${sec === 'settings' ? 'aria-current="page"' : ''}>${icon('gear')}</a></div>`;
   if (topEl.__html !== topHtml) { topEl.innerHTML = topHtml; topEl.__html = topHtml; }
-  const navHtml = `<div class="nav-in" role="navigation" aria-label="ניווט ראשי">${NAV.map(n => `<a href="${n.h}" ${n.k === sec ? 'aria-current="page"' : ''}>${icon(n.i)}<span>${esc(tr('nav.' + n.k))}</span></a>`).join('')}</div>`;
+  const navHtml = `<div class="nav-in" role="navigation" aria-label="ניווט ראשי">${NAV.map(n => `<a href="${n.h}" data-nav="${n.k}" ${n.k === sec ? 'aria-current="page"' : ''}>${icon(n.i)}<span>${esc(tr('nav.' + n.k))}</span></a>`).join('')}</div>`;
   if (navEl.__html !== navHtml) { navEl.innerHTML = navHtml; navEl.__html = navHtml; }
   const v = document.getElementById('view'); const keepScroll = lastName === location.hash; const y = window.scrollY;
   v.dataset.screen = r.name; v.innerHTML = scr.html;
@@ -131,7 +131,8 @@ App.render = function () {
     hs.forEach((h, i) => { const sec = h.closest('section'); sec.id = sec.id || 'sec-' + i; /* M10.4: no fixed 70px — html scroll-padding-top follows the measured sticky stack (see stickyH) */ const a = document.createElement('a'); a.className = 'chip'; a.href = '#' + location.hash.slice(1); a.textContent = h.textContent.trim().slice(0, 28);
       a.addEventListener('click', ev => { ev.preventDefault(); sec.scrollIntoView({ behavior: document.documentElement.dataset.motion === 'reduce' ? 'auto' : 'smooth', block: 'start' }); const f = h; if (f) { f.tabIndex = -1; f.focus({ preventScroll: true }); } }); nav.appendChild(a); });
     v.insertBefore(nav, v.firstChild); } }
-  updOffline(); App.stickyH();
+  if (root.CMS && root.CMS.post) { try { root.CMS.post(r.name); } catch (e) { console.error(e); } } /* Admin CMS: layout, module switches, notice, texts */
+  App.rendered = true; updOffline(); App.stickyH();
   document.title = scr.title + ' · ' + (root.FIT30_BRAND || 'כושר 30');
   if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
   lastName = location.hash;
@@ -208,6 +209,11 @@ function boot() {
   let kbT = null;
   document.addEventListener('focusin', e => { if (isText(e.target)) { clearTimeout(kbT); document.body.classList.add('kb'); const el = e.target; setTimeout(() => { if (document.activeElement !== el) return; const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight, r = el.getBoundingClientRect(); if (r.bottom > h - 16 || r.top < App.stickyH() + 8) el.scrollIntoView({ block: 'center' }); }, 320); } }); /* M10: keep the focused field visible above the keyboard */
   document.addEventListener('focusout', e => { if (isText(e.target)) { clearTimeout(kbT); kbT = setTimeout(() => { if (!isText(document.activeElement)) document.body.classList.remove('kb'); App.stickyH(); }, 400); } });
+  /* Admin CMS: with published content cached on this device, wait (≤ 1.5 s) for the loader chunk so the first screen already shows
+     it — no flash of built-in texts, layout or colours. Without a cache nothing waits; with a backend the chunk loads after paint. */
+  let cmsCached = false; try { cmsCached = !!localStorage.getItem('fit30.cms'); } catch (e) { }
+  if (cmsCached) Promise.race([App.loadChunk('cms.js'), new Promise(r => setTimeout(r, 1500))]).then(() => start(), () => start()); else { start(); if (root.FIT30_BACKEND) setTimeout(() => { App.loadChunk('cms.js').catch(() => { }); }, 0); }
+  function start() {
   App.render();
   /* M10: with accounts configured, resume the session (refresh token, pull/push) in the background after first paint */
   if (root.FIT30_BACKEND) setTimeout(() => App.loadChunk('account.js').then(() => { if (['home', 'settings'].includes(route().name) || fromAuthLink) App.render(); }, () => { }), 0);
@@ -221,12 +227,9 @@ function boot() {
   // a page that was opened before an update keeps running its own (complete) version; offer a reload instead of mixing versions
   let hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) root.UI.toast('גרסה חדשה של האפליקציה הותקנה — סגרו ופתחו מחדש כדי לעבור אליה.', 6000); hadController = true; });
+  }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-/* Admin CMS: published content (cms.js) is applied right after the first render — only on a device that has CMS content cached or
-   a backend configured; the loader re-renders when it changed anything. Built-in content is shown until then (offline-safe). */
-{ let has = false; try { has = !!localStorage.getItem('fit30.cms'); } catch (e) { }
-  if (has || root.FIT30_BACKEND) setTimeout(() => { App.loadChunk('cms.js').catch(() => { }); }, 0); }
 /* F-8 (RC5): a specific, visible error when a save fails. Store already rolled the data back, so re-rendering shows what is really stored. */
 const SAVE_HE = { auth: 'פרטי ההתחברות', avatar: 'תמונת הפרופיל', profile: 'הפרופיל וההגדרות', workouts: 'רישום האימונים', nutrition: 'יומן התזונה והתפריט', tracking: 'נתוני המעקב (משקל, מים, צעדים)', plans: 'התוכנית', session: 'האימון שבתהליך' };
 root.addEventListener('fit30:savefail', ev => { const n = ev.detail && ev.detail.name; setTimeout(() => { try { App.render(); } catch (e) { } root.UI.toast(`השמירה נכשלה — השינוי ב${SAVE_HE[n] || 'נתונים'} לא נשמר. ייתכן שהאחסון במכשיר מלא. הנתונים שכבר נשמרו לא נפגעו.`, 8000); document.body.dataset.saveFail = n || '1'; }, 0); });

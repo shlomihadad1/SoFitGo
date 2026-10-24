@@ -61,10 +61,10 @@ Screens.home = function () {
     </section>`);
     // workout card
     if (d.type === 'rest') {
-      html.push(`<section class="card"><div class="card-h"><h2>${esc(d.title)}</h2><span class="pill">מנוחה</span></div><p class="muted">${esc(d.goal)}</p>${d.tip ? `<p class="small">${esc(d.tip)}</p>` : ''}<a class="btn" href="#/day/${dn}">פרטי היום</a></section>`);
+      html.push(`<section class="card" data-sec="workout"><div class="card-h"><h2>${esc(d.title)}</h2><span class="pill">מנוחה</span></div><p class="muted">${esc(d.goal)}</p>${d.tip ? `<p class="small">${esc(d.tip)}</p>` : ''}<a class="btn" href="#/day/${dn}">פרטי היום</a></section>`);
     } else {
       const lg = C.log(dn); const v = Screens.selectedVersion.v; const vv = L.hasVersions(d) ? v : 'std';
-      html.push(`<section class="card"><div class="card-h"><div class="stack tight grow"><span class="eyebrow">האימון של היום · ${esc(P.TYPE_LABEL[d.type])}</span><h2>${esc(d.title)}</h2></div><span class="pill ${st === 'done' ? 'good' : st === 'partial' ? 'acc' : ''}">${C.STATUS_HE[st]}</span></div>
+      html.push(`<section class="card" data-sec="workout"><div class="card-h"><div class="stack tight grow"><span class="eyebrow">האימון של היום · ${esc(P.TYPE_LABEL[d.type])}</span><h2>${esc(d.title)}</h2></div><span class="pill ${st === 'done' ? 'good' : st === 'partial' ? 'acc' : ''}">${C.STATUS_HE[st]}</span></div>
         <p class="muted small">${esc(d.goal)}</p>
         <div class="kv"><span data-duration>משך כולל: <b>~${L.estimateMinutes(d, vv)} דק׳</b> (הערכה, כולל חימום, מנוחות ושחרור)</span><span>קושי: ${dots(d.diff, 5)}</span><span>${esc(d.muscles)}</span></div>
         ${Screens.versionSeg(d, vv, 'ver')}
@@ -78,12 +78,12 @@ Screens.home = function () {
   // suggestions
   const sug = C.suggestions(); /* with an active plan only plan-independent suggestions remain (weight); plan suggestions come from Adapt */
   if (ap) { const ac = Screens.adaptCard(ap); if (ac) html.push(ac); }
-  if (sug.length) html.push(`<section class="card"><div class="card-h"><h3>התאמות מוצעות</h3><span class="pill acc">${sug.length}</span></div><div class="list">${sug.map((s, i) => `<div class="li"><div class="grow small">${esc(s.he)}</div>${s.kind === 'up' || s.kind === 'down' ? `<button class="btn sm" data-act="applySug" data-i="${i}">החל</button>` : s.kind === 'weight' ? '<a class="btn sm" href="#/settings">להגדרות</a>' : ''}</div>`).join('')}</div><p class="tiny faint">ההצעות לא מוחלות אוטומטית.</p></section>`);
+  if (sug.length) html.push(`<section class="card" data-sec="suggest"><div class="card-h"><h3>התאמות מוצעות</h3><span class="pill acc">${sug.length}</span></div><div class="list">${sug.map((s, i) => `<div class="li"><div class="grow small">${esc(s.he)}</div>${s.kind === 'up' || s.kind === 'down' ? `<button class="btn sm" data-act="applySug" data-i="${i}">החל</button>` : s.kind === 'weight' ? '<a class="btn sm" href="#/settings">להגדרות</a>' : ''}</div>`).join('')}</div><p class="tiny faint">ההצעות לא מוחלות אוטומטית.</p></section>`);
   // nutrition
   const plan = C.plan(today), eaten = C.eatenTotals(today), planned = C.plannedTotals(today, 'selected'), base = C.plannedTotals(today, 'base');
   if (!t) html.push(Screens.needProfile('יעדי התזונה עוד לא חושבו'));
   else { const protOk = eaten.p >= t.protein, kcalNear = eaten.k >= t.kcal * 0.95;
-  html.push(`<section class="card"><div class="card-h"><h2>תזונה היום</h2><a class="btn sm ghost" href="#/nutrition">ליומן ${icon('chev')}</a></div>
+  html.push(`<section class="card" data-sec="nutrition"><div class="card-h"><h2>תזונה היום</h2><a class="btn sm ghost" href="#/nutrition">ליומן ${icon('chev')}</a></div>
     ${Screens.energyBlock(today, eaten)}
     <div class="ring-wrap">${ring(eaten.k, t.kcal, eaten.k, 'נצרך / ' + t.kcal + ' קק״ל')}${ring(Math.round(eaten.p), t.protein, Math.round(eaten.p) + 'ג׳', 'חלבון / ' + t.protein, 'var(--glacier)')}
     <div class="stack tight small grow"><span class="muted" data-home-planned>מתוכנן (${C.DAY.filter(k => plan[k] && plan[k].rid && !plan[k].off && !plan[k].missing).length} ארוחות${plan.extra.on ? ' + תוספת' : ''}): <b class="num">${planned.k}</b> קק״ל · <b class="num">${Math.round(planned.p)}</b> ג׳ חלבון${plan.gap && (plan.gap.p || plan.gap.kLow || plan.gap.kHigh) ? ' · <span class="warn" data-home-gap>התפריט לא מגיע ליעד הקלוריות/החלבון היום — פירוט בתזונה</span>' : ''}</span><span class="muted" data-home-left>${(() => { const kl = t.kcal - eaten.k, pl = Math.round(t.protein - eaten.p); /* M10.2: target, eaten, remaining and "over" are named explicitly — never a silent 0 when the target is exceeded */
@@ -94,7 +94,7 @@ Screens.home = function () {
   }
   // trackers
   const dl = C.daily(today), g = p.goals;
-  html.push(`<section class="card"><h2>מעקב יומי</h2>
+  html.push(`<section class="card" data-sec="trackers"><h2>מעקב יומי</h2>
     ${Screens.waterBlock(today)}
     <div class="divider"></div>
     ${(() => { const A = root.Activity, v = A.day(today), tg = A.targetOn(today), e = A.env(); return `<div class="stack tight" data-steps-card><div class="row between"><span class="row">${icon('steps')} <b>צעדים</b> <span class="pill" data-steps-kind="${v.kind}">${esc(A.label(v))}</span></span><span class="num">${v.value != null ? v.value.toLocaleString('he-IL') : '—'}${tg ? ' / ' + tg.toLocaleString('he-IL') : ''}</span></div>${tg ? meter(v.value || 0, tg, 'good') : '<p class="tiny muted">יעד אישי לא נקבע — אין יעד אחד שמתאים לכולם. <a href="#/activity">לקביעת יעד</a></p>'}
@@ -113,7 +113,7 @@ Screens.home = function () {
   } else if (n >= 1) {
     const w = Math.min(4, Math.ceil(Math.min(30, n) / 7)), [a, b] = C.weekRange(w);
     const bars = []; for (let k = a; k <= b; k++) { const dd = C.dateOfDay(k); const pr = C.dailyProgress(dd); bars.push({ v: k > n ? 0 : pr.pct, t: String(k), cls: k === n ? '' : 'gl' }); }
-    html.push(`<section class="card"><div class="card-h"><h3>השבוע: השלמת משימות יומית</h3><span class="muted small">ימים ${a}–${b}</span></div>${barChart(bars, { label: 'אחוז השלמת משימות לכל יום בשבוע', fmt: v => Math.round(v) + '%', empty: 'הנתונים יופיעו כשתסמנו משימות' })}<p class="tiny faint">משימות: אימון (בימי אימון), 3 ארוחות, מים, צעדים ושינה.</p></section>`);
+    html.push(`<section class="card" data-sec="week"><div class="card-h"><h3>השבוע: השלמת משימות יומית</h3><span class="muted small">ימים ${a}–${b}</span></div>${barChart(bars, { label: 'אחוז השלמת משימות לכל יום בשבוע', fmt: v => Math.round(v) + '%', empty: 'הנתונים יופיעו כשתסמנו משימות' })}<p class="tiny faint">משימות: אימון (בימי אימון), 3 ארוחות, מים, צעדים ושינה.</p></section>`);
   }
   return {
     title: 'בית', html: html.join(''), handlers: { ...(ap ? Screens.adaptHandlers(ap) : {}), ...Screens.syncHandlers(),

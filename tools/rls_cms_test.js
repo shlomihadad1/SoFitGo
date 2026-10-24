@@ -64,7 +64,7 @@ const draft = (who, id, data, base) => by(who, `insert into public.cms_drafts (k
   ok(denied(by('admin', `update public.cms_content set data = '{}'::jsonb`)) || by('admin', `select count(*) from public.cms_content where data = '{}'::jsonb`).out === '0', 'no direct writes to published content, even for an admin');
   ok(denied(anon(`delete from public.cms_content`)) || anon(`select count(*) from public.cms_content`).out === '1', 'anonymous cannot delete content');
   ok(denied(by('user', `insert into public.cms_content (kind, item_id, status, data, version) values ('recipe', 'evil', 'published', '{}'::jsonb, 1)`)), 'plain user cannot inject content');
-  ok(by('user', `select count(*) from public.cms_revisions`).out === '0' && by('reviewer', `select count(*) from public.cms_revisions`).out === '1', 'history: hidden from users, visible to reviewers');
+  ok(by('user', `select count(*) from public.cms_revisions`).out === '0' && by('reviewer', `select count(*) from public.cms_revisions where kind <> 'role'`).out === '1' /* role changes are audited in the same log since the app-control release */, 'history: hidden from users, visible to reviewers');
   /* stale draft: based on v0 while v1 exists */
   draft('editor', 'lentil_salad', R2, 0);
   const stale = by('admin', `select public.cms_publish('recipe', 'lentil_salad')`); ok(!!stale.err && /older version/.test(stale.err), 'a draft based on an older version is refused (no silent overwrite)', stale);
@@ -78,10 +78,41 @@ const draft = (who, id, data, base) => by(who, `insert into public.cms_drafts (k
   ok(denied(by('editor', `select public.cms_rollback('recipe', 'lentil_salad', 1)`)), 'editor cannot roll back');
   const rb = by('admin', `select public.cms_rollback('recipe', 'lentil_salad', 1)`); ok(!rb.err && /"version" : 5/.test(rb.out), 'rollback to v1 is published as a NEW version (5)', rb);
   ok(anon(`select data->>'he' from public.cms_content where item_id = 'lentil_salad'`).out === 'סלט עדשים', 'after rollback the public sees the v1 data again');
-  ok(by('admin', `select string_agg(action || ':' || version, ',' order by version) from public.cms_revisions`).out === 'publish:1,publish:2,archive:3,restore:4,rollback:5', 'complete history: nothing deleted, every action recorded', by('admin', `select string_agg(action || ':' || version, ',' order by version) from public.cms_revisions`).out);
+  ok(by('admin', `select string_agg(action || ':' || version, ',' order by version) from public.cms_revisions where kind <> 'role'`).out === 'publish:1,publish:2,archive:3,restore:4,rollback:5', 'complete history: nothing deleted, every action recorded', by('admin', `select string_agg(action || ':' || version, ',' order by version) from public.cms_revisions where kind <> 'role'`).out);
+  ok(+by('admin', `select count(*) from public.cms_revisions where kind = 'role' and action = 'grant'`).out >= 3, 'audit: every role grant is recorded with its actor');
   ok(denied(by('admin', `delete from public.cms_revisions`)) || by('admin', `select count(*) from public.cms_revisions`).out === '5', 'history cannot be deleted through the API');
   ok(denied(by('owner', `select public.cms_set_role('editor@test.invalid', null)`)) === false && by('editor', `select public.cms_role()`).out === '', 'owner revokes a role; the person immediately loses access');
   ok(denied(draft('editor', 'after_revoke', R1)), 'a revoked editor can no longer write');
+
+  G = 'full app control: texts, layout, design, settings, audit';
+  by('owner', `select public.cms_set_role('editor@test.invalid', 'editor')`);
+  const dk = (who, kind, id, data) => by(who, `insert into public.cms_drafts (kind, item_id, data, base_version, updated_by) values (${lit(kind)}, ${lit(id)}, ${lit(JSON.stringify(data))}::jsonb, 0, ${lit(U[who])}) on conflict (kind, item_id) do update set data = excluded.data, updated_by = excluded.updated_by`);
+  const tid = 't_abc_3';
+  ok(denied(dk('user', 'text', tid, { orig: 'בית', he: 'הבית' })), 'a plain user cannot draft a text change');
+  ok(!dk('editor', 'text', tid, { orig: 'בית', he: 'הבית' }).err, 'an editor drafts a text change');
+  ok(denied(by('editor', `select public.cms_publish('text', ${lit(tid)})`)), 'an editor cannot publish it');
+  ok(denied(by('reviewer', `select public.cms_publish('text', ${lit(tid)})`)), 'a reviewer cannot publish it');
+  ok(/"version" : 1/.test(by('admin', `select public.cms_publish('text', ${lit(tid)})`).out || ''), 'an admin publishes it');
+  ok(anon(`select data->>'he' from public.cms_content where kind = 'text' and item_id = ${lit(tid)}`).out === 'הבית', 'the public (app) reads the published text');
+  dk('editor', 'text', 't_xyz_3', { orig: 'בית', he: '<img src=x onerror=alert(1)>' });
+  const xs = by('admin', `select public.cms_publish('text', 't_xyz_3')`); ok(!!xs.err && /server check/.test(xs.err), 'server refuses a text with markup even when the app is bypassed', xs.err);
+  dk('editor', 'theme', 'active', { name: 'x', tokens: { '--accent': 'red;}body{display:none' } });
+  const th = by('admin', `select public.cms_publish('theme', 'active')`); ok(!!th.err && /server check/.test(th.err), 'server refuses CSS injection in a design token');
+  dk('editor', 'theme', 'active', { name: 'x', tokens: { 'background-image': 'url(x)' } });
+  ok(!!by('admin', `select public.cms_publish('theme', 'active')`).err, 'server refuses a property outside the token pattern');
+  dk('editor', 'theme', 'active', { name: 'ירוק', tokens: { '--accent': '#22C55E', '--r': '8px', '--font-body': 'rubik' } });
+  ok(!by('admin', `select public.cms_publish('theme', 'active')`).err, 'valid design tokens publish');
+  dk('editor', 'layout', 'home', { order: ['nutrition', 'now'], hidden: ['week'] });
+  ok(!by('admin', `select public.cms_publish('layout', 'home')`).err, 'layout publishes');
+  dk('editor', 'layout', 'evil', { order: [] });
+  ok(!!by('admin', `select public.cms_publish('layout', 'evil')`).err, 'layout for an unsupported screen refused by the server');
+  dk('editor', 'config', 'app', { off: ['fridge'], defaults: { meals: 2 } });
+  ok(!by('admin', `select public.cms_publish('config', 'app')`).err && !by('admin', `select public.cms_set_status('config', 'app', 'archived')`).err, 'settings publish and reset (archive) by an admin');
+  ok(denied(dk('user', 'config', 'app', { off: [] })), 'a plain user cannot draft settings');
+  ok(!!by('user', `update public.cms_content set status = 'archived' where kind = 'theme'`).err && !!by('admin', `update public.cms_content set data = '{}'::jsonb where kind = 'theme'`).err, 'nobody changes published content directly — only through the checked functions (no table grant, even for admins)');
+  const au = by('reviewer', `select public.cms_audit_list(50)`); let aj = []; try { aj = JSON.parse(au.out || '[]'); } catch (e) { }
+  ok(aj.some(x => x.kind === 'text' && x.action === 'publish' && x.actor_email === 'admin@test.invalid') && aj.some(x => x.kind === 'role' && x.action === 'grant' && x.actor_email === 'owner@test.invalid'), 'audit log: who published what, and who granted roles (readable by members)', aj.slice(0, 3));
+  ok(denied(by('user', `select public.cms_audit_list(10)`)) && denied(anon(`select public.cms_audit_list(10)`)), 'audit log hidden from users and anonymous');
 
   G = 'no secrets needed';
   const defs = psql(DB, `select string_agg(prosrc, ' ') from pg_proc where proname like 'cms_%'`).out || '';

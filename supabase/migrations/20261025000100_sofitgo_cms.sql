@@ -19,7 +19,7 @@ create table if not exists public.cms_members (
   granted_at timestamptz not null default now()
 );
 create table if not exists public.cms_content (
-  kind text not null check (kind in ('recipe', 'exercise')),
+  kind text not null check (kind in ('recipe', 'exercise', 'text', 'layout', 'theme', 'config')),
   item_id text not null check (item_id ~ '^[a-z0-9_]{2,64}$'),
   status text not null check (status in ('published', 'archived')),
   data jsonb not null check (jsonb_typeof(data) = 'object' and pg_column_size(data) < 65536),
@@ -29,7 +29,7 @@ create table if not exists public.cms_content (
   primary key (kind, item_id)
 );
 create table if not exists public.cms_drafts (
-  kind text not null check (kind in ('recipe', 'exercise')),
+  kind text not null check (kind in ('recipe', 'exercise', 'text', 'layout', 'theme', 'config')),
   item_id text not null check (item_id ~ '^[a-z0-9_]{2,64}$'),
   data jsonb not null check (jsonb_typeof(data) = 'object' and pg_column_size(data) < 65536),
   base_version integer not null default 0,
@@ -43,7 +43,7 @@ create table if not exists public.cms_revisions (
   kind text not null,
   item_id text not null,
   version integer not null,
-  action text not null check (action in ('publish', 'archive', 'restore', 'rollback')),
+  action text not null check (action in ('publish', 'archive', 'restore', 'rollback', 'grant', 'revoke')),
   data jsonb not null,
   note text,
   actor uuid references auth.users (id) on delete set null,
@@ -93,6 +93,31 @@ grant select on public.cms_content to anon, authenticated;
 grant select on public.cms_members, public.cms_revisions to authenticated;
 grant select, insert, update, delete on public.cms_drafts to authenticated;
 
+-- Full app control: server-side shape checks for texts, layout, design tokens and app settings. The app validates every item
+-- again before applying it; this guard makes sure nothing that could carry markup or CSS ever reaches the published table.
+create or replace function public.cms_valid(p_kind text, p_item text, p_data jsonb) returns boolean
+language plpgsql immutable set search_path = '' as $$
+declare k text; v text;
+begin
+  if p_kind = 'text' then
+    return p_item ~ '^t_[a-z0-9]+_[0-9]+$' and jsonb_typeof(p_data->'orig') = 'string'
+      and coalesce(p_data->>'he', '') !~ '[<>]' and coalesce(p_data->>'en', '') !~ '[<>]'
+      and length(coalesce(p_data->>'he', '')) <= 600 and length(coalesce(p_data->>'en', '')) <= 600;
+  elsif p_kind = 'layout' then
+    return p_item in ('home', 'nutrition', 'nav') and jsonb_typeof(p_data->'order') = 'array'
+      and not exists (select 1 from jsonb_path_query(p_data, 'strict $.**') j(x) where jsonb_typeof(j.x) = 'string' and j.x #>> '{}' !~ '^[a-z]{1,20}$');
+  elsif p_kind = 'theme' then
+    if not (p_item = 'active' or p_item ~ '^preset_[a-z0-9_]{1,40}$') or jsonb_typeof(p_data->'tokens') <> 'object' then return false; end if;
+    for k, v in select key, value from jsonb_each_text(p_data->'tokens') loop
+      if k !~ '^--[a-z0-9-]{1,30}$' or v !~ '^(#[0-9a-fA-F]{6}|[0-9]{1,2}px|[5-8]00|heebo|rubik|system|none|soft|strong)$' then return false; end if;
+    end loop;
+    return coalesce(p_data->>'name', '') !~ '[<>]';
+  elsif p_kind = 'config' then
+    return p_item = 'app' and p_data::text !~ '[<>]';
+  end if;
+  return true;
+end $$;
+
 -- publish the draft of (kind, item_id). admin/owner only. Optimistic check: the draft must be based on the current version.
 create or replace function public.cms_publish(p_kind text, p_item text, p_note text default null) returns json
 language plpgsql security definer set search_path = '' as $$
@@ -101,6 +126,7 @@ begin
   if public.cms_rank(public.cms_role()) < 3 then raise exception using errcode = '42501', message = 'cms: publishing needs the admin role'; end if;
   select * into d from public.cms_drafts where kind = p_kind and item_id = p_item;
   if not found then raise exception using errcode = 'P0001', message = 'cms: no draft to publish'; end if;
+  if not public.cms_valid(p_kind, p_item, d.data) then raise exception using errcode = 'P0001', message = 'cms: content refused by the server check (markup, CSS or unknown fields)'; end if;
   select * into c from public.cms_content where kind = p_kind and item_id = p_item for update;
   v := coalesce(c.version, 0);
   if d.base_version <> v then raise exception using errcode = 'P0001', message = 'cms: the draft is based on an older version — reload and review'; end if;
@@ -157,6 +183,8 @@ begin
   if p_role is null then delete from public.cms_members where user_id = uid;
   else insert into public.cms_members (user_id, role, granted_by) values (uid, p_role, auth.uid())
        on conflict (user_id) do update set role = excluded.role, granted_by = excluded.granted_by, granted_at = now(); end if;
+  insert into public.cms_revisions (kind, item_id, version, action, data, note, actor)
+    values ('role', uid::text, 0, case when p_role is null then 'revoke' else 'grant' end, json_build_object('email', lower(p_email), 'role', p_role)::jsonb, null, auth.uid());
   return json_build_object('user_id', uid, 'role', p_role);
 end $$;
 
@@ -169,7 +197,16 @@ begin
     from public.cms_members m join auth.users u on u.id = m.user_id), '[]'::json);
 end $$;
 
+-- audit log: who changed what and when (every publish / archive / restore / rollback / role change). Members only.
+create or replace function public.cms_audit_list(p_limit integer default 100) returns json
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if public.cms_rank(public.cms_role()) < 1 then raise exception using errcode = '42501', message = 'cms: member role needed'; end if;
+  return coalesce((select json_agg(x order by x.at desc) from (select r.kind, r.item_id, r.version, r.action, r.note, r.at, u.email as actor_email
+    from public.cms_revisions r left join auth.users u on u.id = r.actor order by r.at desc limit least(greatest(coalesce(p_limit, 100), 1), 500)) x), '[]'::json);
+end $$;
+
 revoke all on function public.cms_publish(text, text, text), public.cms_set_status(text, text, text, text), public.cms_rollback(text, text, integer, text),
-  public.cms_set_role(text, text), public.cms_members_list(), public.cms_role() from public, anon;
+  public.cms_set_role(text, text), public.cms_members_list(), public.cms_role(), public.cms_audit_list(integer), public.cms_valid(text, text, jsonb) from public, anon;
 grant execute on function public.cms_publish(text, text, text), public.cms_set_status(text, text, text, text), public.cms_rollback(text, text, integer, text),
-  public.cms_set_role(text, text), public.cms_members_list(), public.cms_role() to authenticated;
+  public.cms_set_role(text, text), public.cms_members_list(), public.cms_role(), public.cms_audit_list(integer) to authenticated;

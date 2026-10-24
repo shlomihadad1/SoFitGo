@@ -320,7 +320,7 @@ C.PREF_GROUPS = { dairy: ['curd', 'hung_curd', 'milk', 'paneer', 'ghee', 'greek_
 C.PREF_HE = { dairy: 'מוצרי חלב', egg: 'ביצים', chicken: 'עוף', fish: 'דגים', meat: 'בשר בקר/הודו' };
 /* veg = vegetarian as defined in this app: no chicken/meat/fish and no eggs (dairy allowed). vegan = also no dairy.
    meals = meals per day in generated menus (2 or 3); maxPrep = max prep+cook minutes for generated menus (null = any). */
-C.normPrefs = p => Object.assign({ chicken: true, egg: true, dairy: true, fish: true, meat: true, veg: false, vegan: false, exclude: [], meals: 3, maxPrep: null, flex: true, flexName: 'ארוחה גמישה' }, p || {});
+C.normPrefs = p => Object.assign({ chicken: true, egg: true, dairy: true, fish: true, meat: true, veg: false, vegan: false, exclude: [], meals: 3, maxPrep: null, flex: true, flexName: 'ארוחה גמישה' }, root.FIT30_DEFAULTS || null /* Admin CMS app settings: defaults for what the user never set */, p || {});
 /* excluding one food of an allergen family excludes the whole family (e.g. soya → tofu, soy milk, soy sauce) */
 const FAMILY = ['peanut', 'soy', 'fish', 'tree_nut', 'sesame'];
 C.familyOf = f => { const a = root.CATALOG && root.CATALOG.ALLERGEN_OF[f]; return [].concat(a || []).filter(x => FAMILY.includes(x)); };

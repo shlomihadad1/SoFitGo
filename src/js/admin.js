@@ -20,7 +20,8 @@ const MSG = { id: 'מזהה: אותיות לטיניות קטנות, ספרות 
   steps: 'צריך 2–15 שלבי הכנה (עד 300 תווים לשלב; בתוספת מספיק שלב אחד).', steps_grams: 'בשלבים לא כותבים גרמים — הכמויות מופיעות ברשימת המרכיבים (כך שינוי כמות לא יוצר סתירה).',
   subs: 'חלופות: עד 10 שורות, עד 200 תווים כל אחת.', equip: 'ציוד: עד 10 פריטים.', time: 'זמני הכנה ובישול בדקות (0–600).', cost: 'עלות: 1 (זול), 2 או 3.', tags: 'תגיות לא תקינות.', desc: 'תיאור עד 300 תווים.',
   ex_new: 'אפשר לערוך רק תרגיל קיים (תרגיל חדש דורש איור תנועה בקוד).', ex_start: 'תנוחת התחלה חסרה.', ex_steps: 'צריך 3–12 שלבי ביצוע.', ex_breath: 'הנחיית נשימה חסרה.', ex_mistakes: 'צריך לפחות טעות נפוצה אחת.', ex_long: 'אחד השדות ארוך מדי (עד 600 תווים).', ex_bad: '"מתי לעצור": רשימה של עד 10 שורות.' };
-const problems = (kind, id, d) => (kind === 'recipe' ? root.CMS.checkRecipe(id, d) : root.CMS.checkExercise(id, d)).map(c => { const [k, i] = c.split(':'), m = MSG[k]; return typeof m === 'function' ? m(+i) : m || c; });
+const EXT = { tabs: [], views: {}, open: {}, msg: {}, after: [], kindHe: { recipe: 'מתכון', exercise: 'תרגיל' } }; /* admin_app.js registers the app-control areas here */
+const problems = (kind, id, d) => root.CMS.check(kind, id, d).map(c => { const [k, i] = c.split(':'), m = MSG[k] || EXT.msg[k]; return typeof m === 'function' ? m(isNaN(+i) ? i : +i) : m || c; });
 const st = { tab: 'dash', role: null, loaded: false, loading: false, err: null, content: {}, drafts: {}, q: '', meal: '', cu: '', status: '', issuesOnly: false, sort: 'name', page: 0, edit: null, members: null };
 const key = (k, id) => k + ':' + id;
 const api = (p, o) => root.Account.api(p, o);
@@ -120,7 +121,8 @@ function guard() {
   return '';
 }
 const TABS = [['dash', 'סקירה'], ['recipes', 'מתכונים ותפריטים'], ['exercises', 'תרגילים'], ['media', 'מדיה'], ['roles', 'הרשאות'], ['guide', 'מדריך ניהול'], ['advanced', 'הגדרות שדורשות קוד']];
-function shell(inner) { return `<nav class="chips" data-cms-tabs aria-label="אזורי ניהול">${TABS.map(([k, v]) => `<button class="chip" data-act="tab" data-t="${k}" aria-pressed="${st.tab === k}">${v}</button>`).join('')}</nav>
+const tabs = () => { const t = TABS.slice(); EXT.tabs.forEach(([k, v, after]) => { const i = t.findIndex(x => x[0] === after); t.splice(i < 0 ? t.length : i + 1, 0, [k, v]); }); return t; };
+function shell(inner) { return `<nav class="chips" data-cms-tabs aria-label="אזורי ניהול">${tabs().map(([k, v]) => `<button class="chip" data-act="tab" data-t="${k}" aria-pressed="${st.tab === k}">${v}</button>`).join('')}</nav>
   <p class="tiny faint" data-cms-role>מחובר/ת כ־${esc(ROLE_HE[st.role])}. ${rank() >= 3 ? 'אפשר לערוך ולפרסם.' : rank() === 2 ? 'אפשר לערוך ולשמור טיוטות; פרסום דורש מנהל/ת.' : 'קריאה בלבד.'}</p>${st.err ? `<div class="banner bad small" data-cms-error>${icon('info')}<div>${esc(st.err)}</div></div>` : ''}${inner}`; }
 
 function dash() {
@@ -128,7 +130,7 @@ function dash() {
   return `<section class="card stack"><h3>מצב התוכן</h3><div class="kv" data-cms-counts><span>מתכונים: <b>${rows.length}</b></span><span>פורסמו דרך הניהול: <b>${pub.filter(x => x.status === 'published').length}</b></span><span>טיוטות: <b>${drafts.length}</b></span><span>בארכיון: <b>${pub.filter(x => x.status === 'archived').length}</b></span><span>מתכונים עם בעיות: <b>${iss}</b></span></div>
     <p class="small muted">התוכן המובנה (200 המתכונים החדשים ו־144 הישנים, 57 התרגילים) מגיע מהקוד. כל מה שמפורסם כאן גובר עליו ומגיע למשתמשים בלי בנייה מחדש.</p>
     <div class="btns">${btn('tab', 'למתכונים', 'data-t="recipes"', 'primary')}${btn('tab', 'מדריך: סיור ראשוני', 'data-t="guide"')}</div></section>
-    ${drafts.length ? `<section class="card"><h3>טיוטות שמחכות</h3><div class="list">${drafts.map(d => `<button class="li li-btn" data-act="open" data-k="${d.kind}" data-id="${esc(d.item_id)}"><div class="grow"><div class="t">${esc(d.data.he || d.item_id)}</div><div class="s">${d.kind === 'recipe' ? 'מתכון' : 'תרגיל'} · עודכן ${esc(String(d.updated_at).slice(0, 16).replace('T', ' '))}${d.note ? ' · ' + esc(d.note) : ''}</div></div></button>`).join('')}</div></section>` : ''}`;
+    ${drafts.length ? `<section class="card"><h3>טיוטות שמחכות</h3><div class="list">${drafts.map(d => `<button class="li li-btn" data-act="open" data-k="${d.kind}" data-id="${esc(d.item_id)}"><div class="grow"><div class="t">${esc(d.data.he || d.data.name || d.data.orig || d.item_id)}</div><div class="s">${EXT.kindHe[d.kind] || d.kind} · עודכן ${esc(String(d.updated_at).slice(0, 16).replace('T', ' '))}${d.note ? ' · ' + esc(d.note) : ''}</div></div></button>`).join('')}</div></section>` : ''}`;
 }
 function recipesList() {
   let rows = recipeRows(); const q = st.q.trim().toLowerCase(), F = N().FOODS;
@@ -248,17 +250,18 @@ const GUIDES = [
   ['פתרון שגיאות נפוצות', ['"הפעולה דורשת הרשאה" — אין לך הרשאת פרסום; בקשו ממנהל/ת.', '"מישהו פרסם גרסה חדשה" — טענו מחדש ובדקו לפני פרסום.', '"אין חיבור" — העבודה שמורה במכשיר; נסו שוב.', '"אותו מזון פעמיים" — אחדו לשורה אחת.'], '—', '—'],
   ['תוכן, הגדרות מערכת והרשאות', ['תוכן: מתכונים והוראות תרגילים — נערך כאן.', 'הגדרות מערכת: נוסחת היעדים, גבולות גודל מנה, איורים — בקוד (ראו הרשימה).', 'הרשאות: מי יכול לערוך ולפרסם — נקבע על ידי הבעלים ונאכף בשרת.'], '—', '—']];
 function guide() { return `<section class="card stack" data-cms-guide><h3>מדריך ניהול</h3>${GUIDES.map(([t, steps, after, undo], i) => `<details class="more" ${i === 0 ? 'open' : ''}><summary>${i + 1}. ${esc(t)}</summary><ol class="steps">${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol><p class="small"><b>מה קורה אחרי השמירה:</b> ${esc(after)}</p><p class="small"><b>ביטול:</b> ${esc(undo)}</p></details>`).join('')}</section>`; }
-const CODE_ONLY = [['נוסחת יעדי קלוריות וחלבון (Mifflin–St Jeor, 1.8 ג׳/ק״ג)', 'משפיעה על כל המשתמשים ועל הבטיחות; שינוי דורש בדיקות רגרסיה.'], ['גבולות גודל מנה (×0.75–1.6) וחלוקת הארוחות', 'חלק מהמנוע; שינוי לא נכון יוצר מנות חריגות.'], ['מאגר המזונות (ערכים ל־100 ג׳)', 'כל ערך חדש צריך אימות מול USDA לפני שימוש; לא נפתח לעריכה כדי שלא יוקלדו ערכים לא מאומתים.'], ['איורי תנועה, תרגילים חדשים ותוכניות אימון', 'האיור הוא מודל תנועה בקוד; תוכניות תלויות בעומסים שנבדקו.'], ['מיתוג, צבעים, לוגו וגופנים', 'חלק מהעיצוב והבנייה.'], ['סרטוני ההדרכה', 'מוקלטים אוטומטית מכל גרסה כדי שיתאימו לממשק.'], ['טקסטים של מסכי האפליקציה ותרגומים', 'עדיין בקוד; מועמד למודול הבא.'], ['מפתחות ושרתים', 'לעולם לא בממשק — רק בהגדרות הפרויקט.']];
+const CODE_ONLY = [['נוסחת יעדי קלוריות וחלבון (Mifflin–St Jeor, 1.8 ג׳/ק״ג)', 'משפיעה על כל המשתמשים ועל הבטיחות; שינוי דורש בדיקות רגרסיה.'], ['גבולות גודל מנה (×0.75–1.6) וחלוקת הארוחות', 'חלק מהמנוע; שינוי לא נכון יוצר מנות חריגות.'], ['מאגר המזונות (ערכים ל־100 ג׳)', 'כל ערך חדש צריך אימות מול USDA לפני שימוש; לא נפתח לעריכה כדי שלא יוקלדו ערכים לא מאומתים.'], ['איורי תנועה, תרגילים חדשים ותוכניות אימון', 'האיור הוא מודל תנועה בקוד; תוכניות תלויות בעומסים שנבדקו.'], ['לוגו, אייקון האפליקציה ואיורי המאמן', 'קבצים בבנייה (Storage להעלאה עדיין לא מוגדר). צבעים, גופנים, ריווח ועיגול פינות — נערכים בלשונית "עיצוב".'], ['סרטוני ההדרכה', 'מוקלטים אוטומטית מכל גרסה כדי שיתאימו לממשק.'], ['טקסטים שנבנים מערכים משתנים (למשל "3 ארוחות")', 'החלק הקבוע נערך בלשונית "טקסטים" רק כשהוא צומת טקסט שלם; משפט שמשולב בערך נשאר בקוד ומסומן ברשימה.'], ['מפתחות ושרתים', 'לעולם לא בממשק — רק בהגדרות הפרויקט.']];
 function advanced() { return `<section class="card stack" data-cms-advanced><h3>הגדרות שדורשות שינוי קוד</h3><p class="small muted">אלה לא נפתחו לעריכה כאן, ולמה:</p><div class="list">${CODE_ONLY.map(([a, b]) => `<div class="li"><div class="grow"><div class="t">${esc(a)}</div><div class="s">${esc(b)}</div></div></div>`).join('')}</div></section>`; }
 
 Screens.admin = function () {
   const g = guard();
-  const body = g || shell(st.edit ? editor() : ({ dash, recipes: recipesList, exercises: exercisesList, media, roles, guide, advanced }[st.tab] || dash)());
+  const body = g || shell(st.edit ? editor() : (Object.assign({ dash, recipes: recipesList, exercises: exercisesList, media, roles, guide, advanced }, EXT.views)[st.tab] || dash)());
   return { title: 'ניהול תוכן', back: '#/settings', html: `<div data-cms>${body}</div>`, handlers: H,
     after: v => { const on = (sel, ev, fn) => { const x = v.querySelector(sel); if (x) x.addEventListener(ev, fn); };
       on('#cms-q', 'input', ev => { st.q = ev.target.value; st.page = 0; clearTimeout(on.t); on.t = setTimeout(() => { root.App.render(); const x = document.getElementById('cms-q'); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } }, 250); });
       [['#cms-meal', 'meal'], ['#cms-cu', 'cu'], ['#cms-st', 'status'], ['#cms-sort', 'sort']].forEach(([s, k]) => on(s, 'change', ev => { st[k] = ev.target.value; st.page = 0; root.App.render(); }));
       on('#cms-iss', 'change', ev => { st.issuesOnly = ev.target.checked; st.page = 0; root.App.render(); });
+      EXT.after.forEach(f => { try { f(v); } catch (e) { console.error(e); } });
       if (st.edit) v.querySelectorAll('[data-cms-editor] input, [data-cms-editor] select, [data-cms-editor] textarea').forEach(x => { x.addEventListener('input', () => { readForm(); refreshLive(v); }); x.addEventListener('change', () => { readForm(); refreshLive(v); }); }); } };
 };
 const H = {
@@ -266,7 +269,7 @@ const H = {
   reload: () => { st.loaded = false; st.err = null; root.App.render(); },
   page: el => { st.page += +el.dataset.d; root.App.render(); },
   help: el => root.UI.sheet('מה זה משנה?', `<p class="small">${esc(HELP[el.dataset.k] || '')}</p>`),
-  open: el => { openItem(el.dataset.k, el.dataset.id); root.App.render(); },
+  open: el => { if (EXT.open[el.dataset.k]) { EXT.open[el.dataset.k](el.dataset.id); return; } openItem(el.dataset.k, el.dataset.id); root.App.render(); },
   newRecipe: () => { st.edit = { kind: 'recipe', id: '', data: { he: '', en: '', meal: 'm2', cuisine: 'israeli', ing: [{ f: 'chicken_breast', g: 140 }], steps: [], subs: [], equip: [], prep: 10, cook: 15, cost: 2, tags: [], desc: '' }, orig: null, base: 0, isNew: true }; root.App.render(); },
   dup: () => { readForm(); const e = st.edit; st.edit = { kind: 'recipe', id: e.id + '_copy', data: JSON.parse(JSON.stringify(e.data)), orig: null, base: 0, isNew: true }; st.edit.data.he += ' (עותק)'; root.UI.toast('נוצר עותק — שנו מזהה ושם ושמרו כטיוטה'); root.App.render(); },
   closeEd: () => { st.edit = null; try { localStorage.removeItem('fit30.cmsEdit'); } catch (e) { } root.App.render(); },
@@ -308,5 +311,5 @@ const H = {
 };
 /* unsaved work survives a reload */
 try { const s = JSON.parse(localStorage.getItem('fit30.cmsEdit') || 'null'); if (s && s.kind && s.data) st.edit = s; } catch (e) { }
-root.AdminCMS = { state: st, load, impact, simulate, warnRecipe, diffRows };
+root.AdminCMS = { state: st, load, impact, simulate, warnRecipe, diffRows, api, key, errText, btn, rank, problems, EXT, H, help, HELP, ROLE_HE, previewRows: () => [] };
 })(typeof window !== 'undefined' ? window : globalThis);

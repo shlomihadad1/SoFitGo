@@ -13,7 +13,7 @@ const ACCOUNT = ['src/js/account.js', 'src/js/screens_account.js'];
 /* Admin CMS content loader: its own small chunk (cms.js), fetched right after the first render only when this device has CMS
    content cached or a backend is configured — a device with neither never downloads it (keeps the first-load budget). */
 const CMSC = ['src/js/cms_content.js'];
-const ADMIN = ['src/js/admin.js']; /* Admin CMS chunk (route #/admin), loaded after account.js */
+const ADMIN = ['src/js/admin.js', 'src/js/admin_app.js']; /* admin_app.js: texts, screens, design, settings, audit */ /* Admin CMS chunk (route #/admin), loaded after account.js */
 /* M10: backend configuration comes from the environment at build time (never from files in the repository).
    Only the Supabase PROJECT URL and the PUBLISHABLE (anon) key may be embedded — both are public by design; data is protected
    by the database's Row Level Security. A secret / service-role key is refused so it can never reach a browser. */
@@ -139,6 +139,7 @@ fs.writeFileSync(path.join(out, 'extra.js'), extraJs);
 fs.writeFileSync(path.join(out, 'account.js'), accountJs);
 fs.writeFileSync(path.join(out, 'cms.js'), cmsJs);
 fs.writeFileSync(path.join(out, 'admin.js'), adminJs);
+fs.writeFileSync(path.join(out, 'cms-catalog.js'), require('./text_catalog').build(path.join(__dirname, '..')).js); /* admin texts editor only (fetched when that tab opens) */
 /* RC5: layout diagnostics, fetched only with ?debug=layout (not precached, not in the first-load budget) */
 fs.writeFileSync(path.join(out, 'debug-layout.js'), minJs(read('src/js/debug_layout.js'), 'src/js/debug_layout.js'));
 fs.writeFileSync(path.join(out, 'README.txt'), `${BRAND.name} — אפליקציית כושר ותזונה (PWA)

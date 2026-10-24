@@ -5,6 +5,8 @@ drop function if exists public.cms_set_status(text, text, text, text);
 drop function if exists public.cms_rollback(text, text, integer, text);
 drop function if exists public.cms_set_role(text, text);
 drop function if exists public.cms_members_list();
+drop function if exists public.cms_audit_list(integer);
+drop function if exists public.cms_valid(text, text, jsonb);
 drop table if exists public.cms_revisions;
 drop table if exists public.cms_drafts;
 drop table if exists public.cms_content;
