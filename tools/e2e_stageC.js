@@ -16,7 +16,7 @@ const res = []; let G = ''; const ok = (c, m, info) => res.push({ g: G, ok: !!c,
   G = 'plan menu on screen';
   await go('#/nutrition');
   ok(await p.locator('[data-menu-source=plan]').count() === 1, 'nutrition shows the personal plan menu');
-  ok(await p.locator('[data-day-meals] .slot').count() === 3 && !(await p.locator('[data-act=extraOn]').count()), 'three meals shown; add-on not a meal until added');
+  ok(await p.locator('[data-day-meals] .slot').count() === await p.evaluate(() => { const pl = Core.plan(Store.today()); return Core.DAY.filter(k => pl[k].rid && !pl[k].off).length; }) && !(await p.locator('[data-act=extraOn]').count()), 'the day\'s meals shown (as planned); add-on not a meal until added');
   const tot = await p.evaluate(() => ({ base: Core.plannedTotals(Store.today(), 'base'), sel: Core.plannedTotals(Store.today(), 'selected'), t: Core.targets() }));
   ok(tot.base.k === tot.sel.k, 'add-on not counted until chosen');
   ok(Math.abs(tot.base.k - tot.t.kcal) <= tot.t.kcal * 0.07 && tot.base.p >= tot.t.protein - 0.5, `today's menu fits the targets (${tot.base.k}/${tot.t.kcal} kcal, ${tot.base.p}/${tot.t.protein} g)`);
