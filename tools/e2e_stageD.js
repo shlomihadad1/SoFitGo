@@ -113,7 +113,7 @@ const flows = [];
     ok(tq === expect && tq > 0, `search by ingredient matches the data (${tq}/${expect})`);
     await p.fill('#rc-q', 'zzqq'); ok(await vis() === 0 && await p.locator('[data-rc-none]').isVisible(), 'no-result state shown');
     await p.fill('#rc-q', ''); await p.locator('[data-act=rf][data-f=fish]').click(); await p.waitForTimeout(250);
-    const fishN = await p.evaluate(() => NUTRI.RECIPES.filter(r => r.ing.some(x => ['salmon', 'white_fish', 'tuna_can'].includes(x.f))).length);
+    const fishN = await p.evaluate(() => NUTRI.RECIPES.filter(r => r.ing.some(x => ['salmon', 'white_fish', 'tuna_can', 'sardines'].includes(x.f))).length);
     ok(await p.locator('.rcard').count() === fishN, 'filters still apply to the full list');
     for (const h of ['#/profile', '#/settings']) { await go(h); const n = await p.locator('[data-sec-index] a').count(); ok(n >= 5, `${h}: section index with ${n} links`);
       await p.locator('[data-sec-index] a').nth(n - 1).click(); await p.waitForTimeout(700); ok(await p.evaluate(() => scrollY > 500 && location.hash), `${h}: index link jumps to the section without changing the route`); } }
