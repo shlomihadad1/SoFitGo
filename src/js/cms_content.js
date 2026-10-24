@@ -92,9 +92,9 @@ function apply(rows) {
 const ls = { get() { try { return JSON.parse(localStorage.getItem(K) || 'null'); } catch (e) { return null; } }, set(v) { try { localStorage.setItem(K, JSON.stringify(v)); } catch (e) { } } };
 const cached = ls.get(); if (cached && Array.isArray(cached.rows)) apply(cached.rows); /* before the first render */
 async function refresh() {
-  const B = root.FIT30_BACKEND; if (!B) return { skipped: 'no backend' };
+  const CFG = root.FIT30_BACKEND; if (!CFG) return { skipped: 'no backend' }; /* the publishable key only (same header as account.js) */
   let rows;
-  try { const r = await fetch(B.url + '/rest/v1/cms_content?select=kind,item_id,status,data,version', { headers: { apikey: B.key }, cache: 'no-store', credentials: 'omit' });
+  try { const r = await fetch(CFG.url + '/rest/v1/cms_content?select=kind,item_id,status,data,version', { headers: { apikey: CFG.key }, cache: 'no-store', credentials: 'omit' });
     if (!r.ok) return { error: r.status }; rows = await r.json(); } catch (e) { return { error: 'network' }; }
   const sig = JSON.stringify(rows.map(x => [x.kind, x.item_id, x.version, x.status]).sort());
   const old = cached && cached.sig; const res = apply(rows); ls.set({ rows, sig, at: new Date().toISOString() });
