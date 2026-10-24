@@ -1,6 +1,6 @@
 /* Admin CMS · content loader (first load, small). Published recipes and exercise instructions come from Supabase table
    public.cms_content (readable by everyone, written only through the role-checked CMS functions). The app keeps working
-   offline and without a backend: the last good copy is cached on the device and applied before the first render; a fresh copy
+   offline and without a backend: the last good copy is cached on the device and applied as soon as this chunk loads (right after the first render, re-rendering if it changed anything); a fresh copy
    is fetched in the background and applied when it differs.
    Safety: every item is validated against the same rules as the admin editor (known foods, sensible grams, steps, meal type);
    an invalid item is ignored, never half-applied. Built-in content is the base: a published item overrides the built-in item
@@ -15,36 +15,29 @@ const strs = (a, maxN, maxL, min) => Array.isArray(a) && a.length >= (min || 0) 
 const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
 const RECIPE_FIELDS = ['he', 'en', 'meal', 'cuisine', 'ing', 'steps', 'subs', 'equip', 'prep', 'cook', 'cost', 'tags', 'desc', 'notes'];
 const EX_FIELDS = ['he', 'en', 'muscles', 'start', 'steps', 'dir', 'end', 'mistakes', 'breath', 'bad'];
-/* returns a list of problems in plain Hebrew (empty = valid). Shared with the admin editor. */
+/* validation (shared with the admin editor). Returns problem CODES (empty = valid); the admin chunk turns them into Hebrew
+   explanations, so the first-load copy stays small. 'ing_food:2' = ingredient #3, etc. */
 function checkRecipe(id, d) {
   const e = [], F = N().FOODS;
-  if (!ID.test(id || '')) e.push('מזהה: אותיות לטיניות קטנות, ספרות וקו תחתון בלבד (2–64 תווים).');
-  if (!d || typeof d !== 'object') return e.concat('אין נתונים.');
-  if (!str(d.he, 120)) e.push('שם בעברית חסר (עד 120 תווים).');
-  if (!str(d.en, 120)) e.push('שם באנגלית חסר (עד 120 תווים).');
-  if (!MEALS.includes(d.meal)) e.push('סוג ארוחה לא תקין (בוקר / עיקרית / ביניים / תוספת).');
-  if (!(CT() && CT().CUISINE_HE[d.cuisine])) e.push('מטבח לא מוכר.');
-  if (!Array.isArray(d.ing) || d.ing.length < 1 || d.ing.length > 20) e.push('צריך 1–20 מרכיבים.');
-  else { const seen = new Set(); d.ing.forEach((x, i) => { if (!x || !F[x.f]) e.push(`מרכיב ${i + 1}: מזון לא מוכר במאגר.`); else if (!num(x.g, 1, 1000)) e.push(`מרכיב ${i + 1} (${F[x.f].he}): כמות בגרמים בין 1 ל־1000.`); if (x && seen.has(x.f)) e.push(`מרכיב ${i + 1}: אותו מזון מופיע פעמיים — יש לאחד לשורה אחת.`); if (x) seen.add(x.f); }); }
-  if (!strs(d.steps, 15, 300, d.meal === 'extra' ? 1 : 2)) e.push(d.meal === 'extra' ? 'צריך לפחות שלב הכנה אחד (עד 300 תווים לשלב).' : 'צריך 2–15 שלבי הכנה (עד 300 תווים לשלב).');
-  if (Array.isArray(d.steps) && d.steps.some(s => /\d+\s*ג׳/.test(s || ''))) e.push('בשלבים לא כותבים גרמים — הכמויות מופיעות ברשימת המרכיבים (כך שינוי כמות לא יוצר סתירה).');
-  if (d.subs != null && !strs(d.subs, 10, 200)) e.push('חלופות: עד 10 שורות, עד 200 תווים כל אחת.');
-  if (d.equip != null && !strs(d.equip, 10, 40)) e.push('ציוד: עד 10 פריטים.');
-  if (!num(d.prep, 0, 600) || !num(d.cook, 0, 600)) e.push('זמני הכנה ובישול בדקות (0–600).');
-  if (d.cost != null && ![1, 2, 3].includes(d.cost)) e.push('עלות: 1 (זול), 2 או 3.');
-  if (d.tags != null && !strs(d.tags, 20, 30)) e.push('תגיות לא תקינות.');
-  if (d.desc != null && d.desc !== '' && !str(d.desc, 300)) e.push('תיאור עד 300 תווים.');
+  if (!ID.test(id || '')) e.push('id');
+  if (!d || typeof d !== 'object') return e.concat('data');
+  if (!str(d.he, 120)) e.push('he'); if (!str(d.en, 120)) e.push('en'); if (!MEALS.includes(d.meal)) e.push('meal'); if (!(CT() && CT().CUISINE_HE[d.cuisine])) e.push('cuisine');
+  if (!Array.isArray(d.ing) || d.ing.length < 1 || d.ing.length > 20) e.push('ing_n');
+  else { const seen = new Set(); d.ing.forEach((x, i) => { if (!x || !F[x.f]) e.push('ing_food:' + i); else if (!num(x.g, 1, 1000)) e.push('ing_g:' + i); if (x && seen.has(x.f)) e.push('ing_dup:' + i); if (x) seen.add(x.f); }); }
+  if (!strs(d.steps, 15, 300, d.meal === 'extra' ? 1 : 2)) e.push('steps');
+  if (Array.isArray(d.steps) && d.steps.some(t => /\d+\s*ג׳/.test(t || ''))) e.push('steps_grams');
+  if (d.subs != null && !strs(d.subs, 10, 200)) e.push('subs'); if (d.equip != null && !strs(d.equip, 10, 40)) e.push('equip');
+  if (!num(d.prep, 0, 600) || !num(d.cook, 0, 600)) e.push('time'); if (d.cost != null && ![1, 2, 3].includes(d.cost)) e.push('cost');
+  if (d.tags != null && !strs(d.tags, 20, 30)) e.push('tags'); if (d.desc != null && d.desc !== '' && !str(d.desc, 300)) e.push('desc');
   return e;
 }
 function checkExercise(id, d) {
   const e = [];
-  if (!(root.EX_BY_ID && root.EX_BY_ID[id])) e.push('אפשר לערוך רק תרגיל קיים (תרגיל חדש דורש איור תנועה בקוד).');
-  if (!d || typeof d !== 'object') return e.concat('אין נתונים.');
-  if (!str(d.he, 120)) e.push('שם בעברית חסר.'); if (!str(d.en, 120)) e.push('שם באנגלית חסר.');
-  if (!str(d.start, 600)) e.push('תנוחת התחלה חסרה.'); if (!strs(d.steps, 12, 300, 3)) e.push('צריך 3–12 שלבי ביצוע.');
-  if (!str(d.breath, 300)) e.push('הנחיית נשימה חסרה.'); if (!strs(d.mistakes, 10, 200, 1)) e.push('צריך לפחות טעות נפוצה אחת.');
-  ['muscles', 'dir', 'end'].forEach(k => { if (d[k] != null && d[k] !== '' && !str(d[k], 600)) e.push(`שדה ${k} ארוך מדי.`); });
-  if (d.bad != null && !strs(d.bad, 10, 300)) e.push('"מתי לעצור": רשימה של עד 10 שורות.');
+  if (!(root.EX_BY_ID && root.EX_BY_ID[id])) e.push('ex_new');
+  if (!d || typeof d !== 'object') return e.concat('data');
+  if (!str(d.he, 120)) e.push('he'); if (!str(d.en, 120)) e.push('en'); if (!str(d.start, 600)) e.push('ex_start'); if (!strs(d.steps, 12, 300, 3)) e.push('ex_steps');
+  if (!str(d.breath, 300)) e.push('ex_breath'); if (!strs(d.mistakes, 10, 200, 1)) e.push('ex_mistakes');
+  ['muscles', 'dir', 'end'].forEach(k => { if (d[k] != null && d[k] !== '' && !str(d[k], 600)) e.push('ex_long'); }); if (d.bad != null && !strs(d.bad, 10, 300)) e.push('ex_bad');
   return e;
 }
 const pick = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined) r[k] = o[k]; }); return r; };
@@ -90,7 +83,7 @@ function apply(rows) {
   return { applied: n, rejected: bad };
 }
 const ls = { get() { try { return JSON.parse(localStorage.getItem(K) || 'null'); } catch (e) { return null; } }, set(v) { try { localStorage.setItem(K, JSON.stringify(v)); } catch (e) { } } };
-const cached = ls.get(); if (cached && Array.isArray(cached.rows)) apply(cached.rows); /* before the first render */
+const cached = ls.get(); if (cached && Array.isArray(cached.rows) && apply(cached.rows).applied && root.App && root.App.render) setTimeout(() => { try { root.App.render(); } catch (e) { } }, 0);
 async function refresh() {
   const CFG = root.FIT30_BACKEND; if (!CFG) return { skipped: 'no backend' }; /* the publishable key only (same header as account.js) */
   let rows;

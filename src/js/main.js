@@ -70,7 +70,7 @@ function screenFor(r) {
     case 'travel': return Screens.travel ? Screens.travel() : extraLoading('נסיעה ושינוי בתוכניות', '#/planb');
     case 'help': return Screens.help ? Screens.help() : helpLoading();
     case 'account': return Screens.account ? Screens.account(r.arg) : accountLoading('חשבון וסנכרון', '#/settings');
-    case 'admin': if (Screens.admin) return Screens.admin(r.arg); App.loadChunk('account.js').then(() => App.loadChunk('admin.js')).then(() => App.render(), () => { const v = document.querySelector('[data-extra-loading]'); if (v) v.innerHTML = '<p class="small warn">לא ניתן לטעון את ממשק הניהול כרגע. נדרש חיבור לאינטרנט.</p>'; }); return { title: 'ניהול תוכן', back: '#/settings', html: '<section class="card" data-extra-loading><p class="small muted">טוען…</p></section>', handlers: {} }; /* Admin CMS */
+    case 'admin': if (Screens.admin) return Screens.admin(r.arg); App.loadChunk('account.js').then(() => App.loadChunk('cms.js')).then(() => App.loadChunk('admin.js')).then(() => App.render(), () => { const v = document.querySelector('[data-extra-loading]'); if (v) v.innerHTML = '<p class="small warn">לא ניתן לטעון את ממשק הניהול כרגע. נדרש חיבור לאינטרנט.</p>'; }); return { title: 'ניהול תוכן', back: '#/settings', html: '<section class="card" data-extra-loading><p class="small muted">טוען…</p></section>', handlers: {} }; /* Admin CMS */
     case 'legal': return Screens.legal ? Screens.legal(r.arg) : accountLoading('פרטיות ותנאי הבטא', '#/account');
     default: return Screens.home();
   }
@@ -223,6 +223,10 @@ function boot() {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) root.UI.toast('גרסה חדשה של האפליקציה הותקנה — סגרו ופתחו מחדש כדי לעבור אליה.', 6000); hadController = true; });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+/* Admin CMS: published content (cms.js) is applied right after the first render — only on a device that has CMS content cached or
+   a backend configured; the loader re-renders when it changed anything. Built-in content is shown until then (offline-safe). */
+{ let has = false; try { has = !!localStorage.getItem('fit30.cms'); } catch (e) { }
+  if (has || root.FIT30_BACKEND) setTimeout(() => { App.loadChunk('cms.js').catch(() => { }); }, 0); }
 /* F-8 (RC5): a specific, visible error when a save fails. Store already rolled the data back, so re-rendering shows what is really stored. */
 const SAVE_HE = { auth: 'פרטי ההתחברות', avatar: 'תמונת הפרופיל', profile: 'הפרופיל וההגדרות', workouts: 'רישום האימונים', nutrition: 'יומן התזונה והתפריט', tracking: 'נתוני המעקב (משקל, מים, צעדים)', plans: 'התוכנית', session: 'האימון שבתהליך' };
 root.addEventListener('fit30:savefail', ev => { const n = ev.detail && ev.detail.name; setTimeout(() => { try { App.render(); } catch (e) { } root.UI.toast(`השמירה נכשלה — השינוי ב${SAVE_HE[n] || 'נתונים'} לא נשמר. ייתכן שהאחסון במכשיר מלא. הנתונים שכבר נשמרו לא נפגעו.`, 8000); document.body.dataset.saveFail = n || '1'; }, 0); });

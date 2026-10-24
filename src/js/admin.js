@@ -13,6 +13,14 @@ const MEAL_HE = { m1: 'ארוחת בוקר', m2: 'ארוחה עיקרית (צה�
 const GRP_HE = { protein: 'חלבון', legume: 'קטניות', dairy: 'מוצרי חלב', carb: 'פחמימות ודגנים', veg: 'ירקות', fruit: 'פירות', fat: 'שומנים ואגוזים', condiment: 'רטבים' };
 const ST_HE = { builtin: 'מובנה (בקוד)', published: 'פורסם', draft: 'טיוטה', archived: 'בארכיון' };
 const PER_PAGE = 20;
+/* Hebrew explanations for the validation codes of cms_content.js */
+const MSG = { id: 'מזהה: אותיות לטיניות קטנות, ספרות וקו תחתון בלבד (2–64 תווים).', data: 'אין נתונים.', he: 'שם בעברית חסר (עד 120 תווים).', en: 'שם באנגלית חסר (עד 120 תווים).',
+  meal: 'סוג ארוחה לא תקין (בוקר / עיקרית / ביניים / תוספת).', cuisine: 'מטבח לא מוכר.', ing_n: 'צריך 1–20 מרכיבים.', ing_food: i => `מרכיב ${i + 1}: מזון לא מוכר במאגר.`,
+  ing_g: i => `מרכיב ${i + 1}: כמות בגרמים בין 1 ל־1000.`, ing_dup: i => `מרכיב ${i + 1}: אותו מזון מופיע פעמיים — יש לאחד לשורה אחת.`,
+  steps: 'צריך 2–15 שלבי הכנה (עד 300 תווים לשלב; בתוספת מספיק שלב אחד).', steps_grams: 'בשלבים לא כותבים גרמים — הכמויות מופיעות ברשימת המרכיבים (כך שינוי כמות לא יוצר סתירה).',
+  subs: 'חלופות: עד 10 שורות, עד 200 תווים כל אחת.', equip: 'ציוד: עד 10 פריטים.', time: 'זמני הכנה ובישול בדקות (0–600).', cost: 'עלות: 1 (זול), 2 או 3.', tags: 'תגיות לא תקינות.', desc: 'תיאור עד 300 תווים.',
+  ex_new: 'אפשר לערוך רק תרגיל קיים (תרגיל חדש דורש איור תנועה בקוד).', ex_start: 'תנוחת התחלה חסרה.', ex_steps: 'צריך 3–12 שלבי ביצוע.', ex_breath: 'הנחיית נשימה חסרה.', ex_mistakes: 'צריך לפחות טעות נפוצה אחת.', ex_long: 'אחד השדות ארוך מדי (עד 600 תווים).', ex_bad: '"מתי לעצור": רשימה של עד 10 שורות.' };
+const problems = (kind, id, d) => (kind === 'recipe' ? root.CMS.checkRecipe(id, d) : root.CMS.checkExercise(id, d)).map(c => { const [k, i] = c.split(':'), m = MSG[k]; return typeof m === 'function' ? m(+i) : m || c; });
 const st = { tab: 'dash', role: null, loaded: false, loading: false, err: null, content: {}, drafts: {}, q: '', meal: '', cu: '', status: '', issuesOnly: false, sort: 'name', page: 0, edit: null, members: null };
 const key = (k, id) => k + ':' + id;
 const api = (p, o) => root.Account.api(p, o);
@@ -56,7 +64,7 @@ function warnRecipe(d) { const w = [], F = N().FOODS, m = macros(d);
     if (x.g > max) w.push(`${f.he}: ${x.g} ג׳ — יותר ממנה רגילה (עד ${max} ג׳).`); });
   const at = 4 * m.p + 4 * m.c + 9 * m.f; if (m.k && Math.abs(m.k - at) > m.k * 0.12) w.push('קלוריות לא תואמות לחלבון/פחמימות/שומן (בדיקת 4/4/9) — כנראה רכיב עם ערכים חריגים.');
   return w; }
-function issuesOf(row) { return root.CMS.checkRecipe(row.id, row.data).length + warnRecipe(row.data).length; }
+function issuesOf(row) { return problems('recipe', row.id, row.data).length + warnRecipe(row.data).length; }
 
 /* "What changes?" — computed from the real engine, never guessed */
 function impact(kind, id, before, after) {
@@ -153,7 +161,7 @@ function preview(kind, d) {
     <p class="tiny muted">אלרגנים (מחושב מהמרכיבים): ${al.length ? al.map(a => esc(CT().ALLERGEN_HE[a] || a)).join(', ') : 'אין מהרשימה המוכרת'} · תגיות תזונה: ${esc(root.CMS.derivedTags({ ing: d.ing.filter(x => F[x.f]), tags: [] }).join(', '))}</p></div></section>`;
 }
 function editor() {
-  const e = st.edit, d = e.data, canEdit = rank() >= 2, isR = e.kind === 'recipe', errs = isR ? root.CMS.checkRecipe(e.id, d) : root.CMS.checkExercise(e.id, d), warns = isR ? warnRecipe(d) : [];
+  const e = st.edit, d = e.data, canEdit = rank() >= 2, isR = e.kind === 'recipe', errs = problems(e.kind, e.id, d), warns = isR ? warnRecipe(d) : [];
   const dis = canEdit ? '' : 'disabled', c = st.content[key(e.kind, e.id)];
   const fieldsR = !isR ? '' : `<fieldset class="stack" data-fs="details"><legend>פרטים <span class="tiny faint">(שדות עם * חובה)</span></legend>
       ${e.isNew ? `<label class="field">מזהה * <span class="tiny faint">(לטינית קטנה, ספרות וקו תחתון; לא ניתן לשנות אחרי פרסום)</span><input id="ed-id" value="${esc(e.id)}" ${dis}></label>` : `<p class="tiny faint">מזהה: <span class="ltr">${esc(e.id)}</span></p>`}
@@ -183,11 +191,11 @@ function editor() {
     ${isR ? '' : `<p class="tiny faint">תרגיל חדש, איור התנועה והשיוך לתוכניות דורשים שינוי קוד (ראו "הגדרות שדורשות קוד").</p>`}</section><div data-cms-prevwrap>${preview(e.kind, d)}</div>`;
 }
 /* validation + warnings, recomputed on every field change WITHOUT re-rendering the form (focus and typing are never lost) */
-function live(e) { const errs = e.kind === 'recipe' ? root.CMS.checkRecipe(e.id, e.data) : root.CMS.checkExercise(e.id, e.data), warns = e.kind === 'recipe' ? warnRecipe(e.data) : [];
+function live(e) { const errs = problems(e.kind, e.id, e.data), warns = e.kind === 'recipe' ? warnRecipe(e.data) : [];
   return `<div class="banner ${errs.length ? 'bad' : 'good'} small" data-cms-valid>${icon('info')}<div>${errs.length ? `<b>יש לתקן לפני פרסום:</b><ul class="bul">${errs.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : 'כל שדות החובה תקינים.'}</div></div>
     ${warns.length ? `<div class="banner warn small" data-cms-warn>${icon('info')}<div><b>אזהרות (לא חוסמות):</b><ul class="bul">${warns.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}`; }
 function refreshLive(v) { const e = st.edit; if (!e) return; const a = v.querySelector('[data-cms-live]'), b = v.querySelector('[data-cms-prevwrap]'); if (a) a.innerHTML = live(e); if (b) b.innerHTML = preview(e.kind, e.data);
-  const errs = e.kind === 'recipe' ? root.CMS.checkRecipe(e.id, e.data) : root.CMS.checkExercise(e.id, e.data); const rv = v.querySelector('[data-act=review]'); if (rv) rv.disabled = !!errs.length; }
+  const errs = problems(e.kind, e.id, e.data); const rv = v.querySelector('[data-act=review]'); if (rv) rv.disabled = !!errs.length; }
 function readForm() { /* form → st.edit.data (no network) */
   const e = st.edit; if (!e) return; const v = id => { const x = document.getElementById(id); return x ? x.value : null; }, lines = id => (v(id) || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (e.kind === 'recipe') { const d = e.data; if (e.isNew && v('ed-id') != null) e.id = v('ed-id').trim();
@@ -275,7 +283,7 @@ const H = {
       st.drafts[key(e.kind, e.id)] = row; e.isNew = false; st.err = null; root.UI.toast('הטיוטה נשמרה בשרת. משתמשים עדיין לא רואים אותה.'); } catch (er) { st.err = errText(er); }
     root.App.render(); },
   impact: () => { readForm(); const e = st.edit; root.UI.sheet('מה זה משנה?', `<div class="stack" data-cms-impact><ul class="bul small">${impact(e.kind, e.id, e.orig, e.data).map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="tiny faint">מחושב מהמנוע האמיתי של האפליקציה, בלי לשמור דבר.</p></div>`); },
-  review: () => { readForm(); const e = st.edit, errs = e.kind === 'recipe' ? root.CMS.checkRecipe(e.id, e.data) : root.CMS.checkExercise(e.id, e.data); if (errs.length) return;
+  review: () => { readForm(); const e = st.edit, errs = problems(e.kind, e.id, e.data); if (errs.length) return;
     if (!st.drafts[key(e.kind, e.id)] || JSON.stringify(st.drafts[key(e.kind, e.id)].data) !== JSON.stringify(e.data)) { root.UI.toast('קודם שמרו טיוטה — מפרסמים רק את מה שנשמר'); return; }
     const df = diffRows(e.orig, e.data), warns = e.kind === 'recipe' ? warnRecipe(e.data) : [], c = st.content[key(e.kind, e.id)];
     root.UI.sheet('בדיקה לפני פרסום', `<div class="stack" data-cms-review><h4>מה השתנה (${df.length} שדות)</h4><div class="list">${df.map(x => `<div class="li"><div class="grow"><div class="t">${esc(x.k)}</div><div class="s"><b>לפני:</b> ${esc(x.before || '—')}</div><div class="s"><b>אחרי:</b> ${esc(x.after || '—')}</div></div></div>`).join('') || '<p class="small muted">אין שינוי לעומת הגרסה הנוכחית.</p>'}</div>
