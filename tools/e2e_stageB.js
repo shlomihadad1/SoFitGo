@@ -114,8 +114,9 @@ const res = []; let G = ''; const ok = (c, m, info) => res.push({ g: G, ok: !!c,
     await go('#/setup/4'); await p.locator('[data-act=tpl][data-v=fatloss_30]').click(); await p.waitForTimeout(200); await next(); await next();
     ok(/יש תוכנית פעילה/.test(await main()), 'switching shows the current plan and its progress'); await next();
     ok(/צריך לאשר/.test(await p.locator('[data-err]').innerText()), 'switching requires explicit confirmation');
-    await p.locator('#su-ok').check(); await next(); await p.waitForTimeout(300);
+    await p.locator('#su-ok').check(); await p.evaluate(() => { const x = document.querySelector('[data-act=next]'); x.click(); x.click(); }); await p.waitForTimeout(650); /* double tap on purpose */
     ok(await p.evaluate(() => Plans.active().templateId) === 'fatloss_30', 'switched');
+    ok(await p.evaluate(() => { const a = Plans.active(); return !a.endedAt && a.changes.filter(c => /הוחלפה/.test(c.text || c.he || c.note || JSON.stringify(c))).length === 0 && Plans.list().length === 2; }), 'double tap on activate: one switch, the new plan is not marked replaced');
     ok(await p.evaluate(n => { const old = Plans.list().find(x => x.templateId === 'general_90'); return old.status === 'replaced' && !!old.log[n]; }, n), 'previous plan kept with its log');
     await go('#/plan'); ok(/תוכניות קודמות/.test(await main()), 'previous plans listed');
     await p.locator('[data-act=cancel]').click(); await p.locator('.sheet [data-act=ok]').click(); await p.waitForTimeout(300);

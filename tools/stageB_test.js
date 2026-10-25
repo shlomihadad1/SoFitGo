@@ -45,6 +45,7 @@ const params = PS.paramsFromProfile(S.load('profile'));
 let plan = PS.create('general_90', params, '2026-10-19'); ok(plan.status === 'draft' && !PS.active(), 'create does not activate');
 const pv = PS.preview(plan); ok(pv.summary.days === 90 && pv.summary.sessionsPerWeek === 3, 'preview: 90 days, 3/week');
 PS.activate(plan); ok(PS.active() && PS.active().id === plan.id && S.load('profile').onboarded === true, 'activated');
+{ const ch = PS.active().changes.length; PS.activate(plan, { confirmReplace: true }); ok(PS.active().status === 'active' && !PS.active().endedAt && PS.active().changes.length === ch && PS.list().length === 1, 'activating the same plan again (double tap) changes nothing'); }
 let ds = PS.days(PS.active());
 ok(ds.filter(PS.isTraining).every(d => [1, 3, 5].includes(dow(d.date))), 'training only on the chosen weekdays');
 ok(ds.filter(d => d.status === 'today' || d.status === 'planned').length === 90, 'all days planned at start');

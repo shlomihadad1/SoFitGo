@@ -26,7 +26,8 @@ const ALLOWED = {
   back_to_workout: ['completed'], save: ['completed'],
   discard: ['ready', 'in_progress', 'resting', 'paused', 'interrupted', 'completed'],
   interrupt: ['ready', 'in_progress', 'resting'] };
-const INTERRUPT_MS = 60000; /* not seen for > 60 s while running → the app was closed or reloaded (a hidden but alive tab keeps updating seenAt) */
+const INTERRUPT_MS = 60000;
+const SUSPEND_MS = 15 * 60000; /* an open app returning from the background / a locked screen after > 15 min (5× the longest rest offered, 3 min) → interrupted; shorter gaps count as workout time (people train with the screen locked) */ /* not seen for > 60 s while running → the app was closed or reloaded (a hidden but alive tab keeps updating seenAt) */
 function of(s) {
   if (!s) return 'not_started';
   if (s.finished) return 'completed';
@@ -39,15 +40,16 @@ function of(s) {
 const can = (s, ev) => !!ALLOWED[ev] && ALLOWED[ev].includes(of(s));
 /* Recovery on reopen. Running sessions not seen for longer than INTERRUPT_MS are frozen at the last time the app was seen: the
    active time stops there (closed-app time is never counted as workout time), a running rest / work timer keeps what was left,
-   and nothing is marked as done. Returns true when the record changed. */
-function recover(s, now) {
+   and nothing is marked as done. `limit` defaults to INTERRUPT_MS (reopen after a page load); the runner passes SUSPEND_MS when
+   an open page comes back from the background without a reload. Returns true when the record changed. */
+function recover(s, now, limit) {
   if (!s || s.finished || s.paused || s.hold === 'interrupted') return false;
-  const seen = s.seenAt || s.lastResume; if (!seen || now - seen <= INTERRUPT_MS) return false;
+  const seen = s.seenAt || s.lastResume; if (!seen || now - seen <= (limit || INTERRUPT_MS)) return false;
   const last = Math.max(seen, s.lastResume || seen);
   s.activeMs = (s.activeMs || 0) + Math.max(0, last - (s.lastResume || last)); s.lastResume = null; s.paused = true; s.hold = 'interrupted'; s.interruptedAt = last;
   if (s.rest) s.rest.left = Math.max(0, s.rest.endsAt - last);
   if (s.work) s.work.pausedAt = last;
   s.cd = null; return true;
 }
-root.RunState = { STATES, ALLOWED, INTERRUPT_MS, of, can, recover };
+root.RunState = { STATES, ALLOWED, INTERRUPT_MS, SUSPEND_MS, of, can, recover };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -32,4 +32,8 @@ ok(!R.can(base(), 'nonsense'), 'unknown event refused');
 { const s = base({ stepIdx: 1, log: { 0: {} }, lastResume: 1000000, seenAt: 1000000 + 10000 }); ok(R.recover(s, 1000000 + 10000 + 30000) === false && !s.paused, 'a short gap (reload within 60 s) is not an interruption'); }
 { const s = base({ paused: true, activeMs: 5000, lastResume: null, seenAt: 1 }); ok(R.recover(s, 1e12) === false && s.activeMs === 5000, 'a paused / parked session is left as it is'); }
 { const s = base({ finished: true, seenAt: 1 }); ok(R.recover(s, 1e12) === false, 'a completed (summary) session is left as it is'); }
+{ const mk = () => base({ stepIdx: 1, log: { 0: {} }, activeMs: 0, lastResume: 1000000, seenAt: 1000000 });
+  const a = mk(); ok(R.recover(a, 1000000 + 5 * 60000, R.SUSPEND_MS) === false && !a.paused, 'back from the background after 5 min (screen locked between sets) → keeps running');
+  const b = mk(); ok(R.recover(b, 1000000 + 2 * 3600e3, R.SUSPEND_MS) === true && b.hold === 'interrupted' && b.activeMs === 0, 'back from the background after 2 h → interrupted, time stops when it was last seen');
+  ok(R.SUSPEND_MS === 15 * 60000 && R.SUSPEND_MS > R.INTERRUPT_MS, 'background limit 15 min (reload limit stays 60 s)'); }
 console.log(`run state tests: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);

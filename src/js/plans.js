@@ -113,6 +113,8 @@
   /* activation; replacing an active plan requires explicit confirmation (confirmReplace) */
   function activate(plan, opts) {
     const s = st(), cur = active();
+    /* fixed 25.10.2026: idempotent — a second tap on "activate" used to mark the plan it had just activated as replaced (endedAt + a bogus change) */
+    if (cur && cur.id === plan.id) return cur;
     if (cur && ['active', 'paused'].includes(cur.status) && !(opts && opts.confirmReplace)) { const e = new Error('יש תוכנית פעילה. צריך לאשר את ההחלפה.'); e.code = 'NEEDS_CONFIRM'; throw e; }
     if (cur && ['active', 'paused'].includes(cur.status)) { cur.status = 'replaced'; cur.endedAt = today(); addChange(cur, 'replaced', 'הוחלפה בתוכנית ' + PG().byId(plan.templateId).he); }
     plan.status = 'active'; plan.activatedAt = new Date().toISOString(); addChange(plan, 'activated', 'התוכנית הופעלה, מתחילה ' + S().fmtDate(plan.start));

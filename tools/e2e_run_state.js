@@ -1,5 +1,5 @@
 /* Workout session state machine + progress preservation — end to end on the built PWA (Playwright Chromium, iPhone 13 emulation;
-   BROWSER=webkit for WebKit). NOT a device: screen lock / OS background suspension are not reproducible here; "interrupted" is
+   BROWSER=webkit for WebKit). NOT a device: a real screen lock / OS suspension is not reproducible here (it is SIMULATED with a frozen fake clock + visibilitychange); "interrupted" is
    reproduced by a reload with the last-seen time moved back, which is what a closed / killed app leaves behind.
    Usage: node tools/e2e_run_state.js [URL]  (default http://localhost:8096/) */
 const pw = require('playwright'); const { devices } = pw;
@@ -75,6 +75,22 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     await c2.setOffline(true); await q.evaluate(() => Run.start(1, 'std')); await q.waitForTimeout(800);
     ok(/חיבור/.test(await q.evaluate(() => (document.querySelector('.toast') || {}).textContent || '')) && e2.length === 0, 'clear message, no crash (online once, the service worker keeps it for offline use)');
     await c2.close(); }
+  G = 'open app back from the background (no reload; page frozen meanwhile)';
+  for (const [gap, label] of [[2 * 3600e3, '2 h'], [5 * 60000, '5 min']]) {
+    const c3 = await b.newContext({ ...devices['iPhone 13'], locale: 'he-IL' }); const q = await c3.newPage(); const e3 = []; q.on('pageerror', e => e3.push(e.message));
+    await q.clock.install(); await q.goto(URL0); await q.clock.runFor(1500);
+    await q.evaluate(() => { localStorage.clear(); Store.resetAll(); const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 172, weight: 78, startWeight: 78, sex: 'f', experience: 'beginner', onboarded: true, startDate: Store.today() }); Store.save('profile'); });
+    await q.reload(); await q.clock.runFor(1500); await q.evaluate(() => Run.start(1, 'std')); await q.clock.runFor(1500);
+    await q.locator('.sheet [data-act=go]').click(); await q.clock.runFor(500); await q.locator('.run [data-a=done]').click(); await q.clock.runFor(10000);
+    const log0 = await q.evaluate(() => JSON.parse(localStorage.getItem('fit30.session')).log);
+    /* suspension = no timers and no events for `gap`; then the page is shown again */
+    await q.clock.pauseAt(await q.evaluate(g => Date.now() + g, gap)); await q.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await q.clock.resume(); await q.clock.runFor(1500);
+    const r = await q.evaluate(() => ({ st: Run.state(), s: JSON.parse(localStorage.getItem('fit30.session')), t: document.querySelector('[data-el]').textContent, banner: !!document.querySelector('[data-run-interrupted]') }));
+    const min = +r.t.split(':')[0];
+    if (gap > 3600e3) { ok(r.st === 'interrupted' && r.banner && min < 1, 'after ' + label + ' in the background → interrupted, timer stays at the last-seen time (not +2 h)', r.t);
+      ok(JSON.stringify(r.s.log) === JSON.stringify(log0), 'no set marked done by the suspension'); }
+    else ok(r.st !== 'interrupted' && !r.banner && min >= 5, 'after ' + label + ' (screen locked between sets) → keeps running and the time counts', r.t);
+    ok(e3.length === 0, 'no page errors (' + label + ')', e3.slice(0, 2)); await c3.close(); }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close();
   let pass = 0, fail = 0; for (const r of res) { console.log(`${r.ok ? 'PASS' : 'FAIL'} [${r.g}] ${r.m}`); r.ok ? pass++ : fail++; }

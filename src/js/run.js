@@ -72,7 +72,12 @@ function requestWake() {
   try { if ('wakeLock' in navigator && !wake) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => { wake = null; }); }).catch(() => {}); } catch (e) { }
 }
 function releaseWake() { try { if (wake) wake.release(); } catch (e) { } wake = null; }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && el) requestWake(); const s = sess(); if (el && s && !s.paused && !s.finished) { s.seenAt = Date.now(); saveSess(s); } });
+/* fixed 25.10.2026: an open page returning from the background / a locked screen used to overwrite seenAt, so 2 h in the
+   background counted as 2 h of workout (reproduced: 0:11 → 120:13). Now a gap > SUSPEND_MS freezes the session as interrupted. */
+function checkSuspend() { const s = sess(); if (!el || !s || !root.RunState) return false;
+  if (!root.RunState.recover(s, Date.now(), root.RunState.SUSPEND_MS)) return false; saveSess(s); render(); return true; }
+window.addEventListener('pageshow', e => { if (e.persisted) checkSuspend(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && el) { requestWake(); if (checkSuspend()) return; } const s = sess(); if (el && s && !s.paused && !s.finished) { s.seenAt = Date.now(); saveSess(s); } });
 window.addEventListener('pagehide', () => { const s = sess(); if (el && s && !s.paused && !s.finished) { s.seenAt = Date.now(); saveSess(s); } });
 function beep() {
   if (!C.profile().display.sound) return;
@@ -106,6 +111,7 @@ function autoStep(s) { /* returns true when the screen must re-render */
 function endRest(s, now) { if (!s.rest) return; s.restActualMs = (s.restActualMs || 0) + Math.max(0, Math.min(now, s.rest.endsAt + LATE) - s.rest.startedAt); s.rest = null; }
 function onTick() {
   const s = sess(); if (!s || !el) return;
+  if (!s.paused && !s.finished && root.RunState && Date.now() - (s.seenAt || 0) > root.RunState.SUSPEND_MS && checkSuspend()) return;
   if (!s.paused && !s.finished && Date.now() - (s.seenAt || 0) > 5000) { s.seenAt = Date.now(); saveSess(s); } /* heartbeat: the last moment the running app was seen */
   const e1 = el.querySelector('[data-el]'); if (e1) e1.textContent = mmss(elapsed(s));
   if (s.mode === 'auto') { if (s.rest && !s.paused && s.rest.endsAt - Date.now() <= 0 && lastRestBeep !== s.rest.endsAt) { lastRestBeep = s.rest.endsAt; beep(); }
@@ -161,7 +167,7 @@ function render() {
     <div class="run-top"><button class="icon-btn" data-a="exit" aria-label="יציאה">${icon('close')}</button><div class="grow"><h3>${esc(d.title)}</h3><span class="tiny muted">${s.custom ? 'אימון שבניתי' : 'יום ' + s.day} · גרסה ${esc(L.VERSIONS[s.version])} (~${L.estimateMinutes(d, s.version)} דק׳) · <span class="num" data-el>${mmss(elapsed(s))}</span>${s.paused ? ' · <b class="warn">מושהה</b>' : ''} · <span data-run-mode>${auto ? 'אוטומטי' : 'ידני'}</span></span></div><button class="icon-btn" data-a="settings" aria-label="הגדרות אימון: מצב ומנוחה">${icon('gear')}</button><button class="icon-btn" data-a="${s.paused ? 'resume' : 'pause'}" aria-label="${s.paused ? 'המשך' : 'השהיה'}">${icon(s.paused ? 'play' : 'pause')}</button></div>
     <div class="run-prog"><i style="width:${(s.stepIdx / all.length * 100).toFixed(1)}%"></i></div>
     <div class="run-body">
-      ${s.hold === 'interrupted' ? `<div class="banner warn" data-run-interrupted>${icon('pause')}<div class="grow">האימון נקטע — האפליקציה נסגרה או נטענה מחדש${s.interruptedAt ? ' (ב־' + new Date(s.interruptedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) + ')' : ''}. הזמן נעצר באותו רגע ושום סט לא סומן מעצמו. ההתקדמות נשמרה.</div><button class="btn sm primary" data-a="resume">המשך מכאן</button></div>` : s.paused ? `<div class="banner warn">${icon('pause')}<div class="grow">האימון מושהה. הזמן לא נספר.</div><button class="btn sm primary" data-a="resume">המשך</button></div>` : ''}
+      ${s.hold === 'interrupted' ? `<div class="banner warn" data-run-interrupted>${icon('pause')}<div class="grow">האימון נקטע — האפליקציה נסגרה, נטענה מחדש או הייתה ברקע זמן רב${s.interruptedAt ? ' (ב־' + new Date(s.interruptedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) + ')' : ''}. הזמן נעצר באותו רגע ושום סט לא סומן מעצמו. ההתקדמות נשמרה.</div><button class="btn sm primary" data-a="resume">המשך מכאן</button></div>` : s.paused ? `<div class="banner warn">${icon('pause')}<div class="grow">האימון מושהה. הזמן לא נספר.</div><button class="btn sm primary" data-a="resume">המשך</button></div>` : ''}
       ${restBlock}${autoBlock}
       <div class="row between"><span class="phase-tag">${PH[st.sec]}${roundInfo} · שלב ${s.stepIdx + 1}/${all.length}</span><span class="set-dots" aria-label="סטים">${sameItem.map(o => `<i class="${s.log[o.i] && s.log[o.i].done ? 'done' : o.i === s.stepIdx ? 'cur' : ''}"></i>`).join('')}</span></div>
       <div class="run-ex">${esc(e.he)}</div>
