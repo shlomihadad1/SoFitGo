@@ -42,7 +42,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-05 | Travel Mode | partial | travel sheet, no-equipment swaps, quick meals (`stageG_test`, `e2e_m12_gate`) | flights / festivals / hotel schedules / local food beyond swaps | P2 |
 | SLL-06 | Personal Pattern Finder | missing | — | consent model; show sample size + uncertainty | P3 |
 | SLL-07 | Plan B | partial | `#/planb` hub; since 2026-10-25 a "מומלץ עכשיו" section picks options from signals already stored on the device, each with a "למה:" reason: a workout saved midway (resume button → same step), missed plan sessions in the last 7 days (→ #/plan), active travel mode, 19:00+ with today's workout not done, shopping items marked "לא נמצא" (→ #/shopping, where SLL-08 offers alternatives). Each option is listed once; with no signal the full list is the fallback; nothing changes until the user acts. Tests: `e2e_planb_feedback` group "SLL-07 Plan B by what changed" (12 checks, fixed clocks 10:00/20:00). Exercise swap and meal swap as before | no reliable signal exists for equipment, space or energy, so those stay manual options; a "short version" depends on Minimum Mode (SLL-02) | P1 |
-| SLL-08 | Smart Grocery Loop | partial | categories (food groups), merged quantities, bought / at home / not found, user items with dedupe (`e2e_grocery`); **new (25.10): alternatives for a "not found" item** — 1–3 from the same SWAP group, never an excluded food, macro change shown, applied through the existing ingredient swap only to listed meals, undo restores storage exactly (`Screens.shopping.alternatives` / `applyAlt`; `e2e_grocery` 25) | v3 (2) "usually at home" after 2 confirmations; (3) carry unbought items to the next range | P1 |
+| SLL-08 | Smart Grocery Loop | verified-complete | v2: categories (food groups), merged quantities, bought / at home / not found, user items with dedupe, copy, clear keeps user items (`e2e_grocery`). v3 per docs/M9-SCOPE.md, all three parts: **(1)** a "not found" item offers 1–3 alternatives from the same SWAP group, never an excluded food, calorie/protein change shown before applying, applied through the existing ingredient swap only to listed, not-eaten meals, undo restores storage exactly; **(2) "usually at home"**: after "יש בבית" on 2 different days the list asks, nothing is set automatically; kept items are folded under "בדרך כלל בבית" (never deleted, not counted), "צריך לקנות הפעם" / "הסרה", "לא" stops the question, clear keeps the setting, undo exact; **(3) carry-over**: a tap stores that day's still-to-buy items; on a later day the unbought items not on the current list are offered once (bought, already-listed, excluded and duplicate items left out), "להוסיף לפריטים שלי" / "לא תודה", undo exact, rendering never writes. Tests: `e2e_grocery` 44 (groups "SLL-08 v3 (1)", "(2)", "(3)") | no prices (none invented, by scope) | P1 |
 | SLL-09 | Sofit Memory | blocked | — | consent/edit/delete/opt-out model + an approved AI provider | P2 |
 | SLL-10 | Life Score | missing | MoveScore (steps only) | define consistency/strength/endurance/mobility/habit metrics, shown transparently | P3 |
 | SLL-11 | Ripple Effect | missing | no-compensation rules exist in the menu engine (no punitive extra exercise) | constructive next-step suggestions UI | P3 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 5 verified-complete;
-- 24 partial;
+- 6 verified-complete (SLL-08 added 26.10.2026);
+- 23 partial;
 - 8 missing;
 - 6 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 5 verified-complete, 24 partial, 8 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 6 verified-complete, 23 partial, 8 missing, 6 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

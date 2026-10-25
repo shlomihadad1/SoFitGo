@@ -81,6 +81,60 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
         await p.evaluate(() => { document.querySelectorAll('.sheet [data-x]').forEach(x => x.click()); const pr = Store.load('profile'); pr.prefs.exclude = JSON.parse(window.__keepEx); Store.save('profile'); }); await p.waitForTimeout(300); }
     }
   }
+  G = 'SLL-08 v3 (2): "usually at home" — asked after 2 different days, never set automatically';
+  { const LS = () => p.evaluate(() => localStorage.getItem('fit30.nutrition'));
+    await p.evaluate(() => { const nu = Store.load('nutrition'); const sh = nu.shopping; sh.checked = {}; sh.state = {}; ['homeSeen', 'usual', 'usualNo', 'snaps', 'carryDone'].forEach(k => delete sh[k]); Store.save('nutrition'); });
+    await go('#/nutrition'); await go('#/shopping/7');
+    const rows = await p.locator('[data-shop-row]').evaluateAll(a => a.map(x => x.dataset.shopRow)); const [f1, f2, f3] = rows;
+    ok(rows.length >= 3, 'test setup: at least 3 planned items', rows);
+    const s0 = await LS(); await go('#/nutrition'); await go('#/shopping/7'); ok(await LS() === s0, 'opening the list writes nothing (storage comparison)');
+    await p.locator(`[data-act=st][data-f="${f2}"][data-s=home]`).click(); await p.waitForTimeout(350);
+    ok(await p.locator('[data-usual-ask]').count() === 0, '"יש בבית" on one day only → no question');
+    await p.evaluate(([a, c]) => { const sh = Store.load('nutrition').shopping; sh.homeSeen = Object.assign(sh.homeSeen || {}, { [a]: [Store.addDays(Store.today(), -3)], [c]: [Store.addDays(Store.today(), -2)] }); Store.save('nutrition'); }, [f1, f3]);
+    await p.locator(`[data-act=st][data-f="${f1}"][data-s=home]`).click(); await p.waitForTimeout(350);
+    ok(await p.locator(`[data-usual-ask] [data-ask="${f1}"]`).count() === 1, 'marked "יש בבית" on a 2nd different day → the list asks "לסמן כ\'בדרך כלל בבית\'?"');
+    ok(await p.evaluate(f => !(Store.load('nutrition').shopping.usual || {})[f], f1), 'asking sets nothing by itself');
+    const total0 = await p.locator('[data-shop-progress]').textContent(); const b1 = await LS();
+    await p.locator(`[data-act=uyes][data-f="${f1}"]`).click(); await p.waitForTimeout(400);
+    ok(await p.locator(`[data-usual] [data-usual-row="${f1}"]`).count() === 1 && await p.locator(`[data-shop-row="${f1}"]`).count() === 0, '"כן" → listed folded under "בדרך כלל בבית", not deleted');
+    ok(await p.locator('[data-shop-progress]').textContent() === total0, 'a kept-at-home item is not counted to buy (count unchanged from "יש בבית")', total0);
+    await p.locator('.toast button').first().click(); await p.waitForTimeout(400);
+    ok(await LS() === b1, '"ביטול" restores the stored data exactly');
+    await p.locator(`[data-act=uyes][data-f="${f1}"]`).click(); await p.waitForTimeout(400);
+    const n1 = +(await p.locator('[data-shop-progress]').textContent()).split('/')[1];
+    await p.locator(`[data-usual] summary`).click(); await p.locator(`[data-act=ubuy][data-f="${f1}"]`).click(); await p.waitForTimeout(400);
+    ok(await p.locator(`[data-shop-row="${f1}"][data-state=buy]`).count() === 1 && +(await p.locator('[data-shop-progress]').textContent()).split('/')[1] === n1 + 1, '"צריך לקנות הפעם" → back on the to-buy list and counted');
+    await p.locator(`[data-shop="${f1}"]`).check(); await p.waitForTimeout(300); await go('#/nutrition'); await go('#/shopping/7');
+    ok(await p.locator(`[data-shop-row="${f1}"][data-state=bought]`).count() === 1, 'it can be marked bought like any item');
+    await p.locator('[data-act=clear]').click(); await p.waitForTimeout(400);
+    ok(await p.locator(`[data-usual-row="${f1}"]`).count() === 1, '"ניקוי סימונים" keeps the "בדרך כלל בבית" setting (only "הסרה" removes it)');
+    await p.locator(`[data-usual] summary`).click(); await p.locator(`[data-act=uoff][data-f="${f1}"]`).click(); await p.waitForTimeout(400);
+    ok(await p.locator(`[data-shop-row="${f1}"][data-state=buy]`).count() === 1 && await p.evaluate(f => !(Store.load('nutrition').shopping.usual || {})[f], f1), '"הסרה" → a normal item to buy again');
+    await p.evaluate(c => { const sh = Store.load('nutrition').shopping; sh.homeSeen[c] = [Store.addDays(Store.today(), -2), Store.addDays(Store.today(), -1)]; Store.save('nutrition'); }, f3);
+    await go('#/nutrition'); await go('#/shopping/7'); await p.locator(`[data-act=uno][data-f="${f3}"]`).click(); await p.waitForTimeout(350);
+    ok(await p.locator(`[data-ask="${f3}"]`).count() === 0 && await p.evaluate(c => !(Store.load('nutrition').shopping.usual || {})[c], f3), '"לא" → not set, and the question is not asked again');
+  }
+  G = 'SLL-08 v3 (3): unbought items from an earlier list are offered, never added without a tap';
+  { const LS = () => p.evaluate(() => localStorage.getItem('fit30.nutrition'));
+    const rows = await p.locator('[data-shop-row]').evaluateAll(a => a.map(x => x.dataset.shopRow));
+    await p.locator(`[data-act=st][data-f="${rows[0]}"][data-s=notfound]`).click(); await p.waitForTimeout(350);
+    const snap = await p.evaluate(() => { const sh = Store.load('nutrition').shopping; return { today: (sh.snaps || {})[Store.today()] || null, home: Object.keys(sh.state).filter(f => sh.state[f] === 'home') }; });
+    ok(snap.today && snap.today.length >= 1 && !snap.today.some(x => snap.home.includes(x.f)), 'a tap on the list stores that day\'s still-to-buy items (items at home excluded)', snap);
+    const pick = await p.evaluate(cur => { const F = NUTRI.FOODS, blk = Core.blockedFoods(); const ks = Object.keys(F).filter(f => !cur.includes(f) && !blk.has(f) && F[f].he); return ks.slice(0, 3).map(f => ({ f, he: F[f].he })); }, rows);
+    await p.evaluate(([pk, onList]) => { const sh = Store.load('nutrition').shopping, y = Store.addDays(Store.today(), -1);
+      sh.snaps = { [y]: pk.concat([{ f: onList, he: 'on list' }]) }; sh.checked[pk[1].f] = y; /* pk[1] was bought yesterday */
+      sh.custom.push({ id: 'cdup', text: pk[2].he, done: false }); /* pk[2] is already one of the user's items */ Store.save('nutrition'); }, [pick, rows[1]]);
+    const s1 = await LS(); await go('#/nutrition'); await go('#/shopping/7');
+    const shown = await p.locator('[data-carry-items]').textContent().catch(() => '');
+    ok(shown === pick[0].he.replace(/[<>&]/g, ''), 'offered: only the unbought item that is not on the current list (bought, already-listed and duplicate items are left out)', { shown, pick });
+    ok(await LS() === s1, 'showing the offer writes nothing');
+    await p.locator('[data-act=carryAdd]').click(); await p.waitForTimeout(400);
+    ok(await p.evaluate(he => Store.load('nutrition').shopping.custom.filter(c => c.text === he).length, pick[0].he) === 1 && await p.locator('[data-carry]').count() === 0, '"להוסיף לפריטים שלי" adds it once as the user\'s own item and the offer closes');
+    await p.locator('.toast button').first().click(); await p.waitForTimeout(400);
+    ok(await LS() === s1 && await p.locator('[data-carry]').count() === 1, '"ביטול" restores the stored data exactly and the offer is back');
+    await p.locator('[data-act=carryNo]').click(); await p.waitForTimeout(350); await p.reload(); await p.waitForTimeout(800); await go('#/shopping/7');
+    ok(await p.locator('[data-carry]').count() === 0 && await p.evaluate(he => !Store.load('nutrition').shopping.custom.some(c => c.text === he), pick[0].he), '"לא תודה" → nothing added, and the offer does not come back after reload');
+  }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close(); const pass = res.filter(r => r.ok).length, fail = res.length - pass;
   fs.mkdirSync('dist/reports', { recursive: true }); fs.writeFileSync('dist/reports/e2e-grocery.json', JSON.stringify({ url: URL0, at: new Date().toISOString(), pass, fail, results: res }, null, 1));
