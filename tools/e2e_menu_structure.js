@@ -91,13 +91,17 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   } else ok(!t0.sug, 'protein target met → no add-on recommendation shown', t0);
 
   G = 'swap';
-  const sw = await p.evaluate(() => { const d = Store.today(), pl = Core.plan(d), cur = Logic.recipe(pl.m2.rid), c = Logic.swapCandidates(cur, NUTRI.RECIPES).filter(o => !Core.conflicts(o.r, null).length && !o.r.est)[0];
+  /* the top option of the REAL swap list (MealOpt.options, what "החלף מנה" shows) — before 25.10.2026 this read the raw ranking, which
+     could propose the day's dinner dish for lunch; the swap list now leaves out dishes already planned that day */
+  await p.evaluate(() => window.MealOpt || App.loadChunk('extra.js')); await p.waitForTimeout(300);
+  const sw = await p.evaluate(() => { const d = Store.today(), pl = Core.plan(d), cur = Logic.recipe(pl.m2.rid), c = MealOpt.options(d, 'm2').list[0];
     Core.setPlanSlot(d, 'm2', { rid: c.r.id, ov: null, scale: 1, auto: false }); const p2 = Core.plan(d), sum = Logic.roundM(Logic.sumMacros(Core.DAY.filter(k => p2[k].rid && !p2[k].off).map(k => Core.slotMacros(p2[k])))), pt = Core.plannedTotals(d);
     const allSame = Logic.swapCandidates(cur, NUTRI.RECIPES).every(o => o.r.meal === 'm2');
     return { to: c.r.id, now: p2.m2.rid, sum, pt, extraOn: p2.extra.on, allSame, ids: Core.DAY.filter(k => p2[k].rid && !p2[k].off).map(k => p2[k].rid) }; });
   ok(sw.allSame, '"החלף מנה" offers only dishes of the same meal (lunch → lunch dishes)');
   ok(sw.now === sw.to && sw.sum.k === sw.pt.k && sw.sum.p === sw.pt.p && !sw.extraOn, 'after a swap the day summary = sum of the three meals; no orphan add-on is switched on', sw);
   ok(new Set(sw.ids).size === sw.ids.length, 'no dish repeated in the day after the swap', sw.ids);
+  ok(await p.evaluate(() => { const d = Store.today(), pl = Core.plan(d), other = new Set(Core.DAY.filter(k => k !== 'm2' && pl[k].rid && !pl[k].off).map(k => pl[k].rid)); const o = MealOpt.options(d, 'm2'); return o.list.concat(o.other).every(x => !other.has(x.r.id)); }), 'the swap list never offers a dish that is already in the day (every option, not only the first)');
   await p.evaluate(() => App.render()); await p.waitForTimeout(300);
   const sumRow = await p.evaluate(() => { const g = [...document.querySelectorAll('.macro-grid span')], i = g.findIndex(x => x.innerText.trim() === 'סה״כ מתוכנן'); return { k: +g[i + 1].innerText, p: +g[i + 2].innerText, pt: Core.plannedTotals(Store.today()) }; });
   ok(sumRow.k === sumRow.pt.k && sumRow.p === Math.round(sumRow.pt.p), 'the summary row on screen shows the same planned total', sumRow);

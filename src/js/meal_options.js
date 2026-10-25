@@ -16,15 +16,18 @@ function options(date, slot, sort) {
   const s = C.plan(date)[slot], empty = !s.rid || s.off || s.missing, pf = C.normPrefs(C.profile().prefs), dis = new Set(C.profile().nutritionDislike || []);
   const cur = empty ? null : L.recipe(s.rid), base = empty ? { k: 0, p: 0, c: 0, f: 0, fb: 0 } : C.slotMacros(s);
   const all = empty ? N().RECIPES.filter(x => x.meal === C.mealOf(slot) && !x.est).map(x => ({ r: x, m: L.recipeMacros(x), flags: [], score: 0 })) : L.swapCandidates(cur, N().RECIPES);
-  let blocked = 0, disliked = 0; const keep = [];
-  all.forEach(o => { if (dis.has(o.r.id)) { disliked++; return; } if (root.Gate ? !root.Gate.checkMeal(o.r, null).ok : C.conflicts(o.r, null).length) { blocked++; return; } /* M12: the Plan Integrity Gate decides */
+  /* dishes already planned in the day's OTHER slots are not offered (since v2, lunch and dinner share one pool, so the dinner dish
+     could appear as the top lunch option and the day would repeat a dish) */
+  const day = C.plan(date), inDay = new Set(C.DAY.filter(k => k !== slot && day[k] && day[k].rid && !day[k].off).map(k => day[k].rid));
+  let blocked = 0, disliked = 0, same = 0; const keep = [];
+  all.forEach(o => { if (dis.has(o.r.id)) { disliked++; return; } if (inDay.has(o.r.id)) { same++; return; } if (root.Gate ? !root.Gate.checkMeal(o.r, null).ok : C.conflicts(o.r, null).length) { blocked++; return; } /* M12: the Plan Integrity Gate decides */
     keep.push(Object.assign(o, { cuOk: C.cuisineAllowed(o.r, pf), main: C.cuisineMainOk(o.r, pf), slow: !!(pf.maxPrep && mins(o.r) > pf.maxPrep), est: !!o.r.est })); });
   sort = SORTS[sort] ? sort : defaultSort();
   const key = { close: o => (o.flags.length ? 100 : 0) + o.score, protein: o => -o.m.p + (empty || o.m.k <= base.k * 1.25 + 50 ? 0 : 1000), quick: o => mins(o.r), light: o => o.m.k + (empty || o.m.p >= base.p * 0.8 ? 0 : 1000) }[sort];
   const ord = (a, z) => (z.main - a.main) || (key(a) - key(z));
   let list = keep.filter(o => o.cuOk).sort(ord), other = keep.filter(o => !o.cuOk).sort(ord);
   if (sort === 'quick') { const lim = pf.maxPrep || 20; const q = list.filter(o => mins(o.r) <= lim); if (q.length) list = q.concat(list.filter(o => mins(o.r) > lim)); }
-  return { s, empty, cur, base, list, other, hidden: { blocked, disliked }, sort, pf };
+  return { s, empty, cur, base, list, other, hidden: { blocked, disliked, same }, sort, pf };
 }
 function card(o, base) { const F = N().FOODS, nu = U(); const main = o.r.ing.filter(x => F[x.f].grp !== 'fat').slice(0, 4).map(x => `${F[x.f].he.split(' (')[0]} ${x.g}ג׳`).join(' · ');
   const dk = o.m.k - base.k, dp = Math.round(o.m.p - base.p);
@@ -38,7 +41,7 @@ function sheet(date, slot, sort) {
     <div class="list" data-opt-list>${o.list.slice(0, 8).map(x => card(x, o.base)).join('') || '<p class="muted small" data-opt-none>אין חלופה מהמטבח שבחרת — ראו מטבחים אחרים למטה, או שנו את העדפות המטבח בהגדרות.</p>'}</div>
     ${o.list.length > 8 ? `<details class="more"><summary>עוד ${o.list.length - 8} חלופות</summary><div class="list">${o.list.slice(8).map(x => card(x, o.base)).join('')}</div></details>` : ''}
     ${o.other.length ? `<details class="more" data-opt-other><summary>מטבחים אחרים (${o.other.length})</summary><div class="list">${o.other.map(x => card(x, o.base)).join('')}</div></details>` : ''}
-    ${o.hidden.blocked || o.hidden.disliked ? `<p class="tiny faint" data-opt-hidden>${o.hidden.blocked ? `${o.hidden.blocked} מנות הוסתרו כי אינן תואמות להגבלות התזונה שלך. ` : ''}${o.hidden.disliked ? `${o.hidden.disliked} מנות שסימנת "לא אוהב/ת" הוסתרו.` : ''}</p>` : ''}
+    ${o.hidden.same ? `<p class="tiny faint" data-opt-same>${o.hidden.same === 1 ? 'מנה אחת הוסתרה כי היא כבר בתפריט של היום.' : o.hidden.same + ' מנות הוסתרו כי הן כבר בתפריט של היום.'}</p>` : ''}${o.hidden.blocked || o.hidden.disliked ? `<p class="tiny faint" data-opt-hidden>${o.hidden.blocked ? `${o.hidden.blocked} מנות הוסתרו כי אינן תואמות להגבלות התזונה שלך. ` : ''}${o.hidden.disliked ? `${o.hidden.disliked} מנות שסימנת "לא אוהב/ת" הוסתרו.` : ''}</p>` : ''}
     <p class="tiny faint">הערכים מחושבים מהמרכיבים ומעוגלים; "עלות" היא דירוג יחסי בלבד ולא מחיר.${locked ? ' הרישום של מה שכבר נאכל לא ישתנה.' : ''}</p></div>`;
   root.UI.sheet('החלפת ' + C.slotNames[slot], html, {
     sort: (el, e, close) => { close(); sheet(date, slot, el.dataset.s); },
