@@ -105,6 +105,7 @@ Screens.settings = function () {
   const p = C.profile(), a = C.autoTargets(), t = C.targets(), meta = S.load('meta'), u = p.units;
   const kb = Math.round(S.usageBytes() / 1024);
   return { title: 'הגדרות', html: `
+    ${Screens.adminEntry ? Screens.adminEntry() : ''}
     <section class="card"><h2>פרופיל</h2><div class="grid2"><label class="field">גיל<input type="number" id="s-age" inputmode="numeric" value="${p.age ?? ''}"></label><label class="field">גובה (ס״מ)<input type="number" id="s-h" inputmode="numeric" value="${p.height ?? ''}"></label><label class="field">משקל התחלתי (${U.wl(u.w)})<input type="number" id="s-sw" inputmode="decimal" step="0.1" value="${p.startWeight != null ? U.w(p.startWeight, u.w) : ''}"></label><label class="field">משקל נוכחי לחישוב (${U.wl(u.w)})<input type="number" id="s-w" inputmode="decimal" step="0.1" value="${p.weight != null ? U.w(p.weight, u.w) : ''}"></label></div>
       <label class="field">תאריך תחילת התוכנית (יום 1)<input type="date" id="s-start" value="${p.startDate}"></label><p class="tiny faint">שינוי תאריך מזיז את מיפוי הימים בלוח; רישומי אימונים נשמרים לפי מספר יום, ויומני תזונה ומעקב לפי תאריך — שום נתון לא נמחק.</p>
       <button class="btn primary" data-act="saveProfile">שמירת פרופיל</button></section>
@@ -156,7 +157,7 @@ Screens.settings = function () {
       <div class="grid2"><label class="field">שעת אימון<input type="time" id="ics-t" value="07:00"></label><label class="field">התראה לפני (דק׳)<input type="number" id="ics-a" inputmode="numeric" value="15"></label></div><button class="btn" data-act="ics">${icon('cal')} ${root.Plans && root.Plans.active() ? 'יצירת קובץ יומן לתוכנית האישית' : 'יצירת קובץ יומן ל־30 הימים'}</button></section>
     <section class="card"><h2>גיבוי ושחזור</h2>
       <div class="banner info small">${icon('info')}<div>${root.FIT30_BACKEND ? 'הנתונים נשמרים <b>במכשיר ובדפדפן הזה</b> (Local Storage). עותק בשרת נשמר רק אם התחברת לחשבון והסנכרון פעיל (פרטים ב<a href="#/privacy">מרכז הפרטיות</a>). בלי חשבון,' : 'כל הנתונים נשמרים <b>רק במכשיר ובדפדפן הזה</b> (Local Storage). אין שרת ואין ענן.'} מחיקת נתוני האתר ב־Safari, או מעבר לטלפון אחר, ימחקו אותם — לכן חשוב לגבות. גיבוי אחרון: <b>${meta.lastBackup ? esc(S.fmtDate(meta.lastBackup.slice(0, 10))) : 'עדיין לא'}</b>. נפח בשימוש: ~${kb} KB.</div></div>
-      <div class="btns"><button class="btn primary" data-act="export">${icon('share')} ייצוא גיבוי</button><button class="btn" data-act="import">שחזור מגיבוי</button></div><p class="small"><a href="#/privacy" data-privacy-link>מרכז פרטיות וייצוא נתונים (CSV)</a></p>${root.FIT30_BACKEND ? `<p class="tiny"><a href="#/admin" data-admin-link>ניהול תוכן (לצוות מורשה בלבד)</a></p>` : ''}
+      <div class="btns"><button class="btn primary" data-act="export">${icon('share')} ייצוא גיבוי</button><button class="btn" data-act="import">שחזור מגיבוי</button></div><p class="small"><a href="#/privacy" data-privacy-link>מרכז פרטיות וייצוא נתונים (CSV)</a></p>
       <p class="tiny faint">הגיבוי כולל פרופיל, הגדרות, אימונים, יומן תזונה ומדידות. לא כולל תמונות.</p></section>
     <section class="card"><h2>התקנה במסך הבית</h2><a class="btn" href="#/install">${icon('phone')} הוראות התקנה ומצב לא מקוון</a></section>
     <section class="card"><h2>פרופיל ותוכנית אישית</h2><div class="btns"><a class="btn" href="#/profile">${icon('edit')} הפרופיל שלי</a><a class="btn" href="#/plan">${icon('route')} התוכנית שלי</a></div></section>
@@ -167,6 +168,7 @@ Screens.settings = function () {
     <section class="card"><h2>איפוס</h2><button class="btn danger" data-act="reset">מחיקת כל הנתונים</button></section>
     <p class="tiny faint">האפליקציה מספקת תוכנית כושר ותזונה כללית ואינה ייעוץ רפואי. הערכים התזונתיים הם הערכות.</p>`,
     handlers: {
+      adminRecheck: () => Screens.adminRecheck && Screens.adminRecheck(),
       saveProfile: () => { const v = id => parseFloat(document.getElementById(id).value);
         const age = v('s-age'), h = v('s-h'), sw = v('s-sw'), w = v('s-w'), sd = document.getElementById('s-start').value;
         /* Stage H1: same ranges as the profile screen (screens_plan.js readBasics) */

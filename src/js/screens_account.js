@@ -76,6 +76,20 @@ Screens.accountPrompt = function () {
   return `<section class="card" data-account-prompt><div class="card-h"><h3>שמירה בחשבון</h3>${root.FIT30_BACKEND.channel === 'beta' ? '<span class="pill acc">בטא</span>' : ''}</div><p class="small muted">צרו חשבון כדי שהנתונים יישמרו גם בשרת ויחזרו אליכם בכל מכשיר. אפשר גם להמשיך בלי חשבון — הכול יישאר במכשיר הזה.</p>
     <div class="btns"><a class="btn primary" href="#/account/signup">הרשמה</a><a class="btn" href="#/account/login">התחברות</a><button class="btn ghost sm" data-act="hideAcct">לא עכשיו</button></div></section>`;
 };
+/* "ניהול מערכת" shortcut — shown only to owner / admin, after the server-side role lookup (Account.adminAccess). Editors and
+   reviewers get the plain staff link. Nothing is shown to other users. The admin screen itself re-checks; the server enforces. */
+const ROLE_LABEL = { owner: 'בעלים', admin: 'מנהל/ת', editor: 'עורך/ת', reviewer: 'בודק/ת' };
+Screens.adminEntry = function () {
+  const Ac = A(); if (!root.FIT30_BACKEND || !Ac || !Ac.adminAccess) return '';
+  const s = Ac.state(); if (!s.signedIn) return '';
+  const r = Ac.adminAccess();
+  if (r.state === 'loading' && !r.role) return '<p class="tiny muted" data-admin-checking role="status">בודק הרשאות ניהול…</p>';
+  if (r.state === 'error') return `<p class="tiny muted" data-admin-error>לא ניתן לבדוק כרגע הרשאות ניהול (אין חיבור לשרת). <button class="btn sm ghost" data-act="adminRecheck">נסו שוב</button></p>`;
+  if (r.role === 'owner' || r.role === 'admin') return `<section class="card row between" data-admin-entry><div class="grow"><b>ניהול מערכת</b><div class="small muted">מחובר/ת כ־${ROLE_LABEL[r.role]}</div></div><a class="btn primary" href="#/admin" data-admin-button>${icon('gear')} ניהול מערכת</a></section>`;
+  if (r.role === 'editor' || r.role === 'reviewer') return `<p class="small" data-admin-staff><a href="#/admin">ניהול תוכן (${ROLE_LABEL[r.role]})</a></p>`;
+  return '';
+};
+Screens.adminRecheck = () => { const Ac = A(); if (Ac && Ac.adminAccess) Ac.adminAccess(true); root.App.render(); };
 Screens.account = function (arg) {
   const Ac = A(); if (!Ac) return { title: 'חשבון וסנכרון', back: '#/settings', html: '<section class="card"><p class="small muted">טוען…</p></section>', handlers: {} };
   const st = Ac.state();
@@ -86,9 +100,10 @@ Screens.account = function (arg) {
     <div class="banner warn small" role="status">${icon('info')}<div><b>חשבונות הענן עוד לא הופעלו בגרסת הבטא הזו.</b> לא נוצר חשבון ולא נשלח מייל. ההרשמה וההתחברות ייפתחו כאן כשהשרת יופעל.</div></div>
     <p class="small">בינתיים אפשר להשתמש בכל האפליקציה. הנתונים נשמרים במכשיר הזה, וכשהחשבונות יופעלו אפשר יהיה לשייך אותם לחשבון בלי לאבד דבר. לגיבוי: <a href="#/settings">הגדרות ← ייצוא גיבוי</a>.</p>
     <div class="btns"><button class="btn primary" data-act="noAcct">להמשיך בלי חשבון</button><a class="btn" href="#/setup/1">הגדרת פרופיל ותוכנית</a></div></section>`;
-  else html = st.signedIn ? signedInHtml(st) : signedOutHtml(st);
+  else html = st.signedIn ? Screens.adminEntry() + signedInHtml(st) : signedOutHtml(st);
   html += `<p class="tiny muted center"><a href="#/legal">הודעת פרטיות ותנאי הבטא (טיוטה)</a> · גרסה <span dir="ltr">${esc(root.FIT30_BUILD || '')}</span></p>`;
   return { title: 'חשבון וסנכרון', back: '#/settings', html, handlers: {
+    adminRecheck: () => Screens.adminRecheck(),
     noAcct: () => { try { localStorage.setItem('fit30.welcomeDone', '1'); } catch (e) { } location.hash = '#/'; },
     pwShow: el => { const on = el.getAttribute('aria-pressed') !== 'true'; ['ac-pw', 'ac-pw2'].forEach(id => { const i = document.getElementById(id); if (i) i.type = on ? 'text' : 'password'; }); el.setAttribute('aria-pressed', String(on)); el.setAttribute('aria-label', on ? 'הסתרת הסיסמה' : 'הצגת הסיסמה'); el.textContent = on ? 'הסתרת הסיסמה' : 'הצגת הסיסמה'; },
     tab: el => { ui.email = val('ac-email') || ui.email; ui.tab = el.dataset.t; ui.err = ''; ui.info = ''; root.App.render(); },

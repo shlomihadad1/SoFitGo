@@ -178,6 +178,31 @@ const procs = [];
     ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal scroll on a phone (accounts)');
     ok(errs.length === 0, 'no JS errors (accounts)', errs); await ctx.close(); }
 
+  G = '"ניהול מערכת" entry (role checked on the server; shown only to owner / admin)';
+  { const entry = async (who, dev) => { const r = await mk(dev); if (who) await login(r.p, who + '@cms.test'); await go(r.p, '#/settings', 500);
+      await waitFor(r.p, () => !document.querySelector('[data-admin-checking]'), null, 6000); await r.p.waitForTimeout(200);
+      return Object.assign(r, { btn: await r.p.locator('[data-admin-button]').count(), staff: await r.p.locator('[data-admin-staff]').count(), href: await r.p.locator('[data-admin-button]').first().getAttribute('href').catch(() => null) }); };
+    const o = await entry('owner'); ok(o.btn === 1 && o.href === '#/admin' && /מחובר\/ת כ־בעלים/.test(await o.p.locator('[data-admin-entry]').innerText()), 'owner: "ניהול מערכת" button at the top of Settings, linking to #/admin', { btn: o.btn, href: o.href });
+    ok(await o.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'owner, phone: Settings has no horizontal scroll with the button');
+    await go(o.p, '#/account', 600); ok(await o.p.locator('[data-admin-button]').count() === 1, 'owner: the button is also on the account screen');
+    await o.p.locator('[data-admin-button]').click(); await waitFor(o.p, () => !!document.querySelector('[data-cms-role]'), null, 8000); ok(/מחובר\/ת כ־בעלים/.test(await text(o.p)), 'clicking it opens the admin centre as owner');
+    ok(o.errs.length === 0, 'no JS errors (owner entry)', o.errs); await o.ctx.close();
+    const a = await entry('admin', 'desktop'); ok(a.btn === 1 && /מנהל\/ת/.test(await a.p.locator('[data-admin-entry]').innerText()), 'admin (desktop): button shown with the admin role'); await a.ctx.close();
+    const e = await entry('editor'); ok(e.btn === 0 && e.staff === 1, 'editor: no "ניהול מערכת" button, only the plain staff link'); await e.ctx.close();
+    const u = await entry('user'); ok(u.btn === 0 && u.staff === 0 && await u.p.locator('[data-admin-entry],[data-admin-error]').count() === 0, 'user without a role: nothing admin-related is shown');
+    await admin(u.p); ok(await u.p.locator('[data-cms-denied]').count() === 1 && await u.p.locator('[data-cms-tabs]').count() === 0, 'user typing #/admin by hand: "אין לך הרשאת ניהול", no admin tabs');
+    const forged = await u.p.evaluate(async () => { const r = await Account.api('/rest/v1/rpc/cms_feedback_list', { method: 'POST', body: {} }).then(() => 'allowed', e => String(e && (e.status || e.code || e.message))); return r; });
+    ok(forged !== 'allowed', 'user calling an admin function directly from the page is refused by the server', forged); await u.ctx.close();
+    const so = await entry(null); ok(so.btn === 0 && await so.p.locator('[data-admin-checking],[data-admin-error]').count() === 0, 'signed out: no admin entry'); await so.ctx.close();
+    const x = await mk(); await login(x.p, 'owner@cms.test'); await fetch(API + '/__test/offline?on=1').catch(() => {});
+    await x.p.evaluate(() => { Account.adminAccess(true); location.hash = '#/settings'; }); await waitFor(x.p, () => !!document.querySelector('[data-admin-error]'), null, 15000);
+    ok(await x.p.locator('[data-admin-error]').count() === 1 && await x.p.locator('[data-admin-button]').count() === 0, 'server unreachable: a clear message with "נסו שוב", no button');
+    { const calls = await x.p.evaluate(async () => { let n = 0; const f = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('cms_members')) n++; return f(...a); }; for (let i = 0; i < 5; i++) App.render(); await new Promise(r => setTimeout(r, 800)); window.fetch = f; return n; });
+      ok(calls === 0, 're-rendering while the server is unreachable sends no new role requests (no retry loop)', calls); }
+    await fetch(API + '/__test/offline?on=0').catch(() => {}); await x.p.waitForTimeout(300);
+    await x.p.locator('[data-act=adminRecheck]').click(); await waitFor(x.p, () => !!document.querySelector('[data-admin-button]'), null, 8000);
+    ok(await x.p.locator('[data-admin-button]').count() === 1, '"נסו שוב" after the server is back: the button appears'); await x.ctx.close(); }
+
   await b.close(); procs.forEach(pr => pr.kill());
   let pass = 0, fail = 0; res.forEach(x => { console.log((x.ok ? 'PASS ' : 'FAIL ') + '[' + x.g + '] ' + x.m); x.ok ? pass++ : fail++; });
   console.log(`admin e2e: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);

@@ -256,7 +256,7 @@ function advanced() { return `<section class="card stack" data-cms-advanced><h3>
 Screens.admin = function () {
   const g = guard();
   const body = g || shell(st.edit ? editor() : (Object.assign({ dash, recipes: recipesList, exercises: exercisesList, media, roles, guide, advanced }, EXT.views)[st.tab] || dash)());
-  return { title: 'ניהול תוכן', back: '#/settings', html: `<div data-cms>${body}</div>`, handlers: H,
+  return { title: 'ניהול מערכת', back: '#/settings', html: `<div data-cms>${body}</div>`, handlers: H,
     after: v => { const on = (sel, ev, fn) => { const x = v.querySelector(sel); if (x) x.addEventListener(ev, fn); };
       on('#cms-q', 'input', ev => { st.q = ev.target.value; st.page = 0; clearTimeout(on.t); on.t = setTimeout(() => { root.App.render(); const x = document.getElementById('cms-q'); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } }, 250); });
       [['#cms-meal', 'meal'], ['#cms-cu', 'cu'], ['#cms-st', 'status'], ['#cms-sort', 'sort']].forEach(([s, k]) => on(s, 'change', ev => { st[k] = ev.target.value; st.page = 0; root.App.render(); }));

@@ -269,7 +269,23 @@ async function init() {
   if (sess) { await accessToken(); if (sess) { if (sync.owner === uid()) await syncNow(); else if (!sync.owner) await afterLogin(); } }
   emit();
 }
-root.Account = { available: !!CFG, api: (p, o) => http(p, o), SECTIONS, state, init, signUp, signIn, signOut, recover, resend, updatePassword, deleteAccount, migrate, resolveConflict, restoreBackup, syncNow, pushDirty,
+/* Admin entry ("ניהול מערכת"): the signed-in user's CMS role, read from public.cms_members with the user's own token. RLS lets a
+   user read only their own row, so this reveals nothing about others. It only decides whether the shortcut is SHOWN — every admin
+   action is still checked by the server (RLS + role-checked functions); #/admin re-checks on open. Cached for 10 min per user. */
+let adm = { uid: null, role: null, state: 'idle', at: 0 };
+function adminAccess(force) {
+  const st = state(); if (!CFG || !st.signedIn) { adm = { uid: null, role: null, state: 'signedout', at: 0 }; return adm; }
+  /* an error is kept for 60 s (retry = the "נסו שוב" button, force): retrying on every render would loop render → request → render */
+  const fresh = adm.uid === st.userId && (adm.state === 'loading' || Date.now() - adm.at < (adm.state === 'error' ? 60000 : 600000));
+  if (fresh && !force) return adm;
+  const uid = st.userId; adm = { uid, role: adm.uid === uid ? adm.role : null, state: 'loading', at: Date.now() };
+  const done = () => { emit(); try { if (root.App && /^#\/(settings|account)\b/.test(location.hash || '')) root.App.render(); } catch (e) { } };
+  http('/rest/v1/cms_members?select=role&user_id=eq.' + encodeURIComponent(uid))
+    .then(r => { if (adm.uid !== uid) return; adm = { uid, role: (Array.isArray(r) && r[0] && r[0].role) || null, state: 'ok', at: Date.now() }; done(); },
+      e => { if (adm.uid !== uid) return; const s = String((e && (e.code || e.message)) || e); adm = { uid, role: null, state: /PGRST205|42P01|cms_members/.test(s) ? 'unavailable' : 'error', at: Date.now() }; done(); });
+  return adm;
+}
+root.Account = { available: !!CFG, api: (p, o) => http(p, o), adminAccess, SECTIONS, state, init, signUp, signIn, signOut, recover, resend, updatePassword, deleteAccount, migrate, resolveConflict, restoreBackup, syncNow, pushDirty,
   submitReport, myReports, loadConfig, handleRedirect, photoCount, message, validate, hasLocalData, lastRedirect: null, _debug: { http, refresh, get sync() { return sync; }, get sess() { return sess; } } };
 init();
 })(window);
