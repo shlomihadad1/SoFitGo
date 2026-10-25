@@ -2,6 +2,14 @@
 
 **Date:** 25.10.2026. **Repo:** `shlomihadad1/SoFitGo` (private). **Branch:** `fix/default-cuisine`. The exact commit and build of the delivered version are in `docs/SOFITGO_MASTER_REQUIREMENTS.md` §16.
 
+**Current release candidate (25.10.2026):** SoFitGo Beta 0.6.0.
+- Code commit `d246052`, build `74bdd9483f`.
+- Full runner 69/69 + artcheck 2/2; WebKit 9/9.
+- Packages: web test package (local only), web deploy package (approval needed), source, Android APK (signed, not installed).
+- Evidence: `docs/release/RELEASE-EVIDENCE-74bdd9483f.md`.
+- Release checklist: `docs/BETA_REQUIREMENTS.md`.
+- Not deployed.
+
 This document is the short operational map of the project:
 - The full requirement matrix stays in `docs/SOFITGO_MASTER_REQUIREMENTS.md`.
 - The feature index is `docs/FEATURE_REGISTRY.md`.

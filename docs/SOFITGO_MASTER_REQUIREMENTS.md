@@ -437,3 +437,21 @@ No merge to `main`, no deploy, no Production or live Supabase change, no costs.
 - device restart.
 
 There is no background execution. The hosted Supabase project was not used.
+
+### Delivery: code commit d246052, build 74bdd9483f (beta 0.6.0 release candidate), 25.10.2026
+
+- **Full runner** on `d246052`: 69/69 suites plus artcheck 2/2. 27,035 checks, 0 FAIL / CRASH / TIMEOUT / NOT_RUN.
+- **WebKit:** 9 suites, 400 checks, 0 failures.
+- **First load:** 787,720 B.
+- **Fixes since 04cac29** (each reproduced first and covered by a test):
+  - background > 15 min counted as workout time;
+  - double tap on plan activation;
+  - Builder workout edited or deleted during an open session (state change / crash).
+- **Admin:**
+  - feedback review (`20261025000200`);
+  - accounts overview (`20261025000300`, aggregate only);
+  - both local only.
+- **Android test APK:** built and signature verified; not installed.
+- **Packages and checksums:** `docs/release/RELEASE-EVIDENCE-74bdd9483f.md`.
+- **Guides:** `docs/ADMIN_USER_GUIDE.md`, `USER_GUIDE.md`, `QUICK_START.md`, `BETA_INSTALL_AND_UPDATE.md`, `KNOWN_ISSUES.md`, `RELEASE_NOTES.md`, `ANDROID_SIGNING_KEY.md`.
+- **Not deployed;** live Supabase untouched.

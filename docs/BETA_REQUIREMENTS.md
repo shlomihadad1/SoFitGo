@@ -107,7 +107,7 @@
 | טיפול במשוב בממשק הניהול: סינון, סטטוס, הערת צוות, יומן | A (מקומי) / E (חי) | `rls_cms_test` 91, `e2e_admin` 50; migration `20261025000200` + rollback | — | מנהל ובעלים בלבד, נבדק בשרת. המדווח מוצג כמזהה קצר, בלי מייל. לא הוחל על הפרויקט החי |
 | מדריך למנהל | A | `docs/ADMIN_USER_GUIDE.md`; כל לשונית, כפתור והודעה נבדקו מול הקוד | — | — |
 | מדריכי משתמש, התחלה מהירה, תקלות ידועות, התקנה ועדכון | A | `docs/USER_GUIDE.md`, `QUICK_START.md`, `KNOWN_ISSUES.md`, `BETA_INSTALL_AND_UPDATE.md`; התוויות נבדקו מול הקוד | — | — |
-| אפליקציית Android לבדיקה (WebView, APK) | D | `native/android-webview`, `e2e_android_bridge` 10 (גשר מדומה בדפדפן) | כל T | לא הותקנה על טלפון. ראו את דוח הראיות לגבי ה־APK |
+| אפליקציית Android לבדיקה (WebView, APK) | D | `native/android-webview`, `e2e_android_bridge` 10 (גשר מדומה בדפדפן); ה־APK נבנה מ־`d246052` ונבדק עם `apksigner` ו־`aapt2` | כל T | **לא הותקן** על טלפון או על אמולטור (אין KVM בסביבה) |
 | חבילת התקנה ל־iOS | E | — | — | דורשת Mac, ‏Xcode וחשבון Apple Developer בתשלום |
 | CMS מלא (טקסטים, פריסה, עיצוב, הגדרות, יומן ביקורת) | A (מקומי) / E (חי) | `e2e_app_control` 62, `cms_app_test` 32, `e2e_admin` | — | ממתין לאישורך להפעלה חיה |
 | העלאת מדיה | E | — | — | דורש bucket ב־Storage |
