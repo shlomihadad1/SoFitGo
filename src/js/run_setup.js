@@ -19,7 +19,10 @@ function cfgHtml(c, all, withMode) {
     <p class="small" data-est>משך משוער: <b>כ־${est(c.mode === 'auto')} דק׳</b> <span class="tiny muted">(הערכה לפי זמני העבודה והמנוחה שנבחרו; המשך בפועל נמדד באימון)</span></p>`; }
 /* M12: the Plan Integrity Gate runs on the day before it starts; fixes go through the existing swap / version mechanisms */
 function gateFor(meta) {
-  if (!meta || !root.Gate || !meta.def) return null; const pl = meta.plan && root.Plans ? root.Plans.get(meta.plan.id) : null, n = meta.plan ? meta.plan.n : meta.day;
+  if (!meta || !root.Gate || !meta.def) return null;
+  if (meta.custom && root.Builder) { const w = root.Builder.get(meta.custom.id); if (!w) return null; /* Workout Builder: the builder's own constraints; fixes are made in the builder */
+    return { res: root.Builder.check(w), env: { readOnly: true, fixHint: 'אפשר לתקן את האימון בעורך: החלפת תרגיל, הסרה או שינוי זמן.', canShort: false, date: S.today() } }; }
+  const pl = meta.plan && root.Plans ? root.Plans.get(meta.plan.id) : null, n = meta.plan ? meta.plan.n : meta.day;
   const w = S.load('workouts'), sw = (w.swaps || {})[meta.day] || {};
   const res = root.Gate.checkWorkout(meta.def, { plan: pl, n, version: meta.version, exFor: meta.plan ? null : id => C.exFor(meta.day, id) });
   const canShort = meta.version !== 'short' && meta.version !== 'test' && (meta.plan ? !['assess', 'active'].includes((root.Plans.dayOf(pl, n) || {}).type) : root.Logic.hasVersions(meta.def));

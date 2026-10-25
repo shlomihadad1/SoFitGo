@@ -142,28 +142,41 @@
   function setVersion(id, n, v) { const p = get(id), d = dayOf(p, n); assertFuture(p, d, 'לשנות'); if (!['short', 'std', 'long'].includes(v)) throw new Error('גרסה לא תקינה');
     if (['assess', 'active'].includes(d.type)) throw new Error('למבחן ולהתאוששות אין גרסאות'); p.overrides[n] = Object.assign(p.overrides[n] || {}, { version: v === 'std' ? undefined : v }); save(); }
 
-  /* exercise alternatives, ranked by the brief's criteria; each with the differences that matter */
-  function alternatives(p, n, idx) {
-    const d = dayOf(p, n), it = d && d.main && d.main[idx]; if (!it) return { list: [], reason: 'אין תרגיל במקום הזה' };
-    const params = p.segments.filter(s => s.fromDay <= n).pop().params, have = ['none', ...params.equipment];
-    const m0 = CT().exFacts(root.EX_BY_ID[it.ex]), inDay = new Set(d.main.map(x => x.ex));
-    const words = f => new Set(f.primary.flatMap(x => x.split(/\s+/)).filter(w => w.length > 2));
-    const w0 = words(m0); const all = root.EXERCISES.map(e => CT().exFacts(e)).filter(m => m.id !== it.ex);
-    const sameKind = all.filter(m => m.pattern === m0.pattern || (m.cat === m0.cat && [...words(m)].some(w => w0.has(w))));
-    const ok = sameKind.filter(m => CT().usableWith(root.EX_BY_ID[m.id], have) && !params.exclude.includes(m.id) && !(params.noJump && m.impact === 'high') && !inDay.has(m.id));
-    const t0 = PL().itemSec(it);
+  /* Smart Exercise Substitution — ONE ranking shared by personal plans (alternatives below) and the Workout Builder.
+     ctx = { have: equipment ids incl. 'none', exclude: [ids], noJump, inSession: Set(ids already in the workout), fav: [ids],
+             level: 'beginner'|'intermediate'|'advanced'|null, phase: 'warm'|'main'|'cool' }.
+     Ranking: same movement pattern (+3), shared primary muscles (≤ +2), same exercise type (+1), shared secondary muscles (+0.5),
+     favourite (+0.5), difficulty distance (−1 per level), above the user's level (−1). Hard filters: equipment, exclusions,
+     "no jumping", already in the workout, phase (warm-up / cool-down accept only mobility, breathing and light cardio).
+     Nothing is invented: every reason and difference comes from the catalogue facts; no candidate → the reason is stated. */
+  const LVL_CAP = { beginner: 2, intermediate: 3, advanced: 3 };
+  const LIGHT = m => ['mobility', 'breathing'].includes(m.type) || m.pattern === 'cardio_low';
+  function rank(it, ctx) {
+    const e0 = root.EX_BY_ID[it.ex]; if (!e0) return { list: [], reason: 'התרגיל לא נמצא בספרייה — אין נתונים לבחירת חלופה.', hiddenByEquipment: [], current: null };
+    const m0 = CT().exFacts(e0), have = ctx.have || ['none'], inSession = ctx.inSession || new Set(), ex = ctx.exclude || [], fav = ctx.fav || [];
+    const words = list => new Set((list || []).flatMap(x => x.split(/\s+/)).filter(w => w.length > 2));
+    const w0 = words(m0.primary), s0 = words(m0.secondary); const all = root.EXERCISES.map(e => CT().exFacts(e)).filter(m => m.id !== it.ex);
+    const phaseOk = m => ctx.phase === 'warm' || ctx.phase === 'cool' ? LIGHT(m) : (LIGHT(m0) || !['mobility', 'breathing'].includes(m.type));
+    const sameKind = all.filter(m => phaseOk(m) && (m.pattern === m0.pattern || (m.cat === m0.cat && [...words(m.primary)].some(w => w0.has(w)))));
+    const ok = sameKind.filter(m => CT().usableWith(root.EX_BY_ID[m.id], have) && !ex.includes(m.id) && !(ctx.noJump && m.impact === 'high') && !inSession.has(m.id));
+    const t0 = PL().itemSec(it), cap = LVL_CAP[ctx.level] || null;
     const list = ok.map(m => {
-      const overlap = [...words(m)].filter(w => w0.has(w)).length;
-      const score = (m.pattern === m0.pattern ? 3 : 0) + Math.min(2, overlap) + (m.type === m0.type ? 1 : 0) - Math.abs(m.d - m0.d);
-      const conv = convertItem(it, m.id), dt = Math.round(PL().itemSec(conv) - t0), diffs = [];
+      const overlap = [...words(m.primary)].filter(w => w0.has(w)).length, sec = [...words(m.secondary)].some(w => s0.has(w) || w0.has(w));
+      const score = (m.pattern === m0.pattern ? 3 : 0) + Math.min(2, overlap) + (m.type === m0.type ? 1 : 0) - Math.abs(m.d - m0.d) + (sec ? 0.5 : 0) + (fav.includes(m.id) ? 0.5 : 0) - (cap && m.d > cap ? 1 : 0);
+      const conv = convertItem(it, m.id), dt = Math.round(PL().itemSec(conv) - t0), diffs = [], why = [];
       if (m.d !== m0.d) diffs.push(m.d > m0.d ? 'קשה יותר' : 'קל יותר');
+      if (cap && m.d > cap) diffs.push('מעל הרמה שהגדרת');
       if (m.pattern !== m0.pattern) diffs.push('דפוס תנועה אחר: ' + CT().PATTERN_HE[m.pattern]);
       if (m.type !== m0.type) diffs.push(CT().TYPE_HE[m.type] + ' במקום ' + CT().TYPE_HE[m0.type]);
+      if (conv.sec && it.reps) diffs.push(`נמדד בשניות (${conv.sec} שנ׳) במקום חזרות`); if (conv.reps && typeof it.sec === 'number' && !it.reps) diffs.push(`נמדד בחזרות (${conv.reps}) במקום שניות`);
       if (m.uni && !m0.uni) diffs.push('כל צד בנפרד');
       if (m.impact === 'high' && m0.impact !== 'high') diffs.push('כולל קפיצות');
       if (Math.abs(dt) >= 20) diffs.push((dt > 0 ? '+' : '−') + Math.abs(Math.round(dt / 6) / 10) + ' דק׳ לאימון');
-      return { id: m.id, he: root.EX_BY_ID[m.id].he, d: m.d, eq: m.eq.map(e => CT().EQUIPMENT[e].he), primary: m.primary, score, diffs, item: conv };
-    }).filter(x => x.score >= 2).sort((a, b) => b.score - a.score || a.d - b.d).slice(0, 6);
+      if (m.pattern === m0.pattern) why.push('אותו דפוס תנועה (' + CT().PATTERN_HE[m.pattern] + ')');
+      const shared = m.primary.filter(x => m0.primary.includes(x)); if (shared.length) why.push('עובד על ' + shared.join(', ')); else if (m.primary.length) why.push('שרירים: ' + m.primary.join(', ')); else why.push('אין בקטלוג פירוט שרירים לתרגיל הזה');
+      why.push(m.eq.length ? 'ציוד: ' + m.eq.map(e => CT().EQUIPMENT[e].he).join(', ') : 'בלי ציוד'); if (fav.includes(m.id)) why.push('ברשימת המועדפים שלך');
+      return { id: m.id, he: root.EX_BY_ID[m.id].he, d: m.d, eq: m.eq.map(e => CT().EQUIPMENT[e].he), primary: m.primary, score, diffs, why, keeps: conv.sets === it.sets && conv.rest === it.rest && !!conv.reps === !!it.reps, item: conv };
+    }).filter(x => x.score >= 2).sort((a, b) => b.score - a.score || a.d - b.d || (a.id < b.id ? -1 : 1)).slice(0, 6);
     let reason = null;
     if (!list.length) {
       const needEq = sameKind.filter(m => !CT().usableWith(root.EX_BY_ID[m.id], have));
@@ -172,7 +185,13 @@
         : 'החלופות הקיימות כבר נמצאות באימון, הוחרגו או כוללות קפיצות שביקשת להימנע מהן.';
     }
     const hidden = [...new Set(sameKind.filter(m => m.pattern === m0.pattern && !CT().usableWith(root.EX_BY_ID[m.id], have)).map(m => root.EX_BY_ID[m.id].he + ' (' + m.eq.map(e => CT().EQUIPMENT[e].he).join(', ') + ')'))];
-    return { list, reason, hiddenByEquipment: hidden, current: { id: it.ex, he: root.EX_BY_ID[it.ex].he, d: m0.d, eq: m0.eq.map(e => CT().EQUIPMENT[e].he) } };
+    return { list, reason, hiddenByEquipment: hidden, current: { id: it.ex, he: e0.he, d: m0.d, eq: m0.eq.map(e => CT().EQUIPMENT[e].he) } };
+  }
+  /* exercise alternatives for a personal-plan day (the shared ranking with the plan's own constraints) */
+  function alternatives(p, n, idx) {
+    const d = dayOf(p, n), it = d && d.main && d.main[idx]; if (!it) return { list: [], reason: 'אין תרגיל במקום הזה' };
+    const params = p.segments.filter(s => s.fromDay <= n).pop().params;
+    return rank(it, { have: ['none', ...params.equipment], exclude: params.exclude, noJump: params.noJump, inSession: new Set(d.main.map(x => x.ex)), fav: params.fav || [], level: params.level, phase: 'main' });
   }
   function swap(id, n, idx, toId, scope) {
     const p = get(id), d = dayOf(p, n); assertFuture(p, d, 'לשנות'); const from = d.main[idx] && d.main[idx].ex; if (!from) throw new Error('אין תרגיל במקום הזה');
@@ -227,5 +246,5 @@
   /* runner definition for a plan day (session format of the existing workout runner) */
   function runDef(id, n) { const p = get(id), d = dayOf(p, n); if (!d) return null; return { title: d.title, type: d.type, warm: d.warm || [], main: (d.main || []).concat(d.finisher || []), cool: d.cool || [], plan: true }; }
 
-  root.Plans = { SCHEMA, paramsFromProfile, missing, templateGaps, activatable, create, preview, activate, pause, resume, cancel, skip, unskip, move, setVersion, alternatives, swap, diffParams, applyParams, profileDiff, DIFF_HE, logDay, unlog, adjust, unmove, unreplace, update, days, dayOf, todayDay, stats, runDef, get, active, isTraining, list: () => Object.values(st().list) };
+  root.Plans = { SCHEMA, rank, convertItem, paramsFromProfile, missing, templateGaps, activatable, create, preview, activate, pause, resume, cancel, skip, unskip, move, setVersion, alternatives, swap, diffParams, applyParams, profileDiff, DIFF_HE, logDay, unlog, adjust, unmove, unreplace, update, days, dayOf, todayDay, stats, runDef, get, active, isTraining, list: () => Object.values(st().list) };
 })(typeof window !== 'undefined' ? window : globalThis);

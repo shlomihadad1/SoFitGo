@@ -7,7 +7,7 @@ const JS = ['src/js/i18n.js', 'src/js/figure.js', 'src/data/exercises.js', 'src/
    service worker for offline use; the single-file artifact inlines it. Keeps the first-load budget (700 KB) intact. */
 const LAZY = ['src/data/tutorials.js', 'src/data/tutorials_media.js', 'src/js/screens_help.js'];
 /* RC5: second on-demand chunk for screens that are not needed on first load (precached for offline like help.js) */
-const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js', 'src/js/meal_options.js', 'src/js/sync_tools.js', 'src/js/gate.js', 'src/js/gate_ui.js', 'src/js/food_prefs_ui.js'];
+const EXTRA = ['src/js/activity_more.js', 'src/js/screens_activity.js', 'src/js/screens_shopping.js', 'src/js/screens_fridge.js', 'src/js/screens_beta.js', 'src/js/screens_signature_more.js', 'src/js/screens_m8.js', 'src/js/screens_programs.js', 'src/js/screens_install.js', 'src/js/screens_travel_sheet.js', 'src/js/screens_profile.js', 'src/js/screens_pday.js', 'src/js/screens_recipes.js', 'src/js/screens_food_near.js', 'src/js/run_setup.js', 'src/js/coach_ask.js', 'src/js/meal_options.js', 'src/js/sync_tools.js', 'src/js/gate.js', 'src/js/gate_ui.js', 'src/js/food_prefs_ui.js', 'src/js/builder.js', 'src/js/screens_builder.js', 'src/js/screens_privacy.js', 'src/js/export_csv.js'];
 /* M10: accounts + sync + legal drafts — loaded only when the user opens the account screen or already has a session */
 const ACCOUNT = ['src/js/account.js', 'src/js/screens_account.js'];
 /* Admin CMS content loader: its own small chunk (cms.js), fetched right after the first render only when this device has CMS
@@ -49,7 +49,15 @@ let esb = null; try { esb = require('esbuild'); } catch (e) { /* esbuild not ins
 const minJs = (code, f) => esb && !process.env.FIT30_NOMIN ? `/* ${f} */` + esb.transformSync(code, { loader: 'js', minifyWhitespace: true, minifySyntax: true, legalComments: 'none', charset: 'utf8', target: 'esnext' }).code : `/* ${f} */\n` + code;
 const css = esb && !process.env.FIT30_NOMIN ? esb.transformSync(cssSrc, { loader: 'css', minifyWhitespace: true, charset: 'utf8' }).code : cssSrc;
 /* first-load budget: recipe media records with no media at all are dropped from the shipped copy (Media.* treats a missing record as "none") */
-const slim = (f, t) => f === 'src/data/media.js' ? t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}').replace(/"[sl]Bytes":\d+,|"sha":"[0-9a-f]+",|,"origin":"generated"/g, '') : t; /* first-load copy: drop metadata the app never reads (sizes, hash, origin stay in src/data/media.js for the media tests) */
+const slim = (f, t) => f === 'src/data/media.js' ? expandPosters(t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}').replace(/"[sl]Bytes":\d+,|"sha":"[0-9a-f]+",|,"origin":"generated"/g, '')) : t;
+/* 25.10.2026 (first-load budget): a generated cover's large file name, size and the empty video slot are derivable — the shipped copy
+   keeps only the small file name and restores the rest when the file runs, so every Media.* reader sees the same records as before */
+function expandPosters(t) {
+  const out = t.replace(/\{"s":"([^"]+)-480\.webp","l":"\1-960\.webp","w":960,"h":540,"origin":"generated"\}/g, '{"s":"$1-480.webp"}').replace(/,"video":null/g, '');
+  const tail = /; \}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/;
+  if (!tail.test(out)) throw new Error('media.js: unexpected format — cannot ship the compact copy');
+  return out.replace(tail, "; (function (M) { for (const k in M.ex) { const e = M.ex[k], p = e.poster; if (e.video === undefined) e.video = null; if (p && !p.l) { p.l = p.s.replace('-480.webp', '-960.webp'); p.w = 960; p.h = 540; p.origin = 'generated'; } } })(root.MEDIA); })(typeof window !== 'undefined' ? window : globalThis);");
+} /* first-load copy: drop metadata the app never reads (sizes, hash, origin stay in src/data/media.js for the media tests) */
 const js = JS.map(f => minJs(slim(f, read(f)), f)).join('\n');
 const lazyJs = LAZY.map(f => minJs(read(f), f)).join('\n');
 const extraJs = EXTRA.map(f => minJs(read(f), f)).join('\n');
@@ -157,7 +165,7 @@ Build ${hash}
 בדיקה במחשב: בתוך התיקייה מריצים  python3 -m http.server 8080  ופותחים http://localhost:8080
 (פתיחה ישירה של index.html כקובץ עובדת, אבל בלי Service Worker).
 
-נתונים: נשמרים רק במכשיר (Local Storage; תמונות ב־IndexedDB). אין שרת ואין ענן.
+נתונים: נשמרים במכשיר (Local Storage; תמונות ב־IndexedDB). רק בגרסה עם חשבון, ורק אחרי התחברות וסנכרון, עותק של הפרופיל, האימונים, התזונה, המעקב והתוכניות נשמר גם בשרת (Supabase). תמונות לא מסונכרנות.
 באייפון האפליקציה שבמסך הבית מקבלת אחסון נפרד מ־Safari — להעברה: הגדרות ← ייצוא גיבוי ← שחזור.
 תמונות התקדמות לא נכללות בגיבוי.
 `);

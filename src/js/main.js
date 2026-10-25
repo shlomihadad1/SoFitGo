@@ -29,7 +29,7 @@ const ENV = root.FIT30_ENV || 'pwa';
 
 const tr = k => (root.I18N ? root.I18N.t(k) : k);
 const NAV = [ { h: '#/', k: 'home', i: 'home' }, { h: '#/calendar', k: 'calendar', i: 'cal' }, { h: '#/workouts', k: 'workouts', i: 'dumbbell' }, { h: '#/nutrition', k: 'nutrition', i: 'food' }, { h: '#/progress', k: 'progress', i: 'chart' } ];
-const SECTION = { admin: 'settings', account: 'settings', legal: 'settings', coach: 'home', travel: 'home', planb: 'home', feedback: 'settings', fridge: 'nutrition', activity: 'progress', help: 'settings', explain: 'workouts', review: 'progress', records: 'progress', shopping: 'nutrition', home: 'home', calendar: 'calendar', workouts: 'workouts', day: 'workouts', library: 'workouts', ex: 'workouts', nutrition: 'nutrition', recipes: 'nutrition', recipe: 'nutrition', 'nearby': 'nutrition', targets: 'nutrition', progress: 'progress', settings: 'settings', programs: 'workouts', program: 'workouts', media: 'settings', profile: 'settings', setup: 'workouts', plan: 'workouts', pday: 'workouts', install: 'settings' };
+const SECTION = { builder: 'workouts', privacy: 'settings', admin: 'settings', account: 'settings', legal: 'settings', coach: 'home', travel: 'home', planb: 'home', feedback: 'settings', fridge: 'nutrition', activity: 'progress', help: 'settings', explain: 'workouts', review: 'progress', records: 'progress', shopping: 'nutrition', home: 'home', calendar: 'calendar', workouts: 'workouts', day: 'workouts', library: 'workouts', ex: 'workouts', nutrition: 'nutrition', recipes: 'nutrition', recipe: 'nutrition', 'nearby': 'nutrition', targets: 'nutrition', progress: 'progress', settings: 'settings', programs: 'workouts', program: 'workouts', media: 'settings', profile: 'settings', setup: 'workouts', plan: 'workouts', pday: 'workouts', install: 'settings' };
 
 function route() {
   const h = (location.hash || '#/').replace(/^#\/?/, ''); const [name, arg, ...rest] = h.split('/');
@@ -51,6 +51,8 @@ function screenFor(r) {
     case 'progress': return Screens.progress();
     case 'settings': return Screens.settings();
     case 'install': return Screens.install ? Screens.install() : extraLoading('התקנה ועבודה בלי חיבור', '#/settings'); /* M10: moved to extra.js */
+    case 'builder': return Screens.builder ? Screens.builder(r.arg) : extraLoading('בניית אימון', '#/workouts'); /* Workout Builder (extra.js) */
+    case 'privacy': return Screens.privacy ? Screens.privacy() : extraLoading('מרכז פרטיות', '#/settings'); /* Privacy Center (extra.js) */
     case 'programs': return Screens.programs ? Screens.programs() : extraLoading('מסלולים', '#/workouts'); /* M8: moved to extra.js (first-load budget) */
     case 'program': return Screens.program ? Screens.program(r.arg) : extraLoading('מסלול', '#/programs');
     case 'media': return Screens.media ? Screens.media() : extraLoading('סרטוני הדרכה', '#/settings');

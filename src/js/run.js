@@ -7,29 +7,30 @@ let el = null, tick = null, figStop = null, wake = null, audioCtx = null, lastRe
 function sess() { return S.load('session'); }
 function saveSess(s) { S.set('session', s); }
 /* a session belongs either to the fixed 30-day program (s.day) or to a personal plan day (s.plan = {id, n}) */
-function defOf(s) { return s.plan ? root.Plans.runDef(s.plan.id, s.plan.n) : C.dayDef(s.day); }
-function steps(s) { const d = defOf(s); return L.buildSteps(d, s.version).map(st => Object.assign({}, st, { ex: s.plan ? st.ex : C.exFor(s.day, st.ex) })); }
-const backHash = s => s.plan ? '#/pday/' + s.plan.n : '#/day/' + s.day;
+function defOf(s) { return s.custom ? (root.Builder ? root.Builder.runDef(s.custom.id) : s.custom.def || null) : s.plan ? root.Plans.runDef(s.plan.id, s.plan.n) : C.dayDef(s.day); } /* s.custom = {id, def}: a Workout Builder workout (def kept so a reopened session runs without the chunk) */
+function steps(s) { const d = defOf(s); return L.buildSteps(d, s.version).map(st => Object.assign({}, st, { ex: s.plan || s.custom ? st.ex : C.exFor(s.day, st.ex) })); }
+const backHash = s => s.custom ? '#/builder/' + s.custom.id : s.plan ? '#/pday/' + s.plan.n : '#/day/' + s.day;
 function elapsed(s) { return s.activeMs + (s.paused || !s.lastResume ? 0 : Date.now() - s.lastResume); }
 const mmss = ms => { const t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
 const PH = { warm: 'חימום', main: 'אימון', cool: 'שחרור' };
 
-function start(day, version, plan) {
-  const ex = sess();
-  if (ex && (ex.day !== day || ex.version !== version || JSON.stringify(ex.plan || null) !== JSON.stringify(plan || null))) {
-    root.UI.confirmSheet('יש אימון פתוח', `קיים אימון בתהליך (יום ${ex.day}). להתחיל אימון חדש ולמחוק את ההתקדמות של הפתוח?`, 'התחלה מחדש', () => { S.clearSession(); start(day, version); }, true);
+function start(day, version, plan, custom) {
+  const ex = sess(), ck = c => c ? c.id : null;
+  if (ex && (ex.day !== day || ex.version !== version || JSON.stringify(ex.plan || null) !== JSON.stringify(plan || null) || ck(ex.custom) !== ck(custom))) {
+    /* fixed 25.10.2026: restarting used to drop the plan (it opened the 30-day day instead of the plan day) */
+    root.UI.confirmSheet('יש אימון פתוח', `קיים אימון בתהליך (${ex.custom ? 'אימון שבניתי' : ex.plan ? 'יום ' + ex.plan.n + ' בתוכנית' : 'יום ' + ex.day}). להתחיל אימון חדש ולמחוק את ההתקדמות של הפתוח?`, 'התחלה מחדש', () => { S.clearSession(); start(day, version, plan, custom); }, true);
     return;
   }
   if (!ex) {
-    const st = L.buildSteps(defOf({ day, plan }), version);
+    const st = L.buildSteps(defOf({ day, plan, custom }), version);
     if (!st.length) { root.UI.toast('אין תרגילים ביום הזה'); return; }
     const begin = cfg => {
-      saveSess({ plan: plan || null, day, version, stepIdx: 0, total: st.length, log: {}, startedAt: Date.now(), activeMs: 0, lastResume: Date.now(), paused: false, rest: null, work: null, notes: '', rpe: null, tests: {}, feedback: {}, finished: false,
+      saveSess({ plan: plan || null, custom: custom ? { id: custom.id, def: defOf({ custom }) } : null, day, version, stepIdx: 0, total: st.length, log: {}, startedAt: Date.now(), activeMs: 0, lastResume: Date.now(), paused: false, rest: null, work: null, notes: '', rpe: null, tests: {}, feedback: {}, finished: false,
         mode: cfg.mode, cfg: { setRest: cfg.setRest, exRest: cfg.exRest, countdown: cfg.countdown, voice: cfg.voice }, cd: null, hold: null, restPlanMs: 0, restActualMs: 0 });
       open();
     };
     /* the setup sheet lives in the on-demand chunk (first-load budget); offline before it was ever loaded → last choices */
-    const meta = { def: defOf({ day, plan }), day, version, plan };
+    const meta = { def: defOf({ day, plan, custom }), day, version, plan, custom };
     if (root.RunSetup) return root.RunSetup.setupSheet(st, begin, meta);
     return root.App.loadChunk('extra.js').then(() => root.RunSetup ? root.RunSetup.setupSheet(st, begin, meta) : begin(runPrefs()), () => { root.UI.toast('מתחילים לפי ההגדרות האחרונות'); begin(runPrefs()); });
   }
@@ -148,7 +149,7 @@ function render() {
     else if (s.work && s.work.auto) autoBlock = `<div class="card" data-auto-work><span class="phase-tag">${s.work.est ? 'זמן משוער לסט' : 'זמן עבודה'}</span><div class="timer" data-work>${mmss(s.work.startedAt + s.work.dur * 1000 - Date.now())}</div>${s.work.est ? '<p class="tiny muted">הערכה של כ־3 שניות לחזרה. סיימתם קודם? לחצו "סיימתי סט".</p>' : ''}</div>`;
   }
   el.innerHTML = `
-    <div class="run-top"><button class="icon-btn" data-a="exit" aria-label="יציאה">${icon('close')}</button><div class="grow"><h3>${esc(d.title)}</h3><span class="tiny muted">יום ${s.day} · גרסה ${esc(L.VERSIONS[s.version])} (~${L.estimateMinutes(d, s.version)} דק׳) · <span class="num" data-el>${mmss(elapsed(s))}</span>${s.paused ? ' · <b class="warn">מושהה</b>' : ''} · <span data-run-mode>${auto ? 'אוטומטי' : 'ידני'}</span></span></div><button class="icon-btn" data-a="settings" aria-label="הגדרות אימון: מצב ומנוחה">${icon('gear')}</button><button class="icon-btn" data-a="${s.paused ? 'resume' : 'pause'}" aria-label="${s.paused ? 'המשך' : 'השהיה'}">${icon(s.paused ? 'play' : 'pause')}</button></div>
+    <div class="run-top"><button class="icon-btn" data-a="exit" aria-label="יציאה">${icon('close')}</button><div class="grow"><h3>${esc(d.title)}</h3><span class="tiny muted">${s.custom ? 'אימון שבניתי' : 'יום ' + s.day} · גרסה ${esc(L.VERSIONS[s.version])} (~${L.estimateMinutes(d, s.version)} דק׳) · <span class="num" data-el>${mmss(elapsed(s))}</span>${s.paused ? ' · <b class="warn">מושהה</b>' : ''} · <span data-run-mode>${auto ? 'אוטומטי' : 'ידני'}</span></span></div><button class="icon-btn" data-a="settings" aria-label="הגדרות אימון: מצב ומנוחה">${icon('gear')}</button><button class="icon-btn" data-a="${s.paused ? 'resume' : 'pause'}" aria-label="${s.paused ? 'המשך' : 'השהיה'}">${icon(s.paused ? 'play' : 'pause')}</button></div>
     <div class="run-prog"><i style="width:${(s.stepIdx / all.length * 100).toFixed(1)}%"></i></div>
     <div class="run-body">
       ${s.paused ? `<div class="banner warn">${icon('pause')}<div class="grow">האימון מושהה. הזמן לא נספר.</div><button class="btn sm primary" data-a="resume">המשך</button></div>` : ''}
@@ -238,7 +239,7 @@ function renderSummary(s) {
   const exIds = Array.from(new Set(main.filter(o => !o.x.item.test).map(o => o.x.ex)));
   const FB = { easy: 'קל מדי', ok: 'מתאים', hard: 'קשה', fail: 'לא הושלם' };
   exIds.forEach(id => { if (s.feedback[id]) return; const last = main.filter(o => o.x.ex === id && s.log[o.i] && s.log[o.i].fb).pop(); if (last) s.feedback[id] = s.log[last.i].fb; }); /* prefill from the per-set answers; still only a suggestion input */
-  el.innerHTML = `<div class="run-top"><div class="grow"><h3>סיכום אימון</h3><span class="tiny muted">יום ${s.day} · ${esc(d.title)}</span></div></div>
+  el.innerHTML = `<div class="run-top"><div class="grow"><h3>סיכום אימון</h3><span class="tiny muted">${s.custom ? 'אימון שבניתי' : 'יום ' + s.day} · ${esc(d.title)}</span></div></div>
     <div class="run-body">
       <div class="grid3"><div class="stat"><span class="v">${mmss(s.activeMs)}</span><span class="l">משך בפועל</span></div><div class="stat"><span class="v">${doneMain}/${main.length}</span><span class="l">סטים שהושלמו</span></div><div class="stat"><span class="v">${Math.round(ratio * 100)}%</span><span class="l">השלמה</span></div></div>
       ${(() => { const assumed = main.filter(o => s.log[o.i] && s.log[o.i].assumed).length, fbs = main.map(o => s.log[o.i] && s.log[o.i].fb).filter(Boolean), FBS = { easy: 'קל', ok: 'מתאים', hard: 'קשה', fail: 'לא הושלם' };
@@ -258,6 +259,12 @@ function renderSummary(s) {
   el.querySelector('[data-a=save]').addEventListener('click', () => {
     const ss = sess(), w = S.load('workouts');
     const sets = all.map((x, i) => Object.assign({ key: i }, ss.log[i] || { done: false, ex: x.ex, sec: x.sec, set: x.set }));
+    if (ss.custom) { /* Workout Builder: logged with a frozen snapshot; the 30-day log and plans are not touched */
+      const rec = { runId: 'r' + ss.startedAt, status: el.querySelector('#sm-st').value, durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', notes: (ss.notes || '').trim() };
+      if (root.Builder) root.Builder.logRun(ss.custom.id, rec); else { w.customLog = (w.customLog || []).concat([Object.assign({ wid: ss.custom.id, date: S.today(), at: new Date().toISOString(), snapshot: ss.custom.def }, rec)]); }
+      Object.entries(ss.feedback).forEach(([ex, v]) => { w.feedback[ex] = (w.feedback[ex] || []).concat([v]).slice(-6); }); S.save('workouts');
+      S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast('האימון נשמר בהיסטוריה'); return;
+    }
     if (ss.plan) { /* personal plan: log into the plan (with a snapshot), never into the 30-day log */
       root.Plans.logDay(ss.plan.id, ss.plan.n, { status: el.querySelector('#sm-st').value, version: ss.version, durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', restPlannedSec: Math.round((ss.restPlanMs || 0) / 1000), restActualSec: Math.round((ss.restActualMs || 0) / 1000), notes: (ss.notes || '').trim(), source: 'run', feedback: Object.assign({}, ss.feedback) });
       Object.entries(ss.feedback).forEach(([ex, v]) => { w.feedback[ex] = (w.feedback[ex] || []).concat([v]).slice(-6); }); S.save('workouts');

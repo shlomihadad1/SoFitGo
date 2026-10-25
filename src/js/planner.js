@@ -197,5 +197,5 @@
   /* RC4: the build-time gradual-load cap and volume measure, shared so changes made AFTER the build (Adapt "+1 set") are held to
      the same rule. The value is the existing RC1 engineering default (+25 %), not a validated professional rule (DR-01). */
   const LOAD_CAP = 1.25, sessionVolume = d => (d.main || []).reduce((s, x) => s + (x.sets || 1) * (typeof x.reps === 'number' ? x.reps : typeof x.sec === 'number' ? x.sec / 3 : 1), 0);
-  root.Planner = { VERSION, VERSION_HE, versioned, build, phasesFor, normProfile, sessionMinutes, itemSec, TYPE_HE, LEVEL_HE, LOAD_CAP, sessionVolume };
+  root.Planner = { VERSION, VERSION_HE, versioned, build, phasesFor, normProfile, sessionMinutes, itemSec, TYPE_HE, LEVEL_HE, LOAD_CAP, sessionVolume, dose, condDose, SLOTS, WARM, COOL }; /* dose / slots / warm-up / cool-down shared with the Workout Builder (one training model) */
 })(typeof window !== 'undefined' ? window : globalThis);
