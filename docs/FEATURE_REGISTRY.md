@@ -110,8 +110,8 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 
 | ID | Feature | State | What exists (evidence) | Gap / next |
 |---|---|---|---|---|
-| FR-E-01 | Workout Builder (user-built workouts) | PARTIAL | Plans from templates, exercise swaps, programs (`plans.js`, `screens_programs.js`; `e2e_stageB`) | Free builder: search/pick exercises, sets/reps/rest, order, favourite, duplicate, edit, guarded delete, expected duration, equipment, conflict warning, revert to original. Rules: no unknown exercise, sane ranges, estimate labelled; completed history never rewritten. |
-| FR-E-02 | Smart Exercise Substitution | PARTIAL | Swap with alternatives from the library; future-scope swaps recorded in the plan (`plans.js` `replace`, `e2e_stageB`/`e2e_m12_gate`) | Rank by equipment, level and goal; "no suitable alternative" state; duration recalculated and shown; tests before, mid and saved workout. |
+| FR-E-01 | Workout Builder (user-built workouts) | IMPLEMENTED (VERIFIED_PASS, emulation) — see the implementation table below | Plans from templates, exercise swaps, programs (`plans.js`, `screens_programs.js`; `e2e_stageB`) | Free builder: search/pick exercises, sets/reps/rest, order, favourite, duplicate, edit, guarded delete, expected duration, equipment, conflict warning, revert to original. Rules: no unknown exercise, sane ranges, estimate labelled; completed history never rewritten. |
+| FR-E-02 | Smart Exercise Substitution | IMPLEMENTED (VERIFIED_PASS) — see the implementation table below | Swap with alternatives from the library; future-scope swaps recorded in the plan (`plans.js` `replace`, `e2e_stageB`/`e2e_m12_gate`) | Rank by equipment, level and goal; "no suitable alternative" state; duration recalculated and shown; tests before, mid and saved workout. |
 | FR-E-03 | Personal records & progress | PARTIAL | `#/records` (records and milestones), progress screen, measures (`e2e_stageG`, `e2e_stageD`) | Only measured metrics; show the basis of each conclusion. |
 | FR-E-04 | Weekly review | VERIFIED_PASS (deterministic) | `#/review` weekly summary (`e2e_stageG`) | AI wording only after an AI provider is approved; must separate facts from interpretation. |
 | FR-E-05 | Grocery list | VERIFIED_PASS | `screens_shopping.js`: from the menu for N days, merged quantities, check items, add/delete custom items, copy, clear (`e2e_grocery`) | Saved past lists; categories; meal-prep mode (storage guidance only from reliable sources). |
@@ -119,8 +119,8 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 | FR-E-07 | AI Regression Lab | NOT_FOUND (no AI) | Deterministic coach tests (`e2e_m11_coach`) | Case bank with id, input, synthetic context, expected, prompt version and status — built together with FR-A-02. |
 | FR-E-08 | Support Copilot | NOT_FOUND | Bug reports stored per user (`bug_reports`, `screens_beta.js`) | Search of guides and known bugs; drafts only, human sends. |
 | FR-E-09 | Content Licensing Registry | PARTIAL | `media_build.js` refuses assets without source and licence; `MEDIA-MANIFEST.json`; credits shown (`stageE_test`) | Admin view with licence, expiry and status; block publishing of unlicensed assets (needs FR-M-07). |
-| FR-E-10 | Privacy centre & data controls | PARTIAL | Legal/privacy drafts (`#/legal`), account deletion (`delete_my_account`, typed confirmation), local wipe, what is not stored in the account (`screens_account.js`; `e2e_account`) | One screen listing data types, active integrations ("no AI provider"), export and deletion effects. |
-| FR-E-11 | Data export | PARTIAL | JSON backup of all local data (`App.exportBackup`; photos excluded, stated) (`e2e_stageB`) | CSV per domain; server-side export of the synced copy. |
+| FR-E-10 | Privacy centre & data controls | IMPLEMENTED (VERIFIED_PASS, emulation) — see the implementation table below | Legal/privacy drafts (`#/legal`), account deletion (`delete_my_account`, typed confirmation), local wipe, what is not stored in the account (`screens_account.js`; `e2e_account`) | One screen listing data types, active integrations ("no AI provider"), export and deletion effects. |
+| FR-E-11 | Data export | IMPLEMENTED: JSON backup + CSV per category (VERIFIED_PASS) — see the implementation table below | JSON backup of all local data (`App.exportBackup`; photos excluded, stated) (`e2e_stageB`) | CSV per domain; server-side export of the synced copy. |
 | FR-E-12 | Reliability & recovery centre | PARTIAL | Admin "מצב מערכת" (real connections only), save-failure handling (`e2e_savefail`), recovery docs in `docs/MASTER_PROJECT_STATE.md` | Error and test-result feeds need a data source (none connected; shown as such). |
 | FR-E-13 | Feature rollout / internal preview | PARTIAL | CMS drafts, live preview iframe, module switches, rollback (`e2e_app_control`) | Test accounts / cohorts; release notes per publish. |
 | FR-E-14 | Change Impact Analyzer | PARTIAL | Recipe "מה זה משנה?" runs the real engine (4 profiles × 14 days); diff before publish | Code-change impact report per commit (files → suites map). |
@@ -153,6 +153,8 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 | R-13 | Rollback failure | Low | Medium | `rls_cms_test` rollback; migration rollback file | Rollback creates a new version | Migration rollback SQL | Mitigated (local) |
 | R-14 | Version mismatch (app vs tutorials, SW cache) | Low | Medium | `rc1_test`, SW build id | Re-record per build; one shell cache | Reload prompt | Mitigated |
 | R-15 | Inactive feature shown as active | Medium | Medium | Coach labelled "לא AI"; Admin status page | Status page; registry states | — | Mitigated |
+| R-17 | First-load budget headroom is small (817,524 / 820,000 B measured on 25.10.2026) | High | Medium | `e2e_stageA` | New first-load code must be offset; heavy features go to on-demand chunks | Move rarely used first-load code to chunks | Open |
+| R-18 | Exporting another account's data on a shared device | Low | High | Privacy Center check | Export blocked when the device data owner ≠ signed-in user; sign-out wipes the device | — | Mitigated (simulated owner state in e2e) |
 | R-16 | Intermittent tests hiding real failures | Medium | Medium | meal_journal plan-id dependency (fixed) | Tests read the actual day's slots | Isolation runs with screenshots | Mitigated for this case |
 
 ## Integration contract registry
@@ -213,3 +215,38 @@ An item that cannot be run is marked BLOCKED, and the feature then is not VERIFI
 - Privacy centre / CSV export → local store + account deletion (exist) → **buildable now**.
 
 **Next three highest-value tasks** (no external dependency): FR-E-01 Workout Builder, FR-E-02 Smart Substitution, FR-E-10/11 Privacy centre + CSV export.
+
+
+## Implementation — 25.10.2026 (Workout Builder, Smart Substitution, Privacy Center + CSV)
+
+| Capability | Status | Where | Evidence | Limits |
+|---|---|---|---|---|
+| Workout Builder: goal (fat loss, strength, hypertrophy, general, endurance, mobility), 15/30/60 or 10–90 min, level, equipment, weekly sessions, focus groups, favourites, "not for me", no jumping | Implemented | `src/js/builder.js`, `src/js/screens_builder.js` (#/builder, extra chunk) | `builder_test` (generation over 6 goals × 3 times × 4 levels × 3 equipment sets: time, equipment, duplicates, level, reasons), `e2e_builder` | Weekly sessions are used only for advice and a complementary workout, not for a weekly calendar (plans do that). Medical limits are not inferred; the user excludes exercises. |
+| Time model | Implemented | `Logic.durationBreakdown` (the runner's own steps: warm-up, work, rests, transitions, cool-down) | `builder_test`: breakdown = shown minutes | Estimate, labelled as such |
+| Fit to time | Implemented | `fit()`: trims extra sets → cool-down / warm-up → last exercise → 1 set; or adds sets / a brisk-walk block; every change is written in the notes | `builder_test`, `e2e_builder` | Small catalogue (57 exercises): some combinations are shorter than chosen, and the note says why. |
+| Save / reload / edit / reorder / duplicate / favourite / revert to original / guarded delete | Implemented | Store `workouts.custom` (part of backup and sync) | `builder_test`, `e2e_builder` (reload) | — |
+| Start in the existing runner, resume after reload, history snapshot, no double log | Implemented | `run.js` (`s.custom`), `customLog` with `runId` | `e2e_builder`, `builder_test` | History never changes when a workout is edited or deleted. |
+| Plan Integrity Gate before start | Implemented | `Builder.check` → `Gate.checkWorkout` | `builder_test` (excluded → block; household equipment → warning) | Same severity rules as plans |
+| Smart Substitution (one ranking for plans and the builder) | Implemented | `Plans.rank` (`plans.js`); `Plans.alternatives` uses it | `builder_test` (filters, phase, small catalogue, limited equipment, favourites in use, unknown exercise, above-level label), `stageB_test` 328/328, `e2e_m12_gate`, `e2e_builder` | Ranking uses catalogue facts only; no invented alternative. |
+| Privacy Center | Implemented | `src/js/screens_privacy.js` (#/privacy) | `e2e_builder` (no-backend build); the account state is simulated in-page for the "foreign owner" case | With a live account, the sync status comes from `Account.state()`. Not checked against the hosted project. |
+| CSV export | Implemented | `src/js/export_csv.js` | `builder_test` (quoting, injection, BOM, CRLF, empty/partial/600+ rows, no tokens, no network code), `e2e_builder` (downloaded file content) | Photos not included. No server-side export. Generation is instant, so there is no cancel step. |
+| Runner restart bug (open session + new start dropped the plan) | Fixed | `run.js` | `e2e_builder` | — |
+
+## Next directive (Next-Generation Product Intelligence) — stage 0 audit against the code
+
+| Area | Exists today | Status | Next |
+|---|---|---|---|
+| Unified daily screen + one recommended action with reason | NOW card (`Screens.nowCard`, `insights.js`), "איך נבחר הצעד הבא?" | Partial | Data-freshness label; nutrition / steps / water in one block |
+| Daily recommendation engine (train / shorter / walk / recovery / comeback / info only) | `adapt.js` (rules), short versions, Plan B (`#/planb`), travel | Partial | One decision layer with an explanation trace |
+| Adaptive progression | `adapt.js` proposals (accept / dismiss / revert, history) — `stageF_test`, `e2e_stageF` | Implemented (rules) | Working weights are not recorded yet |
+| Personal records / progress | `#/records`, progress screen | Partial | Metric picker; measured vs. manual labels everywhere |
+| Weekly review | `#/review` (rules-based, labelled) | Implemented | — |
+| Comeback engine | Plan pause/resume, missed-session move, Plan B | Partial | Reduced week builder; guilt-free wording audit |
+| Sofit personality / explanation modes | `display.explain` short/detail (`gate_ui.js`), coach labelled "לא AI" | Partial | Five tone modes; provider-ready interface exists (`CoachAsk.provider`) |
+| Onboarding | Setup flow `#/setup` | Implemented | Measure time-to-first-workout locally |
+| Session state machine | `run.js` states (running / resting / paused / finished; saved after each action) | Partial | Formal state table + tests (FR-W-07) |
+| Offline & sync | Local-first, sync with conflict choice, unsynced indicator | Implemented (local) | Retry limits documented |
+| Notifications | None (no push) | Not Configured | In-app only |
+| Analytics / business metrics | None | Not Configured | Definitions first |
+| Feedback centre | `#/feedback`, `bug_reports` | Partial | Admin triage |
+| Accessibility suite | Contrast checks, labels, focus tests in several suites | Partial | Dedicated suite |

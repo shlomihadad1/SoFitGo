@@ -32,6 +32,8 @@ Historical reports in the repo root (`TEST-RESULTS-*`, `STAGE-*`, `RC1-REPORT.md
 | Workout engine | `logic.js`, `planner.js`, `plans.js`, `run.js` (active workout, state saved after every action, resume on reopen), `adapt.js` (rule-based adaptation), `gate.js` (Plan Integrity Gate) | 15/30/60-min versions, duration breakdown (`Logic.durationBreakdown`) |
 | Nutrition | `nutrition.js` (food table per 100 g, `src`/`chk` provenance), `recipes_med.js` (200 v2), `recipes_intl.js`, `mealplanner.js` (deterministic, seeded), `core.js` (journal, targets) | Values only from ingredients × food table. 15 new foods verified against USDA SR Legacy (via mirrors). |
 | Hydration / activity | `core.js` water (quick-add in litres, `qa-agents`), `activity.js`/`activity_more.js` steps (manual / CSV; no Health integration) | |
+| Workout Builder | `builder.js` + `screens_builder.js` (#/builder, extra chunk); saved workouts in Store `workouts.custom`, runs in `workouts.customLog` (snapshot) | Starts in the existing runner; checked by the Gate |
+| Privacy Center / export | `screens_privacy.js` (#/privacy), `export_csv.js` (CSV per category, local only) + JSON backup | Statements derived from code and account state |
 | Coach "Sofit" | `coach_ask.js` (local topic rules), `insights.js`, `screens_m8.js` | **No AI model.** Labelled "לא AI". |
 | AI | **None** | Inventory and zero-cost options in `docs/AI-INFRA-AUDIT.md` (awaiting the owner's decision). |
 | Subscriptions / payments | **None** (`gate.js` is the Plan Integrity Gate, not a paywall) | No entitlement model. |
@@ -55,7 +57,7 @@ The original specifications were not found as separate documents. The names were
 | Locale & Unit Integrity Linter | partial | `location_scan.js` (location/consent scan), `e2e_i18n`; no unit/plural linter |
 | Nutrition Calculation Trace | partial | Provenance on foods (`src`, `chk`), calculation from ingredients. No per-calculation trace record (FR-N-05). |
 | Data Freshness & Provenance Watch | not found | Only static `src` fields; no freshness dashboard (FR-N-06) |
-| Release Evidence Bundle | partial | §16 of the master doc + ZIP checks (build id, `unzip -t`); no single bundle file |
+| Release Evidence Bundle | yes | §16 of the master doc + ZIP checks (build id, `unzip -t`); no single bundle file |
 | Constraint Replay Harness | not found | Closest: `stageH1_test` / `nutrition_v2_test` multi-profile replays |
 | Adaptive Instruction Modes | not found | Exercise pages have one instruction depth |
 
