@@ -1,25 +1,25 @@
 # Release Evidence: build 74bdd9483f
 
-- Commit: `66a773a4ba5c047bc474aab2a76034875cfac990` (fix/default-cuisine); working tree clean
-- Generated: 2026-10-25T11:49:09.926Z from `run-d246052.log` (the actual runner output)
+- Commit: `ae76c1678f98ee78e504b2b3b4fcfec285a35b06` (fix/default-cuisine); working tree clean
+- Generated: 2026-10-25T13:08:26.820Z from `run-503da39.log` (the actual runner output)
 - Environment: local container, Node v22.22.0. Browsers are Playwright Chromium/WebKit **emulation**, not physical devices. The backend is a local PostgreSQL 16 emulator, not the hosted project.
 - Command: `sh tools/run_all.sh`
 - index.html size: 777433 B (the first-load budget, including network, is asserted by e2e_stageA)
-- ZIP: sofitgo-devtest-74bdd9483f-d246052.zip · 3143913 B · unzip -t OK · sw.js build 74bdd9483f
+- ZIP: not given
 
 | Result | Suites |
 |---|---|
-| PASS | 70 |
+| PASS | 71 |
 | FAIL (assertions) | 0 |
 | CRASH (runner crash) | 0 |
 | TIMEOUT | 0 |
 | NOT_RUN | 0 |
 
-Checks counted from the suites' own summaries: 27035 passed, 0 failed.
+Checks counted from the suites' own summaries: 27071 passed, 0 failed.
 
 | Suite | Result | Pass | Fail | Runner line |
 |---|---|---|---|---|
-| build_check | PASS | 187 | 0 | build checks: pass 187 fail 0 |
+| build_check | PASS | 188 | 0 | build checks: pass 188 fail 0 |
 | content_test | PASS | 11289 | 0 | content tests: pass 11289 fail 0 |
 | nutrition_v2_test | PASS | 69 | 0 | nutrition v2 tests: pass 69 fail 0 |
 | cms_content_test | PASS | 17 | 0 | cms content tests: pass 17 fail 0 |
@@ -85,6 +85,7 @@ Checks counted from the suites' own summaries: 27035 passed, 0 failed.
 | rls_test | PASS | 61 | 0 | rls tests: pass 61 fail 0 |
 | rls_cms_test | PASS | 99 | 0 | cms rls tests: pass 99 fail 0 |
 | rollback_test | PASS | 28 | 0 | rollback test: pass 28 fail 0 |
+| migration_audit_test | PASS | 35 | 0 | migration audit: pass 35 fail 0 |
 | e2e_account | PASS | 113 | 0 | account e2e: pass 113 fail 0 |
 | e2e_admin | PASS | 56 | 0 | admin e2e: pass 56 fail 0 |
 | e2e_app_control | PASS | 62 | 0 | app control e2e: pass 62 fail 0 |
@@ -96,77 +97,59 @@ Manual tests still required: a physical iPhone (Safari) and an Android device; t
 
 ## Supplement (from the actual outputs of this session)
 
-**Code commit:** `d246052`. The evidence above was generated at HEAD `66a773a`; `git diff --stat d246052 66a773a -- src tools supabase native` is empty (HEAD adds documentation only). The runner log was produced on `d246052`, build `74bdd9483f`.
+**Runner log:**
+- Produced on commit `503da39`, build `74bdd9483f` (first line of the log).
+- The evidence header shows HEAD at generation time.
 
-**First load** (network bytes, `e2e_stageA` → `perf.firstLoadBytes`): **787,720 B**; budget < 820,000 B unchanged.
+**Commits after `503da39`:**
+- `supabase/activation/*`: the one-paste SQL, i.e. the three migrations and rollbacks concatenated **unchanged** inside one transaction;
+- `tools/migration_audit_test.js` (+9 checks);
+- documentation.
 
-### WebKit (Playwright WebKit with an iPhone 13 profile, **not** a device): 9 suites, 400 checks, 0 failures
-| Suite | Result |
-|---|---|
-| e2e_run_state | PASS 31 / fail 0 |
-| e2e_m11_run | PASS 43 / fail 0 |
-| e2e_builder | PASS 49 / fail 0 |
-| e2e_menu_structure | PASS 42 / fail 0 |
-| e2e_m11_meals | PASS 31 / fail 0 |
-| e2e_content | PASS 9 / fail 0 |
-| e2e_food_global | PASS 29 / fail 0 |
-| e2e_m104_fixes | PASS 104 / fail 0 |
-| e2e_app_control | PASS 62 / fail 0 |
+**App code** (`src`) is unchanged since `d246052`.
 
-`e2e_stageB` was also run in that batch, but it has no WebKit support (it ran on Chromium, 76/76), so it is **not** counted as WebKit.
+**After these commits:**
+- `migration_audit_test` 44/44;
+- `rls_test` 61/61, `rls_cms_test` 99/99, `rollback_test` 28/28;
+- `activate_admin.sql`:
+  - gives the same schema as the three migrations one by one;
+  - running it twice is harmless;
+  - a failure inside it changes nothing;
+- `undo_admin.sql` restores the exact baseline;
+- `make_owner.sql` adds exactly one owner, and nothing for an unknown e-mail.
 
-### Server permissions for the admin accounts tab (local PostgreSQL 16 + RLS, not the hosted project)
-- `rls_cms_test` 99/99:
-  - anonymous / user / editor / reviewer are refused;
-  - admin counts match the tables;
-  - no e-mail or user id in the result;
-  - rollback removes the function and keeps the data;
-  - the migration re-applies cleanly.
-- `e2e_admin` 56/56: user and editor get **403** from the API.
-- The first `e2e_admin` attempt failed 2 checks because the local API emulator did not expose the new function (404). That is an emulator gap, not a product defect. The function was added to the emulator's list, as PostgREST exposes every function with EXECUTE; no assertion was changed.
+**Earlier, on the same build `74bdd9483f` (`d246052`):**
+- WebKit: 9 suites, 400 checks, 0 failures.
 
-### Reproducibility
-`d246052` was checked out into a clean worktree and `tools/build.js` was run there. Result: build `74bdd9483f`, and `diff -rq` against `dist/pwa` shows **identical files**.
+### Final packages (built from a clean worktree of `4e23429`)
+| File | Format | SHA-256 |
+|---|---|---|
+| `sofitgo-activation-4e23429.zip` | | `bf9ff5dd4520948ed73188990c6ba740e4ebb320ac69e6c0fcb6293ea028b63f` |
+| `sofitgo-deploy-74bdd9483f-4e23429.zip` | | `ed238aa5ec29f4eae195aecd235fcb2f602eb3cc029ce56621e4f1552fd19347` |
+| `sofitgo-beta-74bdd9483f-d246052.apk` | | `53f8327d1e8cf172a8eaf25b80e6523774ef7c3940b21d9dc4642dc64cf9d22d` |
 
-### Packages
-Location (this session's workspace): `/tmp/claude-0/-home-claude/4b523f9c-d418-5f33-b589-8c73a6e27351/scratchpad/release-74bdd9483f/`
+- `sofitgo-deploy-…zip`:
+  - Netlify site folder: the PWA, plus the accounts config (publishable key only);
+  - no README, local server or guides;
+  - every service-worker precache file is present;
+  - secret scan clean;
+  - files identical to the tested `dist/pwa`, except the config and the removed README;
+  - ran from an empty folder: workout, reload, offline reload OK (Chromium).
+- `sofitgo-activation-…zip`: `activate_admin.sql`, `make_owner.sql` and `undo_admin.sql` (byte-identical to the repo), plus `ACTIVATE.md`.
+- `…apk`:
+  - built from `d246052`, the same app code;
+  - signature v2 verified;
+  - certificate SHA-256 `259273c3…44fd5`;
+  - **not installed on any device or emulator** (no KVM here).
 
-| File | Format | Bytes | SHA-256 |
-|---|---|---|---|
-| `sofitgo-devtest-74bdd9483f-d246052.zip` | Web/PWA build, local only (empty accounts config) + serve_beta.py + guides | 3143913 | `1d5c31c7c446392cbee1703e9aae5053d8b2ed804bcf3ad0acc71ebd037328a1` |
-| `sofitgo-beta-74bdd9483f-d246052.apk` | Android installable APK (WebView over the same build; local only) | 4089444 | `53f8327d1e8cf172a8eaf25b80e6523774ef7c3940b21d9dc4642dc64cf9d22d` |
-| `sofitgo-beta-74bdd9483f-d246052.zip` | Web/PWA build with the accounts config (publishable key only), for a deploy after approval | 3127005 | `e445894dfda9cb4a835d5e17a7f94455719c16c4dc1507907cfad3e86a9b72c2` |
-| `sofitgo-source-d246052.zip` | source (git archive of d246052) | 4101597 | `f4379fcdef28f7e3543416fb4a15b9ae6cc59200f5f49e89347ed2d491f3c0b9` |
-
-**Checks run on the packages:**
-- `sha256sum -c`: all OK.
-- `unzip -t`: all OK.
-- `sw.js` build in both web ZIPs: `fit30-74bdd9483f`.
-- devtest config: `supabaseUrl: ''`.
-- Secret scan:
-  - no `sb_secret_`, private key, service-role token, keystore or password file in any package or APK;
-  - the source ZIP has 10 pattern hits, all guard code, documentation or the fake test value `sb_secret_0123456789abcdef`;
-  - the live publishable key (public by design) is present only in `sofitgo-beta-…zip`;
-  - the signing password appears in neither the APK nor the build log.
-- Run test of the devtest package: extracted into an empty folder, with its own `serve_beta.py` started. Workout started, set done, reload → same step, in Chromium and WebKit. Offline reload: Chromium OK; WebKit under Playwright: tool internal error, so **not verified** (device test T10).
-
-### APK
-`apksigner verify --print-certs`:
-- verified (APK Signature Scheme v2); 1 signer; `CN=SoFitGo Beta Test, O=SoFitGo`;
-- certificate SHA-256 `259273c37be7735aeb38ad669db57fa0b7c79096fef65fb66e7413da86a44fd5` (matches `docs/ANDROID_SIGNING_KEY.md`).
-
-`aapt2 dump badging`:
-- `com.sofitgo.beta.test`, versionCode 77, versionName `0.6.0-beta+74bdd9483f`;
-- targetSdk 35, minSdk 24;
-- permissions: INTERNET, VIBRATE, ACCESS_COARSE_LOCATION.
-
-Bundled `assets/www` = the exact file list of `dist/pwa`, with `sw.js` build `74bdd9483f` and an empty accounts config.
-
-**Not installed on any device or emulator.** This container has no `/dev/kvm`, so the Android emulator cannot run.
-
-### Not verified (honest list)
-- Any physical iPhone or Android device: install, screen lock, OS suspension, restart, wake lock, sound/vibration, home-screen install.
-- The hosted Supabase project: no live migration, no live CMS, no live accounts tab.
-- WebKit offline reload under Playwright.
+### Not done or not verified
+- **Live Supabase:**
+  - migrations not applied;
+  - no owner created;
+  - auth URLs not checked;
+  - no backup taken (no access).
+- **Netlify:** nothing deployed. The site currently serves the local-only test package of `74bdd9483f`.
+- **Devices:** no physical iPhone or Android test.
+- **Signing key backup:** waiting for the owner's age public key. The key is untouched.
 
 Production, Netlify, live Supabase and billing were **not touched**.
