@@ -18,7 +18,7 @@
 - B = PARTIALLY_IMPLEMENTED;
 - C = NOT_IMPLEMENTED;
 - E = BLOCKED;
-- רעיונות שלא שוחזרו = NOT_RECOVERED (ראו `SOFITGO_MASTER_REQUIREMENTS.md` §12: 27 מתוך 43).
+- רעיונות שלא שוחזרו = NOT_RECOVERED (ראו `SOFITGO_MASTER_BACKLOG.md`: 26 מתוך 43).
 
 **מקרא:**
 - **A** — ממומש ומאומת.

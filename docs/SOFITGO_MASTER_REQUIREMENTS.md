@@ -267,8 +267,8 @@ The 43-idea master list (13 original + 30 added) is **not stored in the reposito
 
 **Full-history search (25.10.2026):**
 - Searched all 88 commits on all 8 branches (`main`, `fix/default-cuisine`, `netlify-live`, `feat/beta-core`, `fix/cuisine-location-settings`, `m10-dev`, `m10.3`, `qa-agents`).
-- Exactly **16** INN numbers exist anywhere: 01, 02, 03, 07, 08, 09, 15, 16, 17, 22, 24, 25, 30, 33, 41, 43.
-- The other **27 are NOT_RECOVERED**: they are in no file and no commit. Earlier conversations are not accessible from this environment.
+- INN numbers referenced anywhere: 01, 02, 03, 07, 08, 09, 17, 18 (as "17/18"), 22, 24, 25, 30, 33, 41, 43, plus 15 and 16 (only as "INN-15/16?", name uncertain). That is 17 referenced.
+- The other **26 are NOT_RECOVERED**: they are in no file and no commit. Earlier conversations are not accessible from this environment.
 
 | Idea | INN | Status | Evidence / gap | Priority |
 |---|---|---|---|---|
