@@ -52,6 +52,8 @@ On the first open after a page load, if the record was running and `now − seen
 
 The screen explains this, and **resume** continues from the same step. A reload within 60 s continues normally.
 
+**Back from the background without a reload (since 0a3d469).** On `visibilitychange` → visible, on a `pageshow` from the back-forward cache and on the first timer tick, a running session that was last seen more than **15 min** ago (`SUSPEND_MS`, 5× the longest rest offered) is frozen the same way. Before, the return overwrote `seenAt`, so 2 h in the background showed 0:11 → 120:13 (reproduced with a frozen fake clock). Shorter gaps (a screen locked between sets) count as workout time, because people train with the screen locked. The 15-minute value is an implementation choice and can be changed.
+
 Before 25.10.2026, a session reopened 2 h later showed 2 h 5 min of active time (verified in the browser). That defect is now fixed.
 
 Automatic mode keeps its own guard: a work phase noticed more than 4 s late pauses at that set (`hold = 'late'`), which is unchanged.
@@ -85,7 +87,7 @@ There is **no background execution**: timers do not run while the app is suspend
 
 ## Tests
 
-- `tools/run_state_test.js`: derivation, allowed and invalid events, interruption recovery including rest time left, idempotent recovery, short gap, paused and completed records.
+- `tools/run_state_test.js`: background limit (5 min keeps running, 2 h interrupted), derivation, allowed and invalid events, interruption recovery including rest time left, idempotent recovery, short gap, paused and completed records.
 - `tools/e2e_run_state.js`:
   - the stub loads on demand;
   - ready → in progress / resting → paused;
@@ -94,5 +96,6 @@ There is **no background execution**: timers do not run while the app is suspend
   - quick reload, and a killed app after 2 h → interrupted with correct time;
   - offline set + save once;
   - discard;
-  - first use offline.
+  - first use offline;
+  - back from the background after 2 h (interrupted, time not inflated) and after 5 min (keeps counting), simulated.
 - `tools/e2e_m11_run.js`: automatic mode, guards, Safe Stop, and the reload rule follows the measured gap.
