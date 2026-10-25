@@ -37,13 +37,17 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-01 | Sofit Flex (15/30/60, swaps, low energy) | INN-01, master §12, INNOVATION-PROPOSALS-M8 #5 | PARTIALLY_IMPLEMENTED | `Logic.VERSIONS`, `plans.js`, `builder.js` | P1 | Pick by equipment, place and day schedule (needs reviewed load rules) |
 | SLL-02 | Minimum Mode (1/3/5/8 min) | INN-02 | BLOCKED | — | P1 | Reviewed micro-workout content + a rule for logging partial workouts |
 | SLL-03 | Fridge-to-Meal | INN-03 | IMPLEMENTED_AND_VERIFIED | `screens_fridge.js`; `e2e_fridge` | P1 | — |
-| SLL-04 | — | — | NOT_RECOVERED | — | — | Owner to supply the wording |
-| SLL-05 | — | — | NOT_RECOVERED | — | — | " |
-| SLL-06 | — | — | NOT_RECOVERED | — | — | " |
+| SLL-04 | Eat Out Without Guessing: restaurant choices aligned with goals, with stated uncertainty of estimates | owner addendum 25.10 (Oct 19 list #4)* | NOT_IMPLEMENTED (no restaurant data source); related row "Restaurant Copilot" BLOCKED (AI) | — | P2 | Decide the data source; estimates must show their uncertainty |
+| SLL-05 | Travel Mode: workouts, food and routines adapted to travel | Oct 19 list #5* | IMPLEMENTED_AND_VERIFIED | travel sheet, `signature.js`; `stageG_test`, `e2e_m12_gate` | P2 | — |
+| SLL-06 | Personal Pattern Finder: useful trends in user-approved history | Oct 19 list #6* | NOT_IMPLEMENTED | — | P3 | Consent model first (shared with SLL-09) |
 | SLL-07 | Plan B hub ("I don't have X") | INN-07 | PARTIALLY_IMPLEMENTED | `screens_beta.js`; `e2e_planb_feedback` | P1 | More "I don't have X" paths |
 | SLL-08 | Smart Grocery Loop (v2 done, v3 = swaps for "not found") | INN-08 | PARTIALLY_IMPLEMENTED | `screens_shopping.js`; `e2e_grocery` | P1 | v3 swaps from the `SWAP` table |
 | SLL-09 | User-Controlled Sofit Memory | INN-09 | BLOCKED | — | P2 | Consent/delete model + approved AI provider |
-| SLL-10 … SLL-14 | — | — | NOT_RECOVERED (5) | — | — | Owner to supply |
+| SLL-10 | Life Score: transparent progress summary from defined metrics, no medical claims | Oct 19 list #10* | NOT_IMPLEMENTED | (MoveScore covers steps only) | P3 | Define the metrics and the formula, shown to the user |
+| SLL-11 | Ripple Effect: possible habit↔goal relations, never correlation presented as causation | Oct 19 list #11* | NOT_IMPLEMENTED | — | P3 | Needs history + wording rules |
+| SLL-12 | Friction Radar: recurring obstacles + non-judgemental adjustments | Oct 19 list #12* | NOT_IMPLEMENTED | — | P3 | Consent model; uses skip/partial logs |
+| SLL-13 | One-Day Autopilot: proposed day plan (workout, meals, water, reminders), editable or rejectable | Oct 19 list #13* | PARTIALLY_IMPLEMENTED (NOW card + daily plan exist; no single "propose my day" with edit/reject) | `screens_home.js`, `core.js` | P2 | One proposal screen built from existing plan, menu and water target |
+| SLL-14 | — | — | NOT_RECOVERED | — | — | Owner to supply (one of the 30 added ideas) |
 | SLL-15 | Wearables? (recorded only as "INN-15/16?") | master §12 | BLOCKED; name uncertain | — | P3 | Confirm the name; native app needed |
 | SLL-16 | Wearables? (same uncertain record) | master §12 | BLOCKED; name uncertain | — | P3 | Same as SLL-15 |
 | SLL-17 | Equipment Passport (with SLL-18) | INN-17/18 | PARTIALLY_IMPLEMENTED | plan setup equipment list, travel swaps | P2 | Plans change by place (TD-03); needs equipment exercises |
@@ -62,12 +66,18 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-42 | — | — | NOT_RECOVERED | — | — | Owner to supply |
 | SLL-43 | Beta Feedback Button | INN-43 | IMPLEMENTED_AND_VERIFIED | `screens_beta.js`; `e2e_planb_feedback`; admin triage (`e2e_admin`) | P3 | — |
 
-**Count:**
-- 15 IDs recovered with a name.
+\* **Mapping by position (an inference, stated):** the owner's addendum lists the 13 original concepts in an order whose positions 1, 2, 3, 7, 8 and 9 match exactly the six INN numbers attested in the repo (Flex, Minimum Mode, Fridge-to-Meal, Plan B, Smart Grocery Loop, Sofit Memory). The other seven concepts were therefore placed at their list positions (SLL-04, 05, 06, 10, 11, 12, 13). If the owner knows a different numbering, it overrides this.
+
+**Count (after the addendum):**
+- 22 IDs recovered with a name: 13 original concepts + SLL-17, 18, 22, 24, 25, 30, 33, 41, 43.
 - 2 IDs referenced but with an uncertain name (SLL-15, SLL-16).
-- **26 NOT_RECOVERED.**
+- **19 NOT_RECOVERED:** SLL-14, 19–21, 23, 26–29, 31, 32, 34–40, 42. These are among the 30 ideas added on Oct 19, whose text is in no accessible source (this conversation, 8 branches, 88 commits). No description was invented for them.
 
 Earlier today I reported "16 attested, 27 not recovered". The exact contexts show that `INN-17/18` also attests 18, so the correct split is 17 referenced and 26 not recovered.
+
+**Sofit Life Loop as a whole** (owner addendum): context → decision → action → learning → adaptation, as one experience — the NOW card, plan, adapt engine and weekly review are the existing parts of that loop.
+
+**Recipe requirements (owner addendum, Oct 19):** every home meal links to a recipe in the app, with ingredients and quantities, steps, **prep time separate from cook time**, servings, and nutrition with its source or estimation method; an external link only when the full instructions are external. Status: the 200 v2 recipes have all of these fields in-app (`prep`, `cook`, `servings: 1`, values from the food table with provenance; `nutrition_v2_test`, `content_test`); no external recipe links are used. **"22 minutes"** in the history is the workout-duration defect D4 (a workout shown as 22 min that did not match its content), fixed by the duration engine (`e2e_stageA`) — it is not a recipe-time requirement.
 
 **Ideas from the same backlog with no INN number** (recovered, no SLL slot is assigned because no number exists for them):
 
@@ -79,11 +89,8 @@ Earlier today I reported "16 attested, 27 not recovered". The exact contexts sho
 | Adaptive Recipe Scaling | IMPLEMENTED_AND_VERIFIED | portion limits; `nutrition_v2_test` |
 | Smart Leftovers / Meal Prep Planner | PARTIALLY_IMPLEMENTED | meal-prep tags |
 | Budget Mode | PARTIALLY_IMPLEMENTED | cost rating 1–3, no prices |
-| Travel Mode | IMPLEMENTED_AND_VERIFIED | `stageG_test`, `e2e_m12_gate` |
-| Personal Pattern Finder / Friction Radar | NOT_IMPLEMENTED | needs the consent model |
 | Restaurant Copilot / Local Food Translator | BLOCKED | AI service |
 | Shared Household List | BLOCKED | server lists + sharing |
-| One-Day Autopilot, Life Score, Ripple Effect | NOT_IMPLEMENTED | proposed only |
 | Low-Data Mode | PARTIALLY_IMPLEMENTED | media on demand |
 | Coach Tone Selector, Micro-Learning Cards, Preference Presets | NOT_IMPLEMENTED | proposed only |
 | Safe Stop & Escalation | PARTIALLY_IMPLEMENTED | stop guidance in workouts |
