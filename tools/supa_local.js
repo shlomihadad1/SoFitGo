@@ -11,7 +11,7 @@ const PORT = +(process.argv[2] || 54321), DB = process.env.SUPA_DB || 'sofitgo_l
 const PG = ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', DB, '-v', 'ON_ERROR_STOP=1', '-Atq', '-X'];
 const SECRET = crypto.randomBytes(32); let JWT_EXP = +(process.env.SUPA_JWT_EXP || 3600); let CONFIRM = process.env.SUPA_CONFIRM === '1'; let MAILFAIL = ''; /* '', 'rate' or 'blocked' — reproduces the hosted mailer's refusals */
 const TABLES = ['profiles', 'user_state', 'bug_reports', 'app_config', 'cms_content', 'cms_drafts', 'cms_revisions', 'cms_members'], RPCS = ['delete_my_account'];
-const RPC_JSON = ['cms_publish', 'cms_set_status', 'cms_rollback', 'cms_set_role', 'cms_members_list', 'cms_role', 'cms_audit_list']; /* functions with named arguments that return JSON (PostgREST: POST body = arguments) */
+const RPC_JSON = ['cms_publish', 'cms_set_status', 'cms_rollback', 'cms_set_role', 'cms_members_list', 'cms_role', 'cms_audit_list', 'cms_feedback_list', 'cms_feedback_set_status']; /* functions with named arguments that return JSON (PostgREST: POST body = arguments) */
 let offline = false; /* test hook: simulate a network failure (requests are dropped) */
 const lit = s => "'" + String(s).replace(/'/g, "''") + "'";
 const dq = s => { const t = '$j' + crypto.randomBytes(4).toString('hex') + '$'; return t + s + t; };

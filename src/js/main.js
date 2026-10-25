@@ -152,13 +152,16 @@ function updOffline() {
   else if (!off && cur) cur.remove();
 }
 /* ── export helpers ── */
+/* Android test app (native/android-webview): a WebView cannot save blob downloads, so files go through the app's bridge into
+   Downloads. Returns null when not in that app (the browser path is used), else { ok, where | error }. */
+App.nativeSave = (name, text, mime) => { const N = root.SoFitGoAndroid; if (!N || !N.saveFile) return null; try { const r = String(N.saveFile(name, mime || 'text/plain', text)); return r.startsWith('ok:') ? { ok: true, where: r.slice(3) } : { ok: false, error: r.replace(/^error:/, '') }; } catch (e) { return { ok: false, error: e.message || String(e) }; } };
 function fileOut(name, text, mime, title, onDone, note) {
   const canShare = (() => { try { return navigator.canShare && navigator.canShare({ files: [new File([text], name, { type: mime })] }); } catch (e) { return false; } })();
   root.UI.sheet(title, `${note ? `<div class="banner info small"><div>${note}</div></div>` : ''}
     <p class="small muted">${ENV === 'artifact' && !(App.dl && /\.json$/.test(name)) ? 'בגרסה שפתוחה בתוך Claude אי אפשר לשמור את סוג הקובץ הזה — השתמשו ב"העתקה" ושמרו את הטקסט (למשל בפתקים), או השתמשו בגרסת ה־PWA.' : 'שמרו את הקובץ במקום בטוח (למשל אפליקציית "קבצים" או iCloud Drive).'}</p>
     <div class="btns">${ENV !== 'artifact' || (App.dl && /\.json$/.test(name)) ? `<button class="btn primary" data-act="dl">${icon('share')} שמירת קובץ</button>` : ''}${canShare ? `<button class="btn" data-act="sh">שיתוף</button>` : ''}<button class="btn" data-act="cp">העתקה</button></div>
     <label class="field">תוכן (${Math.round(text.length / 1024)} KB)<textarea id="fo-t" readonly style="min-height:140px;direction:ltr;font-size:12px">${esc(text)}</textarea></label>`,
-    { dl: (el, e, close) => { if (ENV === 'artifact') { App.dl.save({ filename: name, data: text }).then(() => { onDone && onDone(); root.UI.toast('הקובץ נשמר'); }).catch(er => root.UI.toast(er && er.code === 'declined' ? 'השמירה בוטלה' : 'השמירה לא זמינה כאן — השתמשו ב"העתקה"')); return; } try { const b = new Blob([text], { type: mime }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); onDone && onDone(); root.UI.toast('הקובץ נוצר: ' + name); } catch (er) { root.UI.toast('השמירה נכשלה — נסו "העתקה"'); } },
+    { dl: (el, e, close) => { const nv = App.nativeSave(name, text, mime); if (nv) { if (nv.ok) { onDone && onDone(); root.UI.toast('נשמר ב־' + nv.where); } else root.UI.toast('השמירה נכשלה: ' + nv.error + ' — השתמשו ב"העתקה"'); return; } if (ENV === 'artifact') { App.dl.save({ filename: name, data: text }).then(() => { onDone && onDone(); root.UI.toast('הקובץ נשמר'); }).catch(er => root.UI.toast(er && er.code === 'declined' ? 'השמירה בוטלה' : 'השמירה לא זמינה כאן — השתמשו ב"העתקה"')); return; } try { const b = new Blob([text], { type: mime }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); onDone && onDone(); root.UI.toast('הקובץ נוצר: ' + name); } catch (er) { root.UI.toast('השמירה נכשלה — נסו "העתקה"'); } },
       sh: () => { navigator.share({ files: [new File([text], name, { type: mime })], title: name }).then(() => { onDone && onDone(); }).catch(() => {}); },
       cp: (el, e, close, b) => { const ta = b.querySelector('#fo-t'); const fallback = () => { ta.focus(); ta.select(); root.UI.toast('הטקסט מסומן — העתיקו ידנית'); };
         try { navigator.clipboard.writeText(text).then(() => { onDone && onDone(); root.UI.toast('הועתק'); }, fallback); } catch (er) { fallback(); } } });
@@ -226,7 +229,7 @@ function boot() {
   const ss = S.load('session'); if (ss && !ss.parked) root.Run.open(); // app closed mid-workout → reopen where it stopped
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(ok => { const m = S.load('meta'); m.persisted = ok; S.save('meta'); }); } catch (e) { }
   if (ENV === 'artifact' && window.claude && window.claude.use) { window.claude.use('downloads').then(d => { App.dl = d; }).catch(() => {}); }
-  if (root.Capacitor && root.Capacitor.isNativePlatform && root.Capacitor.isNativePlatform()) { App.swState = 'native'; return; } /* RC5: native app — files are bundled in the app, no service worker */
+  if ((root.Capacitor && root.Capacitor.isNativePlatform && root.Capacitor.isNativePlatform()) || root.SoFitGoAndroid) { App.swState = 'native'; return; } /* RC5: native app — files are bundled in the app, no service worker */
   if (ENV === 'artifact' || !('serviceWorker' in navigator) || location.protocol === 'file:') { App.swState = 'unsupported'; return; }
   App.swState = 'pending';
   navigator.serviceWorker.register('sw.js').then(reg => { App.swState = reg.active ? 'active' : 'pending'; navigator.serviceWorker.ready.then(() => { App.swState = 'active'; }); }).catch(() => { App.swState = 'unsupported'; });

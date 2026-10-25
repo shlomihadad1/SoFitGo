@@ -61,9 +61,11 @@ Screens.privacy = function () {
     } };
 };
 async function save(f) {
+  const nv = root.App.nativeSave && root.App.nativeSave('sofitgo-' + f.name, f.csv, 'text/csv'); if (nv) { if (!nv.ok) throw new Error(nv.error); return; } /* Android test app: into Downloads */
   const blob = new Blob([f.csv], { type: 'text/csv;charset=utf-8' });
   if (root.FIT30_ENV === 'artifact' && root.App.dl) return root.App.dl.save({ filename: f.name, data: f.csv });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sofitgo-' + f.name; a.dataset.csvDownload = f.name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
-function dl(name) { st.err = null; try { const f = root.ExportCSV.files().find(x => x.name === name); if (!f) throw new Error('קובץ לא מוכר'); save(f); st.last = `יוצא ${f.he}: ${f.n} שורות.`; } catch (e) { st.err = 'הייצוא נכשל: ' + (e.message || e); } root.App.render(); }
+function dl(name) { st.err = null; const fail = e => { st.err = 'הייצוא נכשל: ' + (e.message || e); st.last = null; root.App.render(); }; /* the save result is awaited: a failed save is never reported as exported */
+  try { const f = root.ExportCSV.files().find(x => x.name === name); if (!f) throw new Error('קובץ לא מוכר'); Promise.resolve(save(f)).then(() => { st.last = `יוצא ${f.he}: ${f.n} שורות.`; root.App.render(); }, fail); } catch (e) { fail(e); } }
 })(window);

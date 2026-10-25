@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SoFitGo" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#0E1B2A</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

@@ -114,10 +114,33 @@ const draft = (who, id, data, base) => by(who, `insert into public.cms_drafts (k
   ok(aj.some(x => x.kind === 'text' && x.action === 'publish' && x.actor_email === 'admin@test.invalid') && aj.some(x => x.kind === 'role' && x.action === 'grant' && x.actor_email === 'owner@test.invalid'), 'audit log: who published what, and who granted roles (readable by members)', aj.slice(0, 3));
   ok(denied(by('user', `select public.cms_audit_list(10)`)) && denied(anon(`select public.cms_audit_list(10)`)), 'audit log hidden from users and anonymous');
 
+  G = 'feedback review (admin): 20261025000200';
+  { const rep = (who, cid, title) => by(who, `insert into public.bug_reports (client_report_id, category, title, description, severity) values ('${cid}', 'bug', ${lit(title)}, 'תיאור', 'high')`);
+    ok(!rep('user', 'rep-user-0001', 'הכפתור לא עובד').err && !rep('editor', 'rep-edit-0001', 'טקסט חתוך').err, 'testers file reports (their own rows)');
+    ok(by('user', `select count(*) from public.bug_reports`).out === '1', 'a tester still sees only their own report');
+    ok(denied(by('user', `update public.bug_reports set status = 'resolved'`)) || by('user', `select status from public.bug_reports`).out === 'received', 'a tester cannot change the status');
+    ok(denied(anon(`select public.cms_feedback_list()`)), 'anonymous cannot list reports');
+    ok(denied(by('user', `select public.cms_feedback_list()`)), 'a plain user cannot list reports');
+    ok(denied(by('editor', `select public.cms_feedback_list()`)) && denied(by('reviewer', `select public.cms_feedback_list()`)), 'editor and reviewer cannot list reports (personal content: admin only)');
+    const L = by('admin', `select public.cms_feedback_list()`); const lj = L.out ? JSON.parse(L.out) : {};
+    ok(!L.err && lj.total === 2 && lj.items.length === 2 && lj.counts.received === 2, 'admin lists all reports with totals per status', L);
+    ok(lj.items && lj.items.every(x => /^[0-9a-f]{8}$/.test(x.reporter) && !('email' in x) && !('user_id' in x)) && !/@test\.invalid/.test(L.out), 'reporter shown as a short pseudonymous id — no e-mail, no full user id');
+    const id = lj.items && lj.items.find(x => x.title === 'הכפתור לא עובד').id;
+    ok(denied(by('editor', `select public.cms_feedback_set_status('${id}', 'resolved', null)`)) && denied(by('user', `select public.cms_feedback_set_status('${id}', 'resolved', null)`)), 'editor and user cannot change a status');
+    ok(by('admin', `select public.cms_feedback_set_status('${id}', 'bogus', null)`).err && by('admin', `select public.cms_feedback_set_status('${id}', 'resolved', '${'x'.repeat(1001)}')`).err, 'unknown status and a too-long note are refused');
+    ok(!by('admin', `select public.cms_feedback_set_status('${id}', 'in_progress', 'שוחזר, בטיפול')`).err, 'admin sets a status with a note');
+    ok(by('user', `select status from public.bug_reports`).out === 'in_progress', 'the reporter sees the new status of their report');
+    ok(by('owner', `select (public.cms_feedback_list('in_progress'))->>'total'`).out === '1' && by('owner', `select json_array_length((public.cms_feedback_list(null, null, 1, 1))->'items')`).out === '1', 'owner: filter by status and paging work');
+    ok(/feedback:status/.test(by('admin', `select string_agg(kind || ':' || action, ',') from public.cms_revisions where kind = 'feedback'`).out || ''), 'the change is in the audit history (kind feedback, action status)');
+    ok(by('admin', `select public.cms_feedback_set_status('00000000-0000-4000-8000-00000000abcd', 'resolved', null)`).err, 'an unknown report id is refused');
+    const rb = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/rollback/20261025000200_rollback.sql'), 'utf8'));
+    ok(!rb.err && psql(DB, `select count(*) from public.bug_reports`).out === '2' && psql(DB, `select count(*) from pg_proc where proname like 'cms_feedback%'`).out === '0', 'rollback removes the feedback functions and keeps every report', rb.err);
+    const re = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations/20261025000200_sofitgo_admin_feedback.sql'), 'utf8')); ok(!re.err, 're-applying the migration after rollback works', re.err); }
+
   G = 'no secrets needed';
   const defs = psql(DB, `select string_agg(prosrc, ' ') from pg_proc where proname like 'cms_%'`).out || '';
   ok(!/service_role|secret/i.test(defs), 'CMS functions rely on the caller\'s token, not a service key');
-  ok(psql(DB, `select bool_and(prosecdef) from pg_proc where proname in ('cms_publish','cms_set_status','cms_rollback','cms_set_role','cms_members_list','cms_role')`).out === 't', 'privileged functions are SECURITY DEFINER with role checks inside');
+  ok(psql(DB, `select bool_and(prosecdef) from pg_proc where proname in ('cms_publish','cms_set_status','cms_rollback','cms_set_role','cms_members_list','cms_role','cms_feedback_list','cms_feedback_set_status')`).out === 't', 'privileged functions are SECURITY DEFINER with role checks inside');
   ok(psql(DB, `select bool_and(array_to_string(proconfig, ',') like '%search_path=%') from pg_proc where proname like 'cms_%' and prosecdef`).out === 't', 'every SECURITY DEFINER function pins search_path');
 
   if (!process.env.KEEP) psql('postgres', `drop database if exists ${DB};`);

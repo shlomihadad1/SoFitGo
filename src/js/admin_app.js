@@ -192,7 +192,7 @@ function readCfg(v) { const d = cfgData(); d.off = [...v.querySelectorAll('[data
 /* ════════ 5. audit log ════════ */
 function audit() {
   if (!S.audit) { api('/rest/v1/rpc/cms_audit_list', { method: 'POST', body: { p_limit: 200 } }).then(r => { S.audit = r || []; root.App.render(); }, e => { st.err = A.errText(e); S.audit = []; root.App.render(); }); return '<section class="card"><p class="small muted">טוען…</p></section>'; }
-  const AH = { publish: 'פרסום', archive: 'ארכוב / חזרה לברירת מחדל', restore: 'שחזור', rollback: 'חזרה לגרסה קודמת', grant: 'הענקת הרשאה', revoke: 'הסרת הרשאה' }, KH = Object.assign({ role: 'הרשאות' }, EXT.kindHe);
+  const AH = { publish: 'פרסום', archive: 'ארכוב / חזרה לברירת מחדל', restore: 'שחזור', rollback: 'חזרה לגרסה קודמת', grant: 'הענקת הרשאה', revoke: 'הסרת הרשאה', status: 'שינוי סטטוס' }, KH = Object.assign({ role: 'הרשאות', feedback: 'דיווח משוב' }, EXT.kindHe);
   const rows = S.audit.filter(x => !S.akind || x.kind === S.akind);
   return `<section class="card stack" data-cms-audit><h3>יומן שינויים</h3><p class="small muted">כל פרסום, ארכוב, שחזור ושינוי הרשאה — מי, מה ומתי. היומן נכתב בשרת ואי אפשר לערוך או למחוק אותו מכאן. שמירת טיוטה לא נרשמת ביומן.</p>
     <label class="field">סוג<select id="ap-ak"><option value="">הכול</option>${Object.entries(KH).map(([k, v]) => `<option value="${k}" ${S.akind === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
@@ -218,8 +218,33 @@ function status() {
 }
 
 /* ── registration ── */
-EXT.tabs.push(['texts', 'טקסטים', 'exercises'], ['layout', 'מסכים ופריסה', 'texts'], ['design', 'עיצוב', 'layout'], ['settings', 'הגדרות אפליקציה', 'design'], ['audit', 'יומן שינויים', 'roles'], ['status', 'מצב מערכת', 'audit']);
-Object.assign(EXT.views, { texts, layout, design, settings, audit, status });
+EXT.tabs.push(['texts', 'טקסטים', 'exercises'], ['layout', 'מסכים ופריסה', 'texts'], ['design', 'עיצוב', 'layout'], ['settings', 'הגדרות אפליקציה', 'design'], ['audit', 'יומן שינויים', 'roles'], ['feedback', 'משוב ותקלות', 'audit'], ['status', 'מצב מערכת', 'audit']);
+/* ════════ 5b. feedback and issue review (migration 20261025000200; admin / owner only — checked by the server) ════════
+   Testers' reports (#/feedback). The reporter is a short pseudonymous id; no e-mail is shown. A status change is visible to the
+   reporter in their own list and is written to the audit log. */
+const FB_ST = { received: 'התקבל', reviewing: 'בבדיקה', in_progress: 'בטיפול', resolved: 'טופל' }, FB_CAT = { bug: 'תקלה', idea: 'רעיון', usability: 'שימושיות', other: 'אחר' }, FB_SEV = { low: 'נמוכה', medium: 'בינונית', high: 'גבוהה', critical: 'קריטית' }, FB_PAGE = 25;
+S.fb = S.fb || { data: null, status: '', cat: '', page: 0, open: null, err: null };
+function loadFb() { const f = S.fb; f.err = null;
+  return api('/rest/v1/rpc/cms_feedback_list', { method: 'POST', body: { p_status: f.status || null, p_category: f.cat || null, p_limit: FB_PAGE, p_offset: f.page * FB_PAGE } })
+    .then(r => { f.data = r || { total: 0, items: [], counts: {} }; }, e => { f.data = { total: 0, items: [], counts: {} }; f.err = /42883|PGRST202|cms_feedback_list/.test(String(e && (e.code || e.message) || e)) ? 'משוב: הפונקציה לא קיימת בשרת — ה־migration ‏20261025000200 עוד לא הוחל.' : A.errText(e); })
+    .then(() => root.App.render()); }
+function feedback() {
+  if (!canPub()) return `<section class="card" data-cms-fb-denied><h3>משוב ותקלות</h3><p class="small muted">דיווחי הבודקים מכילים תוכן אישי, ולכן רק מנהל/ת או בעלים רואים אותם. ההרשאה נבדקת בשרת.</p></section>`;
+  const f = S.fb; if (!f.data) { loadFb(); return '<section class="card"><p class="small muted" data-cms-fb-loading>טוען…</p></section>'; }
+  const d = f.data, pages = Math.max(1, Math.ceil((d.total || 0) / FB_PAGE));
+  return `<section class="card stack" data-cms-fb><h3>משוב ותקלות</h3><p class="small muted">דיווחים שנשלחו מהאפליקציה (משוב → דיווח). המדווח מוצג כמזהה קצר, בלי כתובת מייל. שינוי סטטוס נראה למדווח ברשימת הדיווחים שלו ונרשם ביומן השינויים.</p>
+    ${f.err ? `<div class="banner bad small" data-cms-fb-err>${icon('info')}<div>${esc(f.err)}</div></div>` : ''}
+    <div class="kv" data-cms-fb-counts>${Object.entries(FB_ST).map(([k, v]) => `<span>${esc(v)}: <b>${(d.counts || {})[k] || 0}</b></span>`).join('')}</div>
+    <div class="grid2"><label class="field">סטטוס<select id="fb-st"><option value="">הכול</option>${Object.entries(FB_ST).map(([k, v]) => `<option value="${k}" ${f.status === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+      <label class="field">סוג<select id="fb-cat"><option value="">הכול</option>${Object.entries(FB_CAT).map(([k, v]) => `<option value="${k}" ${f.cat === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label></div>
+    <div class="list" data-cms-fb-list>${(d.items || []).map(x => `<div class="li stack" data-fb="${esc(x.id)}"><button class="li-btn row between" data-act="fbOpen" data-id="${esc(x.id)}" aria-expanded="${f.open === x.id}"><div class="grow"><div class="t">${esc(x.title)}</div><div class="s">${esc(FB_CAT[x.category] || x.category)} · חומרה ${esc(FB_SEV[x.severity] || x.severity)} · ${esc(String(x.created_at).slice(0, 16).replace('T', ' '))} · מדווח <span class="ltr">${esc(x.reporter)}</span></div></div><span class="pill" data-fb-st="${esc(x.status)}">${esc(FB_ST[x.status] || x.status)}</span></button>
+      ${f.open === x.id ? `<div class="stack small" data-fb-detail><div><b>תיאור:</b> ${esc(x.description)}</div>${x.steps ? `<div><b>צעדים:</b> ${esc(x.steps)}</div>` : ''}${x.expected ? `<div><b>מה ציפו:</b> ${esc(x.expected)}</div>` : ''}${x.actual ? `<div><b>מה קרה:</b> ${esc(x.actual)}</div>` : ''}<div class="tiny muted">מסך: ${esc(x.screen || '—')} · גרסה: <span class="ltr">${esc(x.app_build || '—')}</span> · <span class="ltr">${esc(x.platform || '—')}</span></div>
+        <label class="field">סטטוס חדש<select id="fb-new">${Object.entries(FB_ST).map(([k, v]) => `<option value="${k}" ${x.status === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+        <label class="field">הערת צוות (פנימית, עד 1000 תווים)<textarea id="fb-note" maxlength="1000">${esc(x.admin_note || '')}</textarea></label>
+        ${x.handled_at ? `<div class="tiny muted">עודכן לאחרונה: ${esc(String(x.handled_at).slice(0, 16).replace('T', ' '))}</div>` : ''}<div class="btns">${btn('fbSave', 'שמירת סטטוס', `data-id="${esc(x.id)}"`, 'primary')}</div></div>` : ''}</div>`).join('') || '<p class="small muted" data-cms-fb-empty>אין דיווחים בסינון הזה.</p>'}</div>
+    <div class="row between"><span class="tiny muted">עמוד ${f.page + 1} מתוך ${pages} · ${d.total || 0} דיווחים</span><div class="btns">${f.page > 0 ? btn('fbPage', 'הקודם', 'data-d="-1"') : ''}${f.page + 1 < pages ? btn('fbPage', 'הבא', 'data-d="1"') : ''}${btn('fbReload', 'רענון')}</div></div></section>`;
+}
+Object.assign(EXT.views, { texts, layout, design, settings, audit, feedback, status });
 EXT.open.text = id => { st.tab = 'texts'; S.tsel = id; loadCat().then(() => root.App.render()); };
 EXT.open.layout = id => { st.tab = 'layout'; S.lscreen = id; root.App.render(); };
 EXT.open.theme = () => { st.tab = 'design'; S.theme = null; root.App.render(); };
@@ -257,7 +282,13 @@ Object.assign(A.H, {
   dUsePreset: el => { const p = st.content[key('theme', el.dataset.id)]; if (!p) return; S.theme = { name: p.data.name, tokens: JSON.parse(JSON.stringify(p.data.tokens || {})) }; root.UI.toast('הערכה נטענה לעריכה — שמרו טיוטה ופרסמו כדי להחיל'); root.App.render(); },
   dSavePreset: () => { const d = readTheme(document.getElementById('view')); root.UI.sheet('שמירה כערכה', `<div class="stack"><label class="field">מזהה הערכה (לטינית קטנה, ספרות וקו תחתון)<input id="ps-id" class="ltr" value="${esc((d.name || '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'my_theme')}"></label><p class="tiny muted">הערכה נשמרת כטיוטה ופורסמת כמו כל תוכן. היא לא מוחלת על האפליקציה — רק "העיצוב הפעיל" מוחל.</p><button class="btn primary" data-act="go">שמירת טיוטה</button></div>`, {
     go: async (x, ev, close, b) => { const id = 'preset_' + b.querySelector('#ps-id').value.trim(); if (A.problems('theme', id, d).length) { root.UI.toast(A.problems('theme', id, d)[0]); return; } try { await saveDraft('theme', id, JSON.parse(JSON.stringify(d))); close(); root.UI.toast('הערכה נשמרה כטיוטה'); } catch (er) { close(); st.err = A.errText(er); } root.App.render(); } }); },
-  auReload: () => { S.audit = null; root.App.render(); }
+  auReload: () => { S.audit = null; root.App.render(); },
+  fbOpen: el => { S.fb.open = S.fb.open === el.dataset.id ? null : el.dataset.id; root.App.render(); },
+  fbPage: el => { S.fb.page = Math.max(0, S.fb.page + (+el.dataset.d)); S.fb.data = null; S.fb.open = null; root.App.render(); },
+  fbReload: () => { S.fb.data = null; root.App.render(); },
+  fbSave: async el => { const v = document.getElementById('view'), id = el.dataset.id, stv = v.querySelector('#fb-new').value, note = v.querySelector('#fb-note').value.trim(); el.disabled = true;
+    try { await api('/rest/v1/rpc/cms_feedback_set_status', { method: 'POST', body: { p_id: id, p_status: stv, p_note: note || null } }); root.UI.toast('הסטטוס נשמר בשרת: ' + FB_ST[stv]); S.fb.data = null; S.audit = null; }
+    catch (e) { S.fb.err = 'השמירה נכשלה, הסטטוס לא השתנה: ' + A.errText(e); el.disabled = false; } root.App.render(); }
 });
 EXT.after.push(v => {
   const on = (sel, ev, fn) => v.querySelectorAll(sel).forEach(x => x.addEventListener(ev, fn));
@@ -284,6 +315,7 @@ EXT.after.push(v => {
   if (st.tab === 'settings') { const rd = () => { const d = readCfg(v); setPreview([{ kind: 'config', item_id: 'app', status: 'published', version: 0, data: d }]); const box = v.querySelector('[data-cms-valid]'); if (box) box.outerHTML = errList('config', 'app', d); };
     on('[data-mod]', 'change', rd); on('#ap-cmeals', 'change', rd); on('#ap-cflex', 'change', rd); on('#ap-cnt', 'input', rd); on('#ap-cnl', 'change', rd); }
   if (st.tab === 'audit') on('#ap-ak', 'change', ev => { S.akind = ev.target.value; root.App.render(); });
+  if (st.tab === 'feedback') { on('#fb-st', 'change', ev => { S.fb.status = ev.target.value; S.fb.page = 0; S.fb.data = null; root.App.render(); }); on('#fb-cat', 'change', ev => { S.fb.cat = ev.target.value; S.fb.page = 0; S.fb.data = null; root.App.render(); }); }
   if (!['layout', 'design', 'settings', 'texts'].includes(st.tab)) setPreview([]);
 });
 root.AdminApp = { texts: () => CAT, loadCat, setPreview, saveDraft, layoutData, themeData, cfgData };

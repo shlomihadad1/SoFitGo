@@ -1,0 +1,29 @@
+/* SoFitGo beta — Android test app (sideload). A WebView that shows the same web build (dist/pwa, copied into assets/www by
+   build_apk.sh) from https://appassets.androidplatform.net, so the page is a secure context and works fully offline.
+   Signing: SOFITGO_KEYSTORE / SOFITGO_KEYSTORE_PASS / SOFITGO_KEY_ALIAS environment variables — the keystore is NEVER in the repo. */
+plugins { id 'com.android.application' }
+def env = { k, d -> System.getenv(k) ?: d }
+android {
+    namespace 'com.sofitgo.beta'
+    compileSdk 35
+    defaultConfig {
+        applicationId env('SOFITGO_APP_ID', 'com.sofitgo.beta.test') // test id; the final store id is the owner's decision
+        minSdk 24
+        targetSdk 35
+        versionCode Integer.parseInt(env('SOFITGO_VERSION_CODE', '1'))
+        versionName env('SOFITGO_VERSION_NAME', '0.6.0-beta')
+    }
+    signingConfigs {
+        beta {
+            if (System.getenv('SOFITGO_KEYSTORE')) {
+                storeFile file(System.getenv('SOFITGO_KEYSTORE')); storePassword System.getenv('SOFITGO_KEYSTORE_PASS')
+                keyAlias env('SOFITGO_KEY_ALIAS', 'sofitgo-beta'); keyPassword System.getenv('SOFITGO_KEYSTORE_PASS')
+            }
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.beta }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'androidx.webkit:webkit:1.12.1' }

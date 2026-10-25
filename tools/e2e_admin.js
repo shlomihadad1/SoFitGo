@@ -144,6 +144,29 @@ const procs = [];
     for (const h of ['#/', '#/nutrition', '#/workouts', '#/recipes', '#/progress', '#/settings']) { await go(u, h, 500); } ok(uerr.length === 0, 'user screens render without JS errors with CMS content applied', uerr);
     ok(errs.length === 0, 'no JS errors (admin)', errs); await uc.close(); await ctx.close(); }
 
+  G = 'feedback review (migration 20261025000200)';
+  { for (const [cid, title, sev] of [['fb-e2e-0001', 'הכפתור שמירה לא מגיב', 'high'], ['fb-e2e-0002', 'רעיון: מצב לילה', 'low']])
+      await call('/rest/v1/bug_reports', { method: 'POST', headers: { apikey: KEY, 'content-type': 'application/json', Authorization: 'Bearer ' + tok.user, Prefer: 'return=minimal' }, body: JSON.stringify({ client_report_id: cid, category: sev === 'low' ? 'idea' : 'bug', title, description: 'נשלח מבדיקה', severity: sev, screen: 'home' }) }, tok.user);
+    ok((await call('/rest/v1/rpc/cms_feedback_list', { method: 'POST', body: '{}' }, tok.user)).status === 403 && (await call('/rest/v1/rpc/cms_feedback_list', { method: 'POST', body: '{}' }, tok.editor)).status === 403, 'user and editor calling the feedback list directly are refused by the server (403)');
+    const { p: e, ctx: ec } = await mk(); await login(e, 'editor@cms.test'); await admin(e); await e.evaluate(() => { AdminCMS.state.tab = 'feedback'; App.render(); }); await e.waitForTimeout(300);
+    ok(await e.locator('[data-cms-fb-denied]').count() === 1 && await e.locator('[data-cms-fb-list]').count() === 0, 'editor: the feedback tab explains it is admin-only and shows no reports'); await ec.close();
+    const { p, ctx, errs } = await mk(); await login(p, 'admin@cms.test'); await admin(p); await p.evaluate(() => { AdminCMS.state.tab = 'feedback'; App.render(); });
+    await waitFor(p, () => !!document.querySelector('[data-cms-fb-list]'));
+    ok(await p.locator('[data-cms-fb-list] [data-fb]').count() === 2 && /התקבל: 2/.test(await p.locator('[data-cms-fb-counts]').innerText()), 'admin sees both reports with counts per status');
+    ok(!/user@cms\.test/.test(await text(p)), 'no reporter e-mail is shown');
+    await p.locator('[data-act=fbOpen]', { hasText: 'הכפתור שמירה' }).click(); await p.waitForTimeout(300);
+    await p.selectOption('#fb-new', 'in_progress'); await p.fill('#fb-note', 'שוחזר בגרסה האחרונה'); await p.locator('[data-act=fbSave]').click();
+    await waitFor(p, () => !!document.querySelector('[data-cms-fb-list]') && /בטיפול: 1/.test((document.querySelector('[data-cms-fb-counts]') || {}).textContent || ''));
+    ok(/בטיפול: 1/.test(await p.locator('[data-cms-fb-counts]').innerText()), 'status change saved on the server and the list reloads');
+    const mine = await call('/rest/v1/bug_reports?select=title,status&order=created_at', {}, tok.user);
+    ok(mine.j && mine.j.some(x => x.status === 'in_progress'), 'the reporter sees the new status of their own report', mine.j);
+    await p.selectOption('#fb-st', 'in_progress'); await waitFor(p, () => document.querySelectorAll('[data-cms-fb-list] [data-fb]').length === 1);
+    ok(await p.locator('[data-cms-fb-list] [data-fb]').count() === 1, 'filter by status');
+    ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal scroll on a phone');
+    await p.evaluate(() => { AdminCMS.state.tab = 'audit'; App.render(); }); await waitFor(p, () => !!document.querySelector('[data-cms-audit-list]'));
+    ok(/שינוי סטטוס · דיווח משוב/.test(await p.locator('[data-cms-audit-list]').innerText()), 'the status change appears in the audit log');
+    ok(errs.length === 0, 'no JS errors (feedback)', errs); await ctx.close(); }
+
   await b.close(); procs.forEach(pr => pr.kill());
   let pass = 0, fail = 0; res.forEach(x => { console.log((x.ok ? 'PASS ' : 'FAIL ') + '[' + x.g + '] ' + x.m); x.ok ? pass++ : fail++; });
   console.log(`admin e2e: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);

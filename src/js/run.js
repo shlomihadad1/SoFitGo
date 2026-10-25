@@ -69,9 +69,10 @@ function close() {
 }
 function requestWake() {
   if (!C.profile().display.wake) return;
+  try { if (root.SoFitGoAndroid && root.SoFitGoAndroid.keepScreenOn) root.SoFitGoAndroid.keepScreenOn(true); } catch (e) { } /* Android test app */
   try { if ('wakeLock' in navigator && !wake) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => { wake = null; }); }).catch(() => {}); } catch (e) { }
 }
-function releaseWake() { try { if (wake) wake.release(); } catch (e) { } wake = null; }
+function releaseWake() { try { if (wake) wake.release(); } catch (e) { } wake = null; try { if (root.SoFitGoAndroid && root.SoFitGoAndroid.keepScreenOn) root.SoFitGoAndroid.keepScreenOn(false); } catch (e) { } }
 /* fixed 25.10.2026: an open page returning from the background / a locked screen used to overwrite seenAt, so 2 h in the
    background counted as 2 h of workout (reproduced: 0:11 → 120:13). Now a gap > SUSPEND_MS freezes the session as interrupted. */
 function checkSuspend() { const s = sess(); if (!el || !s || !root.RunState) return false;
