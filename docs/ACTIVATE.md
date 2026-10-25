@@ -1,7 +1,7 @@
 # הפעלת SoFitGo עם מערכת ניהול — 6 צעדים
 
 **מה יש לך:**
-- **`sofitgo-deploy-74bdd9483f.zip`:** האתר המוכן, מחובר ל־Supabase שלך. בתוכו רק המפתח הציבורי (publishable).
+- **`sofitgo-deploy-74bdd9483f-4e23429.zip`:** האתר המוכן, מחובר ל־Supabase שלך. בתוכו רק המפתח הציבורי (publishable).
 - **`activate_admin.sql`:** מפעיל את מערכת הניהול. רץ בפעם אחת: הכול או כלום. אפשר להריץ אותו פעמיים בלי נזק.
 - **`make_owner.sql`:** הופך אותך לבעלים.
 - **`undo_admin.sql`:** ביטול, אם צריך.
@@ -23,7 +23,8 @@ Supabase ← **Authentication ← URL Configuration**:
 - שומרים.
 
 ## 4. פריסה
-1. פורקים את `sofitgo-deploy-74bdd9483f.zip`.
+1. בודקים את החבילה ב־Terminal: `shasum -a 256 sofitgo-deploy-74bdd9483f-4e23429.zip`. התוצאה צריכה להיות בדיוק `ed238aa5ec29f4eae195aecd235fcb2f602eb3cc029ce56621e4f1552fd19347`.
+   אחר כך פורקים אותה.
 2. Netlify ← האתר ← **Deploys** ← גוררים את התיקייה `sofitgo`.
 3. **בדיקה:** פותחים `https://sofitgo.com/sw.js`, ובו צריך להופיע `fit30-74bdd9483f`.
 
