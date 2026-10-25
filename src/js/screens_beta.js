@@ -6,19 +6,41 @@
 (function (root) {
 const { esc, icon } = root.UI; const S = root.Store, C = root.Core;
 const Screens = root.Screens;
+/* SLL-07 · Plan B by what changed. Only signals that are stored and reliable on this device; deterministic for a given state and
+   clock; each suggestion says why it is shown; the same option is never listed twice; nothing changes without a tap.
+     missed  — sessions of the active plan marked "missed" in the last 7 days (not logged)
+     late    — 19:00 or later and today's workout is not done
+     notfound— shopping-list items marked "לא נמצא" (they now have alternatives)
+     travel  — an active travel mode that covers today
+     parked  — a workout saved midway ("save and exit") */
+Screens.planbSignals = function (now) {
+  now = now || new Date(); const out = [], t = S.today(), ap = root.Plans && root.Plans.active();
+  const ss = S.load('session'); if (ss && ss.parked && !ss.finished) out.push({ k: 'parked', why: 'יש אימון ששמרת באמצע. אפשר להמשיך מאותה נקודה.' });
+  if (ap) { const wk = S.addDays(t, -7), miss = root.Plans.days(ap).filter(d => d.status === 'missed' && !d.log && d.date >= wk && d.date < t);
+    if (miss.length) out.push({ k: 'missed', why: `${miss.length === 1 ? 'אימון אחד' : miss.length + ' אימונים'} מהשבוע האחרון לא בוצעו. אפשר להעביר אימון להיום או לדלג, בלי "להשלים הכול".` });
+    const tv = ((ap.travel || []).find(x => x.status === 'active' && x.from <= t && t <= x.to)); if (tv) out.push({ k: 'travel', why: `מצב נסיעה פעיל עד ${S.fmtShort(tv.to)}.` }); }
+  const w = (C.dailyProgress(t).tasks || []).find(x => x.k === 'workout'); if (w && w.v < 1 && now.getHours() >= 19) out.push({ k: 'time', why: `השעה ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} והאימון של היום עוד לא בוצע.` });
+  const nu = S.load('nutrition'), nf = Object.values((nu.shopping && nu.shopping.state) || {}).filter(v => v === 'notfound').length;
+  if (nf) out.push({ k: 'ingredient', why: `${nf === 1 ? 'פריט אחד' : nf + ' פריטים'} ברשימת הקניות ${nf === 1 ? 'סומן' : 'סומנו'} "לא נמצא". לכל אחד יש "חלופות".` });
+  return out;
+};
 Screens.planb = function () {
   const ap = root.Plans && root.Plans.active(), td = ap ? root.Plans.todayDay(ap) : null, n = ap ? (td && td.n) : C.clampDay(C.todayN()), dayHref = ap ? (n ? '#/pday/' + n : '#/plan') : '#/day/' + n;
   const opt = (k, t, s, href, lbl) => `<a class="li" href="${href}" data-planb="${k}"><div class="grow"><div class="t">${t}</div><div class="s">${s}</div></div><span class="pill">${lbl}</span></a>`;
   return { title: 'Plan B — משהו לא מסתדר?', back: '#/', html: `
     <section class="card" data-planb-stop><div class="banner bad small">${icon('info')}<div><b>כאב חד, סחרחורת, לחץ בחזה או קוצר נשימה חריג?</b> עוצרים את האימון. לא ממשיכים "דרך הכאב". אם זה חמור או לא עובר — פונים לגורם רפואי או לשירותי החירום המקומיים.</div></div></section>
-    <section class="card"><h3>מה קרה?</h3><div class="list">
-      ${opt('time', 'אין לי זמן לאימון המלא', 'גרסה קצרה של האימון של היום, או דילוג — בלי אשמה.', dayHref, 'אימון')}
-      ${opt('equip', 'חסר ציוד / תרגיל לא מתאים', 'החלפת תרגיל בתוך האימון של היום.', dayHref, 'אימון')}
-      ${opt('energy', 'אין לי כוח היום', 'מדווחים אנרגיה ביומן היומי; מנוחה היא בחירה לגיטימית ולא מורידה כלום.', '#/progress', 'מעקב')}
-      ${opt('ingredient', 'חסר לי מרכיב', 'ביומן התזונה: "החלף רכיב" במנה.', '#/nutrition', 'תזונה')}
-      ${opt('meal', 'אין את הארוחה / לא מתחשק', 'החלפת ארוחה, או מנה ממה שיש בבית.', '#/fridge', 'תזונה')}
-      ${opt('travel', 'אני בנסיעה', ap ? 'מצב נסיעה בתוכנית: אימונים קצרים בלי ציוד לטווח שתבחרו.' : 'מצב נסיעה זמין בתוכנית אישית.', '#/travel', 'נסיעה')}
-    </div><p class="tiny faint">כל מעבר כאן פותח פעולה קיימת. שום דבר לא מסומן כבוצע ושום דבר לא משתנה בלי שתאשרו.</p></section>`, handlers: {} };
+${(() => { const sig = Screens.planbSignals(), ks = sig.map(x => x.k), nfN = ks.includes('ingredient');
+      const ALL = { parked: () => `<button class="li li-btn" data-act="resume" data-planb="parked"><div class="grow"><div class="t">להמשיך את האימון ששמרתי</div><div class="s">ממשיך מאותו שלב, עם הסטים שכבר סומנו.</div></div><span class="pill">אימון</span></button>`,
+        missed: () => opt('missed', 'פספסתי אימונים', 'במסך התוכנית: להעביר אימון שפוספס להיום, או לדלג עליו.', '#/plan', 'תוכנית'),
+        time: () => opt('time', 'אין לי זמן לאימון המלא', 'גרסה קצרה של האימון של היום, או דילוג — בלי אשמה.', dayHref, 'אימון'),
+        equip: () => opt('equip', 'חסר ציוד / תרגיל לא מתאים', 'החלפת תרגיל בתוך האימון של היום.', dayHref, 'אימון'),
+        energy: () => opt('energy', 'אין לי כוח היום', 'מדווחים אנרגיה ביומן היומי; מנוחה היא בחירה לגיטימית ולא מורידה כלום.', '#/progress', 'מעקב'),
+        ingredient: () => nfN ? opt('ingredient', 'חסר לי מרכיב', 'ברשימת הקניות: "חלופות" ליד מה שלא נמצא.', '#/shopping', 'קניות') : opt('ingredient', 'חסר לי מרכיב', 'ביומן התזונה: "החלף רכיב" במנה.', '#/nutrition', 'תזונה'),
+        meal: () => opt('meal', 'אין את הארוחה / לא מתחשק', 'החלפת ארוחה, או מנה ממה שיש בבית.', '#/fridge', 'תזונה'),
+        travel: () => opt('travel', 'אני בנסיעה', ap ? 'מצב נסיעה בתוכנית: אימונים קצרים בלי ציוד לטווח שתבחרו.' : 'מצב נסיעה זמין בתוכנית אישית.', '#/travel', 'נסיעה') };
+      const rest = ['time', 'equip', 'energy', 'ingredient', 'meal', 'travel'].filter(k => !ks.includes(k));
+      return (sig.length ? `<section class="card" data-planb-now><h3>מומלץ עכשיו</h3><div class="list">${sig.map(x => ALL[x.k]() + `<p class="tiny muted" data-planb-why="${x.k}">למה: ${esc(x.why)}</p>`).join('')}</div></section>` : '')
+        + `<section class="card"><h3>${sig.length ? 'עוד אפשרויות' : 'מה קרה?'}</h3><div class="list">${rest.map(k => ALL[k]()).join('')}</div>`; })()}<p class="tiny faint">כל מעבר כאן פותח פעולה קיימת. שום דבר לא מסומן כבוצע ושום דבר לא משתנה בלי שתאשרו. ההמלצות למעלה נבחרות לפי מה שרשום במכשיר והשעה.</p></section>`, handlers: { resume: () => { const ss = S.load('session'); if (ss && root.Run) root.Run.open(); } } };
 };
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
