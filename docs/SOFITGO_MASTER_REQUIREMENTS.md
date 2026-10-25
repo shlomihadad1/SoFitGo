@@ -373,3 +373,32 @@ The test results below were all run on this final build. The pre-CMS results, wh
 - Media upload is blocked; it needs a Storage bucket.
 - Nothing was tested on a real device.
 - No merge to main and no deploy.
+
+### Delivery: commit ea4af30, build 4dd8403194 (full app control CMS + fixes), 25.10.2026
+
+All results below were run on this commit and build. The earlier entries are history.
+
+| Run | Result |
+|---|---|
+| Full regression `tools/run_all.sh` on ea4af30 | **65/65 suites pass.** 26,797 checks, 0 failed, 0 crashed, 0 timed out, 0 not run. Bundle: `docs/release/RELEASE-EVIDENCE-4dd8403194.md` (generated from the runner output by `tools/release_evidence.js`). |
+| `e2e_meal_journal`, run alone (no competing suites) | 3/3 runs pass (34/34 each) |
+| WebKit (Playwright emulation, **not a device**) | `e2e_menu_structure` 42/42, `e2e_content` 9/9, `e2e_m11_meals` 31/31, `e2e_food_global` 29/29, `e2e_m104_fixes` 104/104, `e2e_app_control` 62/62 |
+| First load | 808,378 B (< 820,000 budget, unchanged); `e2e_stageA` 87/87 |
+| ZIP | `sofitgo-beta-4dd8403194-ea4af30.zip`, 3,126,802 B, `unzip -t` OK, `sw.js` / `index.html` build 4dd8403194, contains `cms.js`, `admin.js`, `cms-catalog.js`, no secret keys |
+
+**Runs on earlier commits of this delivery (kept as evidence):**
+
+| Commit | Result | Classification |
+|---|---|---|
+| 34cf44a | `e2e_meal_journal` crashed once in the full run, passed alone | **Intermittent.** Root cause: the test hard-coded a snack slot. |
+| Isolation of the original test, 6 sequential runs each | build 81f6ff6ac7 (with CMS) 0/6 pass; a681ddaaca (e315588, before CMS) 2/6; a63a5b51cc (7354a19, before v2 engine) 6/6 | Started with the v2 menu engine, **not the CMS**. Stack trace: waiting for `[data-slot=snack]`, line 67. Screenshots and state were saved for every failure. |
+| 8bb9029 | 63 suites pass; **`stageH1_test` crashed** (TypeError reading `ing`) | Same root cause. It became visible when the date changed to 25.10 (no snack that day). Test fixed in 58b84c4. |
+| 58b84c4 | 63 suites pass; **`e2e_menu_structure` failed 1/41**: the same dish appeared twice after a swap | **Functional bug**, intermittent (depends on the day's menu). The swap list could offer the day's dinner dish for lunch. **Code fixed** in ea4af30 (`meal_options.js`); the test now checks every option of the real list. |
+
+**Not run / not testable here:**
+- physical iPhone and Android devices;
+- the live Supabase project (CMS migration not applied — needs approval);
+- Storage uploads (no bucket);
+- any AI provider (none configured).
+
+No merge to `main`, no deploy, no Production or live Supabase change, no costs.
