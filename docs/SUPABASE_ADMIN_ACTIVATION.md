@@ -23,6 +23,24 @@
 
 הרשאות השרת נבדקות ב־`rls_cms_test` ‏(99/99) וב־`e2e_admin` ‏(56/56).
 
+## קבצים מדויקים (SHA-256)
+לפני הרצה בודקים שהקבצים שבידך זהים לאלה שנבדקו:
+```
+shasum -a 256 *.sql
+```
+ומשווים לטבלה:
+
+| קובץ | SHA-256 |
+|---|---|
+| `20261025000100_sofitgo_cms.sql` | `3eb642b715035dc2b9679d4a1c905d10b584f236ed443fb76ea6f2da5cabb485` |
+| `20261025000200_sofitgo_admin_feedback.sql` | `45d908177c3edbf891ddb9988b47e4dfab8568e435d5da389965f692bc43a13f` |
+| `20261025000300_sofitgo_admin_accounts.sql` | `9db634a4aedbc0f85f14e6fdab682be180a752c3f2324c8c5c0423d57c2bd8d4` |
+| `20261025000300_rollback.sql` | `ba0175ba82e9c2734cf8267932673ae9bdaf0dab368d0fa468ce4167a0b72a14` |
+| `20261025000200_rollback.sql` | `fad19969be9154f9064139714d36521392d64619afee4fa0868cf35d21043b23` |
+| `20261025000100_rollback.sql` | `61befba0eb6e21c9bbb7ccb2b89af3be3ff156d697f50ba82306552714ebb56e` |
+
+**חשוב:** קובץ `20261025000100_rollback.sql` שנשלח אליך לפני 25.10.2026 בשעה 18:00 הוא גרסה **ישנה**, בלי ההגנה מפני סדר ביטול שגוי. משתמשים רק בגרסה שה־SHA-256 שלה מופיע כאן.
+
 ## 0. זיהוי הפרויקט
 - **Supabase Dashboard:** הפרויקט שכתובתו מתחילה ב־`https://dvrf…supabase.co`. זו הכתובת שמופיעה ב־`sofitgo-config.js` שבחבילת הפריסה.
 - **Netlify:** האתר שמגיש את `sofitgo.com`. ‏`www` מפנה אליו.
