@@ -50,7 +50,7 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 | FR-W-04 | Active workout, timers, auto mode | Guided session | VERIFIED_PASS | `run.js`, `run_setup.js` | `e2e_m11_run` | — | Safe Stop Path on pain | Timers correct | M | — |
 | FR-W-05 | Plan Integrity Gate (A) | Constraints respected | VERIFIED_PASS | `gate.js` | `e2e_m12_gate` | — | Independent validator | Block / warn issues shown | M | — |
 | FR-W-06 | Constraint Conflict Resolver (A) | Clear choices | VERIFIED_PASS | `gate_ui.js` | `e2e_m12_gate` | — | — | Conflict explained with options | S | — |
-| FR-W-07 | Session state machine and recovery contract (A, reconstruction) | No lost or double sessions | PARTIAL | `run.js` (save after each action, resume, park) | `e2e_m11_run`, `e2e_stageD` | `fit30.session` | Duplicate completion is guarded by the log | Documented state table + expiry | M | Write the state table, expiry and corrupted-state tests |
+| FR-W-07 | Session state machine and recovery contract (A, reconstruction) | No lost or double sessions | IMPLEMENTED (VERIFIED_PASS, emulation; screen lock / OS suspension NEEDS_MANUAL_DEVICE_TEST) — docs/WORKOUT_SESSION_STATE_MACHINE.md | `run.js` (save after each action, resume, park) | `e2e_m11_run`, `e2e_stageD` | `fit30.session` | Duplicate completion is guarded by the log | Documented state table + expiry | M | Write the state table, expiry and corrupted-state tests |
 | FR-W-08 | Adaptive difficulty (rule-based) | Progress safely | VERIFIED_PASS | `adapt.js` | `stageF_test`, `e2e_stageF` | logs | Never auto-raises intensity on completion alone | Explained suggestions | M | — |
 | FR-W-09 | Equipment substitutions / Equipment Passport | Train anywhere | PARTIAL | exercise swap | `e2e_m11_meals` (swaps), `stageG_test` | — | — | Equipment changes the plan | M | TD-03 |
 | FR-W-10 | Travel mode | Real-life adaptation | VERIFIED_PASS | travel sheet, `signature.js` | `stageG_test` G5, `e2e_m12_gate` | — | No location needed | — | S | Plan My Trip: NOT_FOUND / DEFERRED |
@@ -153,7 +153,7 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 | R-13 | Rollback failure | Low | Medium | `rls_cms_test` rollback; migration rollback file | Rollback creates a new version | Migration rollback SQL | Mitigated (local) |
 | R-14 | Version mismatch (app vs tutorials, SW cache) | Low | Medium | `rc1_test`, SW build id | Re-record per build; one shell cache | Reload prompt | Mitigated |
 | R-15 | Inactive feature shown as active | Medium | Medium | Coach labelled "לא AI"; Admin status page | Status page; registry states | — | Mitigated |
-| R-17 | First-load budget headroom is small (817,524 / 820,000 B measured on 25.10.2026) | High | Medium | `e2e_stageA` | New first-load code must be offset; heavy features go to on-demand chunks | Move rarely used first-load code to chunks | Open |
+| R-17 | First-load budget headroom | Medium | Medium | `e2e_stageA`: 817,524 B → **787,161 B** after workout mode moved to the on-demand chunk (32.8 KB headroom) | New features load on demand | Move rarely used first-load code to chunks | Mitigated |
 | R-18 | Exporting another account's data on a shared device | Low | High | Privacy Center check | Export blocked when the device data owner ≠ signed-in user; sign-out wipes the device | — | Mitigated (simulated owner state in e2e) |
 | R-16 | Intermittent tests hiding real failures | Medium | Medium | meal_journal plan-id dependency (fixed) | Tests read the actual day's slots | Isolation runs with screenshots | Mitigated for this case |
 
@@ -250,3 +250,18 @@ An item that cannot be run is marked BLOCKED, and the feature then is not VERIFI
 | Analytics / business metrics | None | Not Configured | Definitions first |
 | Feedback centre | `#/feedback`, `bug_reports` | Partial | Admin triage |
 | Accessibility suite | Contrast checks, labels, focus tests in several suites | Partial | Dedicated suite |
+
+## Core user journey audit — 25.10.2026 (Phase 1)
+
+| Step | Implementation | Tests | Finding | Action |
+|---|---|---|---|---|
+| Registration / login | `account.js`, `screens_account.js` | `e2e_account` 113/113 (local emulator) | Recovery paths exist for every error (M10.3) | — |
+| Onboarding / goals | `#/setup` (`screens_plan.js`) | `e2e_stageB`, `e2e_meal_journal` | No defect found | — |
+| Plan creation | `plans.js`, `planner.js` | `stageB_test` 328/328, `e2e_stageB` | No defect found | — |
+| Workout start | `Run.start` (+ setup sheet, Gate) | `e2e_m11_run`, `e2e_run_state`, `e2e_builder` | Restarting over an open session dropped the plan (fixed in d196e81) | Fixed |
+| Progression / completion | `run.js` | `e2e_m11_run`, `e2e_run_state` | Save had no guard against a second trigger (not reproduced) | Guard + state check |
+| Nutrition / meal logging | `screens_nutrition.js`, `core.js` | `e2e_meal_journal` 34/34, `e2e_menu_structure` | Swap list could offer the day's other dish (fixed in ea4af30) | Fixed |
+| Progress display | progress, records, review | `e2e_stageD`, `e2e_stageG` | No defect found | — |
+| Return to an interrupted session | `Run.open` on boot | `e2e_run_state`, `e2e_m11_run` | **Defect:** a session reopened 2 h after the app was closed counted the closed time (showed 2:05:02 active time, which would be saved to the log) | **Fixed:** interrupted state, time stops at the last-seen moment |
+| Sync clarity | toasts, account screen, Privacy Center | `e2e_run_state` | Save confirmation did not say where the data was | Now says "on the device" / "sent to the account on the next sync" |
+| Chunk loading | `main.js` | all e2e | Two separate loaders for `extra.js` could run it twice (not reproduced) | One loader; the runner refuses a second copy |

@@ -417,3 +417,23 @@ No merge to `main`, no deploy, no Production or live Supabase change, no costs.
 **Not run:**
 - physical devices;
 - the hosted Supabase project (the privacy screen's account statements were tested only with local and simulated state).
+
+
+### Delivery: commit 04cac29, build 749a37f94d (Phase 1: core journey, session state machine, progress preservation, first-load budget), 25.10.2026
+
+| Run | Result |
+|---|---|
+| Full regression `tools/run_all.sh` on 04cac29 | **69/69 suites pass** (68 + artcheck). 0 failed, 0 crashed, 0 timed out, 0 not run. Checks counted from the suites' own summaries: 26963 passed, 0 failed.. Bundle: `docs/release/RELEASE-EVIDENCE-749a37f94d.md` |
+| Focused | `run_state_test` 25/25, `e2e_run_state` 26/26, `e2e_m11_run` 43/43, `e2e_account` 113/113, `e2e_admin` 40/40, `rls_cms_test` 72/72, `e2e_meal_journal` 34/34, `e2e_builder` 45/45, `builder_test` 59/59 |
+| WebKit (emulation, **not a device**) | `e2e_run_state` 26/26, `e2e_m11_run` 43/43, `e2e_builder` 45/45, `e2e_menu_structure` 42/42, `e2e_m11_meals` 31/31, `e2e_content` 9/9, `e2e_food_global` 29/29, `e2e_m104_fixes` 104/104, `e2e_app_control` 62/62 |
+| First load (`e2e_stageA`, same method) | before (d196e81) **817,524 B** → after **787,161 B**; budget 820,000 B unchanged |
+| ZIP | `sofitgo-beta-749a37f94d-04cac29.zip`, 3,094,733 B, `unzip -t` OK, build 749a37f94d, no secret keys |
+
+**Test changed with justification:** in `e2e_m11_run`, Playwright's fake clock moves ~100 s across a reload (measured). The reopen check now follows the measured gap and the 60 s interruption rule instead of assuming a 1-second reload.
+
+**Not verified (needs a device):**
+- real screen lock;
+- OS background suspension;
+- device restart.
+
+There is no background execution. The hosted Supabase project was not used.

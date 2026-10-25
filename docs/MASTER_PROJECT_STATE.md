@@ -29,7 +29,7 @@ Historical reports in the repo root (`TEST-RESULTS-*`, `STAGE-*`, `RC1-REPORT.md
 | Accounts / sync | Supabase Auth + `profiles`, `user_state` (RLS), migration `20261020000100` | `account.js`. Sync is opt-in. Tested on the local emulator (`e2e_account`, `e2e_m11_sync`, `rls_test`). |
 | Authorization | PostgreSQL RLS + SECURITY DEFINER functions | `cms_*` roles: owner/admin/editor/reviewer. No self-grant. |
 | Admin / CMS | `#/admin`: `admin.js` + `admin_app.js`; loader `cms_content.js` | Recipes, exercises, texts, layout, design tokens, settings, roles, audit, guides, media inventory (upload blocked). See master doc §10/§10A. |
-| Workout engine | `logic.js`, `planner.js`, `plans.js`, `run.js` (active workout, state saved after every action, resume on reopen), `adapt.js` (rule-based adaptation), `gate.js` (Plan Integrity Gate) | 15/30/60-min versions, duration breakdown (`Logic.durationBreakdown`) |
+| Workout engine | `logic.js`, `planner.js`, `plans.js` (first load); `run.js` + `run_state.js` (workout mode with a state machine, in extra.js behind a first-load stub; see docs/WORKOUT_SESSION_STATE_MACHINE.md), `adapt.js` (rule-based adaptation), `gate.js` (Plan Integrity Gate) | 15/30/60-min versions, duration breakdown (`Logic.durationBreakdown`) |
 | Nutrition | `nutrition.js` (food table per 100 g, `src`/`chk` provenance), `recipes_med.js` (200 v2), `recipes_intl.js`, `mealplanner.js` (deterministic, seeded), `core.js` (journal, targets) | Values only from ingredients × food table. 15 new foods verified against USDA SR Legacy (via mirrors). |
 | Hydration / activity | `core.js` water (quick-add in litres, `qa-agents`), `activity.js`/`activity_more.js` steps (manual / CSV; no Health integration) | |
 | Workout Builder | `builder.js` + `screens_builder.js` (#/builder, extra chunk); saved workouts in Store `workouts.custom`, runs in `workouts.customLog` (snapshot) | Starts in the existing runner; checked by the Gate |
@@ -52,7 +52,7 @@ The original specifications were not found as separate documents. The names were
 | Plan Integrity Gate | yes | `gate.js` + `gate_ui.js`, used before activation, start, swaps and by Sofit; `e2e_m12_gate` |
 | Constraint Conflict Resolver | yes | `gate_ui.js` (conflict sheet with options); `e2e_m12_gate` |
 | Workout Duration Reality Engine | reconstruction | `Logic.durationBreakdown` / `estimateMinutes` (warm-up, sets, rest, transitions); `ramp_test`, `e2e_stageA` (D4) |
-| Workout Session State Machine / Session Continuity / Session Recovery Contract | reconstruction, partial | `run.js` saves after every action, resumes on reopen, parks; duplicate completion guarded by the log. **No formal state table or expiry rule is documented** (FR-W-07). |
+| Workout Session State Machine / Session Continuity / Session Recovery Contract | implemented 25.10.2026 | `run.js` saves after every action, resumes on reopen, parks; duplicate completion guarded by the log. **No formal state table or expiry rule is documented** (FR-W-07). |
 | Consent-Based Local Food Discovery | reconstruction | `screens_food_near.js`: location only on tap, opens external maps; never changes cuisine (`e2e_food_global`) |
 | Locale & Unit Integrity Linter | partial | `location_scan.js` (location/consent scan), `e2e_i18n`; no unit/plural linter |
 | Nutrition Calculation Trace | partial | Provenance on foods (`src`, `chk`), calculation from ingredients. No per-calculation trace record (FR-N-05). |
@@ -73,7 +73,7 @@ The original specifications were not found as separate documents. The names were
 | CMS initialization | Lazy `cms.js`; boot waits for it when cached (no flash); `e2e_app_control` |
 | Admin permissions | Server-side (`rls_cms_test`) |
 | Food preference persistence | `e2e_food_global`, `e2e_m104_fixes` |
-| First-load performance | 807–808 KB < 820 KB budget |
+| First-load performance | 787,161 B measured (budget 820,000 B) after the runner moved on demand |
 | Media storage | Blocked (no bucket); `docs/CMS-STORAGE-SETUP.md` |
 | Build-version mismatches | `rc1_test` (tutorials recorded from this build), SW build id check in the ZIP verification |
 
