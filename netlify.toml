@@ -1,7 +1,7 @@
 # SoFitGo — production deploy of a PREBUILT, verified site (no build step on Netlify).
-# site/ = exactly sofitgo-deploy-74bdd9483f-4e23429.zip (build 74bdd9483f, built from commit 4e23429 of fix/default-cuisine).
+# site/ = build f1248e1201, built from commit 73ff796 of fix/default-cuisine (full regression 70/70 on 10ee37e; src identical).
 # It contains only the public Supabase URL and the publishable key (sofitgo-config.js) — never a secret key.
 # A new release replaces site/ in this branch; every push to this branch is published by Netlify.
 [build]
   publish = "site"
-  command = "echo 'SoFitGo prebuilt site — build 74bdd9483f — no build step'"
+  command = "echo 'SoFitGo prebuilt site — build f1248e1201 — no build step'"

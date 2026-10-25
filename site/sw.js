@@ -4,7 +4,7 @@
      media files are content-hashed, so a cached file can never be a stale version of another file
    - videos are NOT cached and not intercepted (range requests go straight to the network) — no offline video
    - fonts cached at runtime */
-const CACHE = 'fit30-74bdd9483f', MEDIA = 'fit30-media-v1', MEDIA_MAX = 160;
+const CACHE = 'fit30-f1248e1201', MEDIA = 'fit30-media-v1', MEDIA_MAX = 160;
 const ASSETS = ['./', 'index.html', 'help.js', 'extra.js', 'account.js', 'cms.js', 'admin.js', 'sofitgo-config.js', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'sofit-avatar-192.webp', 'sofitgo-wordmark-provisional.png', 'sofitgo-symbol-provisional.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('fit30-') && k !== CACHE && k !== MEDIA && k !== 'fit30-fonts').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
