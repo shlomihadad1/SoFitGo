@@ -82,6 +82,20 @@ const A = '20000000-0000-4000-8000-00000000000a', B = '20000000-0000-4000-8000-0
     ok(!!r.err && /rollback order/.test(r.err) && schema() === S1, 'rolling back 0100 first is REFUSED with a clear message and changes nothing', r.err || 'no error');
     for (const k of ['acc', 'fb', 'cms']) back(k); ok(schema() === S0, 'after the correct order the schema is back to the baseline'); }
 
+  G = 'one-paste files: supabase/activation (activate_admin / make_owner / undo_admin)';
+  { const act = file('supabase/activation/activate_admin.sql'), undo = file('supabase/activation/undo_admin.sql');
+    ok(['20261025000100_sofitgo_cms.sql', '20261025000200_sofitgo_admin_feedback.sql', '20261025000300_sofitgo_admin_accounts.sql'].every(f => act.includes(file('supabase/migrations/' + f))), 'activate_admin.sql contains the three migrations unchanged');
+    ok(['20261025000300', '20261025000200', '20261025000100'].every(f => undo.includes(file(`supabase/rollback/${f}_rollback.sql`))) && undo.indexOf(file('supabase/rollback/20261025000300_rollback.sql')) < undo.indexOf(file('supabase/rollback/20261025000100_rollback.sql')), 'undo_admin.sql contains the three rollbacks unchanged, in reverse order');
+    const S1x = (() => { for (const k of ['cms', 'fb', 'acc']) run(k); const s = schema(); for (const k of ['acc', 'fb', 'cms']) back(k); return s; })();
+    ok(schema() === S0, 'clean baseline before the one-paste test');
+    const broken = act.replace(/\ncommit;\s*$/, '\nselect 1/0;\ncommit;'); ok(!!psql(DB, broken).err && schema() === S0 && data().slice(0, 64) === D0.slice(0, 64), 'a failure anywhere in the activation changes nothing (all-or-nothing)');
+    ok(!psql(DB, act).err && schema() === S1x && data().slice(0, 64) === D0.slice(0, 64), 'activate_admin.sql = the same result as the three migrations one by one; user data unchanged');
+    ok(!psql(DB, act).err && schema() === S1x, 'pasting it twice changes nothing');
+    const own = file('supabase/activation/make_owner.sql').replace(/YOUR-EMAIL/g, 'a@audit.invalid');
+    ok(/a@audit\.invalid\|owner\|/.test(psql(DB, own).out || '') && !psql(DB, own).err && psql(DB, `select count(*) from public.cms_members`).out === '1', 'make_owner.sql: exactly one owner, idempotent, and the check line shows it');
+    ok(!psql(DB, file('supabase/activation/make_owner.sql').replace(/YOUR-EMAIL/g, 'nobody@audit.invalid')).err && psql(DB, `select count(*) from public.cms_members`).out === '1', 'make_owner.sql with an unknown e-mail adds nothing');
+    ok(!psql(DB, undo).err && schema() === S0 && data().slice(0, 64) === D0.slice(0, 64), 'undo_admin.sql returns the exact baseline schema; profiles and synced data intact'); }
+
   psql('postgres', `drop database if exists ${DB};`);
   let pass = 0, fail = 0; res.forEach(x => { console.log((x.ok ? 'PASS ' : 'FAIL ') + '[' + x.g + '] ' + x.m); x.ok ? pass++ : fail++; });
   console.log(`migration audit: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);
