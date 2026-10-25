@@ -27,75 +27,74 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 
 ## 1. Sofit Life Loop — SLL-01 … SLL-43
 
-**What the history contains:**
-- `docs/SOFITGO_MASTER_REQUIREMENTS.md` §12: "The 43-idea master list (13 original + 30 added) is not stored in the repository."
-- The INN numbers below are the only ones attested anywhere in the 88 commits.
-- SLL-nn = INN-nn.
+**Source of the names:** the owner's master addendum (25.10.2026), which gives the 43 original names in order.
 
-| ID | Name (as recorded) | Source | Status | Files | P | Next step |
-|---|---|---|---|---|---|---|
-| SLL-01 | Sofit Flex (15/30/60, swaps, low energy) | INN-01, master §12, INNOVATION-PROPOSALS-M8 #5 | PARTIALLY_IMPLEMENTED | `Logic.VERSIONS`, `plans.js`, `builder.js` | P1 | Pick by equipment, place and day schedule (needs reviewed load rules) |
-| SLL-02 | Minimum Mode (1/3/5/8 min) | INN-02 | BLOCKED | — | P1 | Reviewed micro-workout content + a rule for logging partial workouts |
-| SLL-03 | Fridge-to-Meal | INN-03 | IMPLEMENTED_AND_VERIFIED | `screens_fridge.js`; `e2e_fridge` | P1 | — |
-| SLL-04 | Eat Out Without Guessing: restaurant choices aligned with goals, with stated uncertainty of estimates | owner addendum 25.10 (Oct 19 list #4)* | NOT_IMPLEMENTED (no restaurant data source); related row "Restaurant Copilot" BLOCKED (AI) | — | P2 | Decide the data source; estimates must show their uncertainty |
-| SLL-05 | Travel Mode: workouts, food and routines adapted to travel | Oct 19 list #5* | IMPLEMENTED_AND_VERIFIED | travel sheet, `signature.js`; `stageG_test`, `e2e_m12_gate` | P2 | — |
-| SLL-06 | Personal Pattern Finder: useful trends in user-approved history | Oct 19 list #6* | NOT_IMPLEMENTED | — | P3 | Consent model first (shared with SLL-09) |
-| SLL-07 | Plan B hub ("I don't have X") | INN-07 | PARTIALLY_IMPLEMENTED | `screens_beta.js`; `e2e_planb_feedback` | P1 | More "I don't have X" paths |
-| SLL-08 | Smart Grocery Loop (v2 done, v3 = swaps for "not found") | INN-08 | PARTIALLY_IMPLEMENTED | `screens_shopping.js`; `e2e_grocery` | P1 | v3 swaps from the `SWAP` table |
-| SLL-09 | User-Controlled Sofit Memory | INN-09 | BLOCKED | — | P2 | Consent/delete model + approved AI provider |
-| SLL-10 | Life Score: transparent progress summary from defined metrics, no medical claims | Oct 19 list #10* | NOT_IMPLEMENTED | (MoveScore covers steps only) | P3 | Define the metrics and the formula, shown to the user |
-| SLL-11 | Ripple Effect: possible habit↔goal relations, never correlation presented as causation | Oct 19 list #11* | NOT_IMPLEMENTED | — | P3 | Needs history + wording rules |
-| SLL-12 | Friction Radar: recurring obstacles + non-judgemental adjustments | Oct 19 list #12* | NOT_IMPLEMENTED | — | P3 | Consent model; uses skip/partial logs |
-| SLL-13 | One-Day Autopilot: proposed day plan (workout, meals, water, reminders), editable or rejectable | Oct 19 list #13* | PARTIALLY_IMPLEMENTED (NOW card + daily plan exist; no single "propose my day" with edit/reject) | `screens_home.js`, `core.js` | P2 | One proposal screen built from existing plan, menu and water target |
-| SLL-14 | — | — | NOT_RECOVERED | — | — | Owner to supply (one of the 30 added ideas) |
-| SLL-15 | Wearables? (recorded only as "INN-15/16?") | master §12 | BLOCKED; name uncertain | — | P3 | Confirm the name; native app needed |
-| SLL-16 | Wearables? (same uncertain record) | master §12 | BLOCKED; name uncertain | — | P3 | Same as SLL-15 |
-| SLL-17 | Equipment Passport (with SLL-18) | INN-17/18 | PARTIALLY_IMPLEMENTED | plan setup equipment list, travel swaps | P2 | Plans change by place (TD-03); needs equipment exercises |
-| SLL-18 | Quiet & Small-Space (recorded together with SLL-17) | INN-17/18 | PARTIALLY_IMPLEMENTED | `noJump` preference | P2 | Same dependency |
-| SLL-19 … SLL-21 | — | — | NOT_RECOVERED (3) | — | — | Owner to supply |
-| SLL-22 | Recovery Choice (rest / walk / mobility) | INN-22 | PARTIALLY_IMPLEMENTED | rest-day guidance | P2 | New routines need content review |
-| SLL-23 | — | — | NOT_RECOVERED | — | — | Owner to supply |
-| SLL-24 | Offline Travel Pack | INN-24 | PARTIALLY_IMPLEMENTED | travel hub readiness check | P2 | Pre-cache pack |
-| SLL-25 | One-Tap Weekly Reset | INN-25 | PARTIALLY_IMPLEMENTED | `#/review` | P2 | One reset action with a preview |
-| SLL-26 … SLL-29 | — | — | NOT_RECOVERED (4) | — | — | Owner to supply |
-| SLL-30 | No-Shame Comeback | INN-30 | PARTIALLY_IMPLEMENTED; rules BLOCKED | `adapt.js` (R-DOWN after gaps) | P2 | Professional review of return-to-load rules (DR-01) |
-| SLL-31, SLL-32 | — | — | NOT_RECOVERED (2) | — | — | Owner to supply |
-| SLL-33 | Contextual Shortcuts v2 | INN-33 | PARTIALLY_IMPLEMENTED | NOW card chips (`screens_home.js`) | P1 | Choose shortcuts by state and time |
-| SLL-34 … SLL-40 | — | — | NOT_RECOVERED (7) | — | — | Owner to supply |
-| SLL-41 | Recipe Quality Gate | INN-41 | IMPLEMENTED_AND_VERIFIED | `tools/recipe_gate.js` (344/344) | P1 | — |
-| SLL-42 | — | — | NOT_RECOVERED | — | — | Owner to supply |
-| SLL-43 | Beta Feedback Button | INN-43 | IMPLEMENTED_AND_VERIFIED | `screens_beta.js`; `e2e_planb_feedback`; admin triage (`e2e_admin`) | P3 | — |
+**Cross-check:** every INN number attested in the repo matches the owner's list at the same position — 01, 02, 03, 07, 08, 09, 17, 18, 22, 24, 25, 30, 33, 41, 43 (15 of 15). The earlier guess "INN-15/16 = wearables" was wrong (15 = Ingredient Substitution Graph, 16 = Budget Mode; wearables = 36).
 
-\* **Mapping by position (an inference, stated):** the owner's addendum lists the 13 original concepts in an order whose positions 1, 2, 3, 7, 8 and 9 match exactly the six INN numbers attested in the repo (Flex, Minimum Mode, Fridge-to-Meal, Plan B, Smart Grocery Loop, Sofit Memory). The other seven concepts were therefore placed at their list positions (SLL-04, 05, 06, 10, 11, 12, 13). If the owner knows a different numbering, it overrides this.
+**Statuses** (the addendum's vocabulary): verified-complete, partial, missing, broken, blocked.
 
-**Count (after the addendum):**
-- 22 IDs recovered with a name: 13 original concepts + SLL-17, 18, 22, 24, 25, 30, 33, 41, 43.
-- 2 IDs referenced but with an uncertain name (SLL-15, SLL-16).
-- **19 NOT_RECOVERED:** SLL-14, 19–21, 23, 26–29, 31, 32, 34–40, 42. These are among the 30 ideas added on Oct 19, whose text is in no accessible source (this conversation, 8 branches, 88 commits). No description was invented for them.
+| ID | Name | Status | Evidence in the code | Missing / next | P |
+|---|---|---|---|---|---|
+| SLL-01 | Sofit Flex | partial | 15/30/60 versions, swaps, low-energy suggestion (`Logic.VERSIONS`, `plans.js`, `builder.js`) | choice by reported energy + place in one step | P1 |
+| SLL-02 | Minimum Mode | blocked | ~15-min short version only; "rest is a valid choice" wording on NOW card | reviewed 1/3/5/8-min content + partial-logging rule | P1 |
+| SLL-03 | Fridge-to-Meal | verified-complete | `screens_fridge.js`; `e2e_fridge` | — | P1 |
+| SLL-04 | Restaurant Copilot | blocked | — | menu understanding / local language needs an AI or translation service (privacy + cost decision) | P2 |
+| SLL-05 | Travel Mode | partial | travel sheet, no-equipment swaps, quick meals (`stageG_test`, `e2e_m12_gate`) | flights / festivals / hotel schedules / local food beyond swaps | P2 |
+| SLL-06 | Personal Pattern Finder | missing | — | consent model; show sample size + uncertainty | P3 |
+| SLL-07 | Plan B | partial | `#/planb` hub (`e2e_planb_feedback`), exercise swap, meal swap | one flow per changed circumstance (time / equipment / space / ingredients) | P1 |
+| SLL-08 | Smart Grocery Loop | partial | merged quantities, bought / at home / not found, user items (`e2e_grocery`) | categories; alternatives for unavailable items (v3) | P1 |
+| SLL-09 | Sofit Memory | blocked | — | consent/edit/delete/opt-out model + an approved AI provider | P2 |
+| SLL-10 | Life Score | missing | MoveScore (steps only) | define consistency/strength/endurance/mobility/habit metrics, shown transparently | P3 |
+| SLL-11 | Ripple Effect | missing | no-compensation rules exist in the menu engine (no punitive extra exercise) | constructive next-step suggestions UI | P3 |
+| SLL-12 | Friction Radar | missing | skip / partial logs exist | detect repeated user-reported barriers; one suggestion at a time | P3 |
+| SLL-13 | One-Day Autopilot | partial | NOW card + day plan + menu + water target | one "propose my day" with minimum / balanced / full, editable or rejectable | P2 |
+| SLL-14 | Smart Leftovers | partial | meal-prep tags (46 recipes) | leftover reuse suggestions | P2 |
+| SLL-15 | Ingredient Substitution Graph | partial | recipe `subs`, allergy-safe swaps in the menu engine | function / flavour / texture graph | P2 |
+| SLL-16 | Budget Mode | partial | relative cost 1–3, 87 budget-tagged recipes; no prices (none invented) | budget-bounded plan and list | P2 |
+| SLL-17 | Equipment Passport | partial | equipment list in plan setup; travel swaps | profiles per place; needs exercises for more equipment (content) | P2 |
+| SLL-18 | Quiet & Small-Space Workouts | partial | `noJump` preference, low-impact filter | explicit quiet / small-space mode | P2 |
+| SLL-19 | Workout Builder by Feeling | partial | Workout Builder by goal / time / level / equipment (`e2e_builder`) | readiness / desired-feel inputs | P2 |
+| SLL-20 | Progress Story | partial | weekly review `#/review` (`e2e_stageG`) | facts vs interpretation, barriers | P2 |
+| SLL-21 | Smart Reminders | partial | `.ics` reminders only; no push (paid / native) | in-app reminder settings with quiet hours | P2 |
+| SLL-22 | Recovery Choice | partial | rest-day guidance | new routines need content review | P2 |
+| SLL-23 | Local Food Translator | blocked | — | translation service decision | P3 |
+| SLL-24 | Offline Travel Pack | partial | offline readiness check in the travel hub; SW shell | pre-cache pack | P2 |
+| SLL-25 | One-Tap Weekly Reset | partial | weekly review, grocery clear | one approved reset with a preview | P2 |
+| SLL-26 | Adaptive Recipe Scaling | verified-complete | portion limits, portion sheet (`nutrition_v2_test`) | — | P2 |
+| SLL-27 | Accessible Coaching Modes | partial | voice cues in workout mode, aria labels, contrast tokens (`e2e_m10_ux`) | captions / audio for coaching text; screen-reader pass | P2 |
+| SLL-28 | Data Confidence Labels | partial | "estimate ±%" labels; measured vs typed steps | consistent labels user / verified / estimate / unknown | P2 |
+| SLL-29 | User-Controlled Experiments | missing | — | duration + end decision by the user | P3 |
+| SLL-30 | No-Shame Comeback | partial | `adapt.js` R-DOWN after gaps | load rules need professional review (DR-01) | P2 |
+| SLL-31 | Shared Household List | blocked | — | server lists + sharing permissions | P3 |
+| SLL-32 | Meal Prep Planner | partial | meal-prep tags; shopping-list prep section | batch plan with shared ingredients | P2 |
+| SLL-33 | Contextual Shortcuts | partial → mostly done (25.10) | **new:** chips by state + local clock (log a meal after a workout; evening water; tomorrow's workout; then Plan B / fridge / travel / steps) with "why?" (`Screens.nowShortcuts`; `e2e_now` 29) | "shopping day" rule (needs a shopping-day setting); "I have five minutes" waits for Minimum Mode content | P1 |
+| SLL-34 | Explain My Plan | verified-complete | explanation mode (`stageG_test`, `e2e_m12_gate`) | — | P2 |
+| SLL-35 | Low-Data Mode | partial | media load on demand; videos not cached | explicit low-data setting | P3 |
+| SLL-36 | Consent-Based Wearables | blocked | — | native app (HealthKit / Health Connect) | P3 |
+| SLL-37 | Coach Tone Selector | missing | — | tone setting applied to coach texts | P3 |
+| SLL-38 | Micro-Learning Cards | missing | — | sourced content (needs review) | P3 |
+| SLL-39 | Safe Stop & Escalation | partial | Safe Stop in workout mode (`e2e_m11_run`) | escalation guidance beyond workouts | P1 |
+| SLL-40 | Preference Presets | missing | — | workday / hotel / weekend / no-cooking / quiet presets over existing preferences | P2 |
+| SLL-41 | Recipe Quality Gate | verified-complete | `tools/recipe_gate.js` 344/344 (completeness, provenance, quantities, timing, nutrition) | — | P1 |
+| SLL-42 | Transparent Change Log | partial | plan change history (`e2e_stageB`), CMS audit log | settings and recommendation changes | P2 |
+| SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
-Earlier today I reported "16 attested, 27 not recovered". The exact contexts show that `INN-17/18` also attests 18, so the correct split is 17 referenced and 26 not recovered.
+**Count:**
+- 5 verified-complete;
+- 24 partial;
+- 8 missing;
+- 6 blocked;
+- 0 broken (none found by the regression).
+
+**Loop:** context → realistic options → choice → action → feedback → consent-based learning → adaptation.
+- **Context, options, choice and action** run on the existing NOW card, plan, menu and adapt engine. The new shortcuts reuse them.
+- **The consent-based learning group is blocked,** pending the consent model and the AI decision: Memory, Pattern Finder, Friction Radar and Experiments.
 
 **Sofit Life Loop as a whole** (owner addendum): context → decision → action → learning → adaptation, as one experience — the NOW card, plan, adapt engine and weekly review are the existing parts of that loop.
 
 **Recipe requirements (owner addendum, Oct 19):** every home meal links to a recipe in the app, with ingredients and quantities, steps, **prep time separate from cook time**, servings, and nutrition with its source or estimation method; an external link only when the full instructions are external. Status: the 200 v2 recipes have all of these fields in-app (`prep`, `cook`, `servings: 1`, values from the food table with provenance; `nutrition_v2_test`, `content_test`); no external recipe links are used. **"22 minutes"** in the history is the workout-duration defect D4 (a workout shown as 22 min that did not match its content), fixed by the duration engine (`e2e_stageA`) — it is not a recipe-time requirement.
 
-**Ideas from the same backlog with no INN number** (recovered, no SLL slot is assigned because no number exists for them):
-
-| Idea | Status | Evidence |
-|---|---|---|
-| SofitGo NOW card | IMPLEMENTED_AND_VERIFIED (1st slice) | `e2e_now` |
-| Data Confidence Labels | PARTIALLY_IMPLEMENTED | estimate labels |
-| Explain My Plan | IMPLEMENTED_AND_VERIFIED | `stageG_test`, `e2e_m12_gate` |
-| Adaptive Recipe Scaling | IMPLEMENTED_AND_VERIFIED | portion limits; `nutrition_v2_test` |
-| Smart Leftovers / Meal Prep Planner | PARTIALLY_IMPLEMENTED | meal-prep tags |
-| Budget Mode | PARTIALLY_IMPLEMENTED | cost rating 1–3, no prices |
-| Restaurant Copilot / Local Food Translator | BLOCKED | AI service |
-| Shared Household List | BLOCKED | server lists + sharing |
-| Low-Data Mode | PARTIALLY_IMPLEMENTED | media on demand |
-| Coach Tone Selector, Micro-Learning Cards, Preference Presets | NOT_IMPLEMENTED | proposed only |
-| Safe Stop & Escalation | PARTIALLY_IMPLEMENTED | stop guidance in workouts |
-| Transparent Change Log | PARTIALLY_IMPLEMENTED | plan change log |
-| Widgets, voice, animation | BLOCKED | native / OS features |
+**Ideas that had no INN number before** (NOW card, Data Confidence Labels, Explain My Plan, Adaptive Recipe Scaling, Smart Leftovers / Meal Prep, Budget Mode, Low-Data Mode, Coach Tone Selector, Micro-Learning Cards, Preference Presets, Safe Stop, Transparent Change Log, Restaurant Copilot / Local Food Translator, Shared Household List, Life Score, Ripple Effect, One-Day Autopilot, Pattern Finder / Friction Radar, widgets / voice): **now mapped to their SLL IDs above** using the owner's list. The SofitGo NOW card itself is the entry point of the loop: IMPLEMENTED_AND_VERIFIED (`e2e_now`).
 
 ## 2. Product requirements
 
@@ -153,16 +152,6 @@ Earlier today I reported "16 attested, 27 not recovered". The exact contexts sho
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:**
-  - 43 IDs.
-  - 15 recovered with a name; 2 referenced with an uncertain name; **26 NOT_RECOVERED**.
-  - Of the 17 referenced: 3 IMPLEMENTED_AND_VERIFIED, 10 PARTIALLY_IMPLEMENTED (SLL-30's rules are also blocked), 4 BLOCKED (including the two uncertain ones).
-- **Other recovered ideas** (no number): 16 rows.
-- **Product requirements:** 32 rows, counted by each row's first status:
-  - 18 IMPLEMENTED_AND_VERIFIED (several local or emulation only);
-  - 4 PARTIALLY_IMPLEMENTED;
-  - 3 NOT_IMPLEMENTED;
-  - 4 BLOCKED;
-  - 2 IMPLEMENTED_NOT_VERIFIED;
-  - 1 IMPLEMENTED with a blocked part (signing-key backup).
-- **Deduplicated:** 3 items. INN-17/18 is one record covering two IDs; Travel Mode appeared in both §12 and §9; the feedback button appeared in §12 and §12.1.
+- **Sofit Life Loop:** all 43 named (owner's list). 5 verified-complete, 24 partial, 8 missing, 6 blocked, 0 broken.
+- **Product requirements:** 32 rows. See §2.
+- **Bugs:** §3. This week's 6 are fixed and covered by tests.

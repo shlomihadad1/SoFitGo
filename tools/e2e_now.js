@@ -44,6 +44,28 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   if (s && s.next === 'water') { const w0 = (await truth()).water; await p.locator('[data-now-next] [data-act=water]').click(); await p.waitForTimeout(300); ok((await truth()).water === w0 + 250, 'water button adds 250 ml');
     await p.evaluate(d => Core.setDaily(d, { water: Core.waterGoalOn(d).ml }), today); await go('#/calendar'); await go('#/'); s = await st();
     ok(s.next === null && /בוצע ✓/.test(s.q), 'when everything planned is done the card says so and recommends rest'); }
+  G = 'SLL-33 contextual shortcuts (state + local clock; docs/M9-SCOPE.md)';
+  { const sc = (d, iso) => p.evaluate(([d, iso]) => Screens.nowShortcuts(d, new Date(iso)).map(c => ({ k: c.k, html: c.html, why: c.why })), [d, iso]);
+    const T = today, tr = await p.evaluate(t => { const ap = Plans.active(); const d = Plans.days(ap).find(x => Plans.isTraining(x) && x.date > t && x.status !== 'skipped'); return d ? { n: d.n, date: d.date, prev: Store.addDays(d.date, -1) } : null; }, T);
+    ok(!!tr, 'test setup: the active plan has an upcoming training day', tr);
+    const m1 = await sc(T, T + 'T09:00:00'), m2 = await sc(T, T + 'T09:00:00');
+    ok(JSON.stringify(m1) === JSON.stringify(m2) && m1.length <= 4 && m1.length >= 1, 'deterministic for the same state and clock; at most 4 chips', m1.map(x => x.k));
+    ok(!m1.some(x => x.k === 'water'), 'morning: no evening water chip', m1.map(x => x.k));
+    const ev = await sc(T, T + 'T20:30:00'); const wv = await p.evaluate(d => Core.daily(d).water || 0, T), wg = await p.evaluate(d => Core.waterGoalOn(d).ml, T);
+    ok(wv < wg ? ev.some(x => x.k === 'water') : !ev.some(x => x.k === 'water'), 'evening (20:30) with water below target → "+0.25 ל׳ מים" chip', { ev: ev.map(x => x.k), wv, wg });
+    if (tr) { const tm = await sc(tr.prev, tr.prev + 'T10:00:00'); const c = tm.find(x => x.k === 'tomorrow');
+      ok(!!c && c.html.includes('#/pday/' + tr.n), 'the day before a training day → "האימון של מחר" linking to that plan day', tm.map(x => x.k));
+      await p.evaluate(tr => Plans.logDay(Plans.active().id, tr.n, { status: 'done', source: 'test' }), tr);
+      const ad = await sc(tr.date, tr.date + 'T10:00:00'); ok(ad[0] && ad[0].k === 'meal' && ad[0].html.includes('#/nutrition'), 'workout logged and a planned meal unmarked → "רישום ארוחה" first', ad.map(x => x.k));
+      await p.evaluate(tr => Plans.unlog(Plans.active().id, tr.n), tr); }
+    await go('#/'); const before = await p.evaluate(() => JSON.stringify(Object.keys(localStorage).sort().map(k => [k, localStorage.getItem(k)])));
+    await p.evaluate(() => { App.render(); App.render(); }); await p.waitForTimeout(300);
+    ok(await p.evaluate(() => JSON.stringify(Object.keys(localStorage).sort().map(k => [k, localStorage.getItem(k)]))) === before, 'showing the shortcuts changes no stored data');
+    const chips = await p.evaluate(() => [...document.querySelectorAll('[data-now-shortcuts] [data-sc]')].map(x => ({ k: x.dataset.sc, href: x.getAttribute('href'), act: x.dataset.act })));
+    const why = await p.evaluate(() => document.querySelectorAll('[data-sc-why] li').length);
+    ok(chips.length >= 1 && chips.length <= 4 && why === chips.length, 'home shows 1–4 chips and "למה הקיצורים האלה?" explains each one', { chips, why });
+    for (const c of chips.filter(c => c.href)) { await go(c.href); ok(await p.evaluate(() => (document.getElementById('view').innerText || '').length > 40), 'shortcut ' + c.k + ' opens a working screen (' + c.href + ')'); }
+    await go('#/'); }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close(); const pass = res.filter(r => r.ok).length, fail = res.length - pass;
   fs.mkdirSync('dist/reports', { recursive: true }); fs.writeFileSync('dist/reports/e2e-now.json', JSON.stringify({ url: URL0, at: new Date().toISOString(), pass, fail, results: res }, null, 1));

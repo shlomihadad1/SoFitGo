@@ -168,6 +168,29 @@ Screens.nowModel = function (date) {
     else if (water < wgoal) { next = { k: 'water', he: `מים: ${C.fmtL(water)} מתוך ${C.fmtL(wgoal)} ליטר`, btn: `<button class="btn primary" data-act="water" data-ml="250" aria-label="הוספת 0.25 ליטר">+0.25 ל׳</button>` }; small = { he: 'כוס אחת עכשיו מספיקה כצעד הבא.' }; } }
   return { done, next, small };
 };
+/* SLL-33 · Contextual Shortcuts v2 (docs/M9-SCOPE.md P1 row): up to 4 chips chosen from stored state and the local clock —
+   deterministic for a given state and time, each opens an existing working screen, and none changes data by itself (the water
+   chip adds water only when tapped, like the water buttons). No location, no tracking. Rules, in order:
+     1. today's workout is logged and a planned meal is not marked yet → "log a meal"
+     2. evening (18:00 or later) and water below today's target → "+0.25 L water"
+     3. tomorrow is a training day (personal plan, else the 30-day program) → "tomorrow's workout"
+     4. then the fixed shortcuts: Plan B, what to eat from what I have, travelling, steps
+   Not implemented: the "shopping day" rule — the app has no shopping-day preference yet (would be a new setting). */
+Screens.nowShortcuts = function (date, now) {
+  now = now || new Date(); const h = now.getHours(), out = [];
+  const add = c => { if (out.length < 4 && !out.some(x => x.k === c.k)) out.push(c); };
+  const tasks = C.dailyProgress(date).tasks || [], w = tasks.find(t => t.k === 'workout'), plan = C.plan(date), ap = root.Plans.active();
+  const mealOpen = C.DAY.some(k => plan[k] && plan[k].rid && !plan[k].off && !plan[k].missing && !C.slotEntry(date, k));
+  if (w && w.v >= 1 && mealOpen) add({ k: 'meal', html: '<a class="chip" href="#/nutrition" data-sc="meal">רישום ארוחה</a>', why: 'האימון של היום נרשם, ויש ארוחה מתוכננת שעוד לא סומנה' });
+  const wg = C.waterGoalOn(date).ml, wv = C.daily(date).water || 0;
+  if (h >= 18 && wv < wg) add({ k: 'water', html: '<button class="chip" data-act="water" data-ml="250" data-sc="water" aria-label="הוספת 0.25 ליטר מים">+0.25 ל׳ מים</button>', why: `ערב (מ־18:00) ושתית ${C.fmtL(wv)} מתוך ${C.fmtL(wg)} ליטר` });
+  const tm = S.addDays(date, 1);
+  if (ap) { const d = (root.Plans.days(ap) || []).find(x => x.date === tm); if (d && root.Plans.isTraining(d) && d.status !== 'skipped') add({ k: 'tomorrow', html: `<a class="chip" href="#/pday/${d.n}" data-sc="tomorrow">האימון של מחר</a>`, why: 'מחר יש אימון בתוכנית שלך' }); }
+  else if (!C.nutritionOnly()) { const n = C.programDay(tm); const d = n >= 1 && n <= 30 ? C.dayDef(n) : null; if (d && d.type !== 'rest') add({ k: 'tomorrow', html: `<a class="chip" href="#/day/${n}" data-sc="tomorrow">האימון של מחר</a>`, why: 'מחר יש אימון בתוכנית 30 הימים' }); }
+  [['planb', '#/planb', 'Plan B — משהו לא מסתדר'], ['fridge', '#/fridge', 'מה לאכול ממה שיש?'], ['travel', '#/travel', 'נסיעה / שינוי בלו״ז'], ['steps', '#/activity', 'צעדים']]
+    .forEach(([k, href, he]) => add({ k, html: `<a class="chip" href="${href}" data-sc="${k}">${he}</a>`, why: 'קיצור קבוע' }));
+  return out;
+};
 Screens.nowCard = function (date, opts) {
   const m = Screens.nowModel(date), coach = root.FIT30_COACH;
   /* M9: on Home the dashboard card above already has the lime "start workout"; here it is secondary (one lime action per area) */
@@ -175,7 +198,7 @@ Screens.nowCard = function (date, opts) {
   return `<section class="card now" data-now><div class="row now-h">${coach ? `<a href="#/coach" class="now-coach" data-coach-link aria-label="${esc(coach.name)} — מסך המאמנת"><img class="coach-av" src="${esc(coach.avatar)}" alt="" width="48" height="48" loading="lazy"></a>` : ''}<div class="stack tight grow"><span class="eyebrow" data-coach-label>${coach ? `<a href="#/coach" class="now-name">${esc(coach.name)}</a> — המאמנת הדיגיטלית` : 'המאמן הדיגיטלי'}</span><b class="now-q">${m.next ? 'הצעד הבא' : 'כל מה שתוכנן להיום בוצע ✓'}</b></div></div>
     ${m.next ? `<div class="now-next" data-now-next="${m.next.k}"><span>${esc(m.next.he)}</span>${m.next.btn}</div>` : '<p class="small muted">אפשר לנוח. מחר ממשיכים מאותה נקודה.</p>'}
     ${m.small ? `<p class="small muted" data-now-small>${esc(m.small.he)}${m.small.href ? ` <a href="${m.small.href}">${m.small.link}</a>` : ''}</p>` : ''}
-    <nav class="chips now-sc" aria-label="קיצורי דרך" data-now-shortcuts><a class="chip" href="#/planb">Plan B — משהו לא מסתדר</a><a class="chip" href="#/fridge">מה לאכול ממה שיש?</a><a class="chip" href="#/activity">צעדים</a><a class="chip" href="#/travel">נסיעה / שינוי בלו״ז</a></nav>
+    ${(() => { const sc = Screens.nowShortcuts(date); return `<nav class="chips now-sc" aria-label="קיצורי דרך" data-now-shortcuts>${sc.map(c => c.html).join('')}</nav><details class="more tiny" data-sc-why><summary>למה הקיצורים האלה?</summary><ul class="tiny muted">${sc.map(c => `<li>${esc(c.html.replace(/<[^>]+>/g, ''))}: ${esc(c.why)}</li>`).join('')}</ul><p class="tiny muted">נבחרים לפי מה שכבר רשום במכשיר והשעה המקומית. שום קיצור לא משנה נתונים בלי לחיצה.</p></details>`; })()}
     <div class="chips now-done" aria-label="מה כבר בוצע היום">${m.done.map(d => `<span class="chip" data-done="${d.k}" aria-pressed="${d.ok}">${d.ok ? '✓ ' : d.part ? '◐ ' : ''}${esc(d.he)}</span>`).join('')}</div>
     <details class="more tiny"><summary>איך נבחר הצעד הבא?</summary><p class="tiny muted">לפי הסדר: אימון שטרם בוצע, ואחריו הארוחה המתוכננת הראשונה שעוד לא סומנה, ואחריהם מים. ${coach ? esc(coach.name) + ' היא המאמנת הדיגיטלית של האפליקציה (כושר ותזונה) — לא דיאטנית או רופאה. ' : ''}ההצעה מחושבת מהתוכנית והיומן שבמכשיר, לא על ידי מודל בינה מלאכותית, ולא משנה את התוכנית.</p></details></section>`;
 };
