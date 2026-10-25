@@ -44,13 +44,14 @@
    - `supabase/migrations/20261025000100_sofitgo_cms.sql` — מערכת הניהול;
    - `supabase/migrations/20261025000200_sofitgo_admin_feedback.sql` — טיפול במשוב;
    - `supabase/migrations/20261025000300_sofitgo_admin_accounts.sql` — סקירת חשבונות.
-3. **ביטול, אם צריך:** קובצי ה־rollback המתאימים, בסדר הפוך:
+3. **ביטול, אם צריך:** קובצי ה־rollback המתאימים, **בסדר הפוך בלבד**. ה־rollback של 0100 מסרב לרוץ אם 0200 או 0300 עדיין מוחלים:
    - `supabase/rollback/20261025000300_rollback.sql`
    - `supabase/rollback/20261025000200_rollback.sql`
    - `supabase/rollback/20261025000100_rollback.sql`
 4. **יצירת חשבון:** להירשם באפליקציה עם המייל של הבעלים.
 5. **הצעד הידני היחיד:** להריץ ב־SQL Editor:
-   `insert into public.cms_members (user_id, role) select id, 'owner' from auth.users where email = 'YOUR-EMAIL';`
+   `insert into public.cms_members (user_id, role) select id, 'owner' from auth.users where email = 'YOUR-EMAIL' on conflict (user_id) do nothing;`
+   ההוראות המלאות, כולל גיבוי, בדיקות לפני ואחרי, הגדרות כתובות האימות ופריסה, נמצאות ב־`docs/SUPABASE_ADMIN_ACTIVATION.md`.
 6. **הענקת הרשאות לצוות:** להיכנס ל־`#/admin` ← לשונית **הרשאות** ← לכתוב את המייל ולבחור תפקיד ← **הענקת הרשאה**. החשבון צריך להיות קיים כבר.
 
 **אין** סיסמת ברירת מחדל, משתמש מנהל מובנה או דלת אחורית. אי אפשר להעניק הרשאה לעצמך, ואי אפשר ליצור "בעלים" דרך ה־API.

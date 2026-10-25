@@ -16,7 +16,7 @@ node tools/artcheck.js "$PWD/dist/artifact/fit30.html" > $L/artcheck.log 2>&1; e
 timeout 600 node tools/e2e_sw_shell.js > $L/e2e_sw_shell.log 2>&1; echo "e2e_sw_shell exit=$? :: $(tail -1 $L/e2e_sw_shell.log)"
 # M10: backend (real local PostgreSQL 16 + Supabase shim) and account/sync e2e against the local Supabase emulator
 sh tools/pg_local.sh > $L/pg_local.log 2>&1
-for t in rls_test rls_cms_test rollback_test; do PGHOST=/tmp PGPORT=54329 node tools/$t.js > $L/$t.log 2>&1; echo "$t exit=$? :: $(tail -1 $L/$t.log)"; done
+for t in rls_test rls_cms_test rollback_test migration_audit_test; do PGHOST=/tmp PGPORT=54329 node tools/$t.js > $L/$t.log 2>&1; echo "$t exit=$? :: $(tail -1 $L/$t.log)"; done
 PGHOST=/tmp PGPORT=54329 timeout 900 node tools/e2e_account.js > $L/e2e_account.log 2>&1; echo "e2e_account exit=$? :: $(tail -1 $L/e2e_account.log)"
 PGHOST=/tmp PGPORT=54329 timeout 900 node tools/e2e_admin.js > $L/e2e_admin.log 2>&1; echo "e2e_admin exit=$? :: $(tail -1 $L/e2e_admin.log)"
 PGHOST=/tmp PGPORT=54329 timeout 900 node tools/e2e_app_control.js > $L/e2e_app_control.log 2>&1; echo "e2e_app_control exit=$? :: $(tail -1 $L/e2e_app_control.log)"
