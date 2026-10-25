@@ -402,3 +402,18 @@ All results below were run on this commit and build. The earlier entries are his
 - any AI provider (none configured).
 
 No merge to `main`, no deploy, no Production or live Supabase change, no costs.
+
+### Delivery: code commit d196e81, build e8c3bccbd4 (Workout Builder, Smart Substitution, Privacy Center + CSV), 25.10.2026
+
+| Run | Result |
+|---|---|
+| Full regression `tools/run_all.sh` on d196e81 | **67/67 suites pass.** 0 failed, 0 crashed, 0 timed out, 0 not run. Checks counted from the suites' own summaries: 26907 passed, 0 failed.. Bundle: `docs/release/RELEASE-EVIDENCE-e8c3bccbd4.md`, generated after the docs-only commit 6e24665; the code is identical to d196e81. |
+| New tests | `builder_test` 59/59; `e2e_builder` 45/45, which checks the downloaded CSV content |
+| WebKit (Playwright emulation, **not a device**) | `e2e_builder` 45/45, `e2e_menu_structure` 42/42, `e2e_content` 9/9, `e2e_m11_meals` 31/31, `e2e_food_global` 29/29, `e2e_m104_fixes` 104/104, `e2e_app_control` 62/62 |
+| First load (network-measured, `e2e_stageA`) | 817,524 B, under the 820,000 B budget (unchanged). It had reached 822,339 B with the shared substitution code. It went back under by shipping derivable cover-image fields compactly; all 57 media records were verified identical after expansion. |
+| Security / privacy | CSV export makes no network call and contains no tokens (unit test). Formula injection is neutralised. Export is blocked for another account's device data (account state simulated in the page). Server isolation is covered by `rls_test`. The secret scan in `build_check` passes. |
+| ZIP | `sofitgo-beta-e8c3bccbd4-d196e81.zip`, 3,150,580 B, `unzip -t` OK, `sw.js` / `index.html` build e8c3bccbd4, no secret keys |
+
+**Not run:**
+- physical devices;
+- the hosted Supabase project (the privacy screen's account statements were tested only with local and simulated state).
