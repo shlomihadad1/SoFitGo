@@ -42,7 +42,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-05 | Travel Mode | partial | travel sheet, no-equipment swaps, quick meals (`stageG_test`, `e2e_m12_gate`) | flights / festivals / hotel schedules / local food beyond swaps | P2 |
 | SLL-06 | Personal Pattern Finder | missing | — | consent model; show sample size + uncertainty | P3 |
 | SLL-07 | Plan B | partial | `#/planb` hub (`e2e_planb_feedback`), exercise swap, meal swap | one flow per changed circumstance (time / equipment / space / ingredients) | P1 |
-| SLL-08 | Smart Grocery Loop | partial | merged quantities, bought / at home / not found, user items (`e2e_grocery`) | categories; alternatives for unavailable items (v3) | P1 |
+| SLL-08 | Smart Grocery Loop | partial | categories (food groups), merged quantities, bought / at home / not found, user items with dedupe (`e2e_grocery`); **new (25.10): alternatives for a "not found" item** — 1–3 from the same SWAP group, never an excluded food, macro change shown, applied through the existing ingredient swap only to listed meals, undo restores storage exactly (`Screens.shopping.alternatives` / `applyAlt`; `e2e_grocery` 25) | v3 (2) "usually at home" after 2 confirmations; (3) carry unbought items to the next range | P1 |
 | SLL-09 | Sofit Memory | blocked | — | consent/edit/delete/opt-out model + an approved AI provider | P2 |
 | SLL-10 | Life Score | missing | MoveScore (steps only) | define consistency/strength/endurance/mobility/habit metrics, shown transparently | P3 |
 | SLL-11 | Ripple Effect | missing | no-compensation rules exist in the menu engine (no punitive extra exercise) | constructive next-step suggestions UI | P3 |
@@ -67,7 +67,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-30 | No-Shame Comeback | partial | `adapt.js` R-DOWN after gaps | load rules need professional review (DR-01) | P2 |
 | SLL-31 | Shared Household List | blocked | — | server lists + sharing permissions | P3 |
 | SLL-32 | Meal Prep Planner | partial | meal-prep tags; shopping-list prep section | batch plan with shared ingredients | P2 |
-| SLL-33 | Contextual Shortcuts | partial → mostly done (25.10) | **new:** chips by state + local clock (log a meal after a workout; evening water; tomorrow's workout; then Plan B / fridge / travel / steps) with "why?" (`Screens.nowShortcuts`; `e2e_now` 29) | "shopping day" rule (needs a shopping-day setting); "I have five minutes" waits for Minimum Mode content | P1 |
+| SLL-33 | Contextual Shortcuts | partial (all documented rules done except one) | chips by state + local clock: log a meal after a logged workout; evening water below target; tomorrow's workout; then the fixed Plan B / fridge / steps / travel in their original order; max 4; "למה הקיצורים האלה?"; no data change without a tap; 23:59/00:00 boundary; fresh install (`Screens.nowShortcuts`; `e2e_now`) | "shopping day" rule needs a shopping-day setting (owner decision); "I have five minutes" waits for Minimum Mode content (SLL-02) | P1 |
 | SLL-34 | Explain My Plan | verified-complete | explanation mode (`stageG_test`, `e2e_m12_gate`) | — | P2 |
 | SLL-35 | Low-Data Mode | partial | media load on demand; videos not cached | explicit low-data setting | P3 |
 | SLL-36 | Consent-Based Wearables | blocked | — | native app (HealthKit / Health Connect) | P3 |
