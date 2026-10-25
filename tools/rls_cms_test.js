@@ -137,10 +137,21 @@ const draft = (who, id, data, base) => by(who, `insert into public.cms_drafts (k
     ok(!rb.err && psql(DB, `select count(*) from public.bug_reports`).out === '2' && psql(DB, `select count(*) from pg_proc where proname like 'cms_feedback%'`).out === '0', 'rollback removes the feedback functions and keeps every report', rb.err);
     const re = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations/20261025000200_sofitgo_admin_feedback.sql'), 'utf8')); ok(!re.err, 're-applying the migration after rollback works', re.err); }
 
+  G = 'accounts overview (admin): 20261025000300';
+  { ok(denied(anon(`select public.cms_accounts_overview()`)) && denied(by('user', `select public.cms_accounts_overview()`)), 'anonymous and a plain user cannot read the accounts overview');
+    ok(denied(by('editor', `select public.cms_accounts_overview()`)) && denied(by('reviewer', `select public.cms_accounts_overview()`)), 'editor and reviewer cannot read it (admin / owner only)');
+    const O = by('admin', `select public.cms_accounts_overview()`); const oj = O.out ? JSON.parse(O.out) : {};
+    const nU = +psql(DB, `select count(*) from auth.users`).out, nS = +psql(DB, `select count(distinct user_id) from public.user_state`).out, nB = +psql(DB, `select count(*) from public.bug_reports`).out;
+    ok(!O.err && oj.accounts_total === nU && oj.accounts_with_synced_data === nS && oj.reports_total === nB && oj.staff && oj.staff.owner === 1, 'admin gets counts that match the tables', { oj, nU, nS, nB });
+    ok(!/@test\.invalid/.test(O.out || '') && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(O.out || ''), 'aggregate only: no e-mail and no user id in the result');
+    const rb = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/rollback/20261025000300_rollback.sql'), 'utf8'));
+    ok(!rb.err && psql(DB, `select count(*) from pg_proc where proname = 'cms_accounts_overview'`).out === '0' && +psql(DB, `select count(*) from auth.users`).out === nU, 'rollback removes the function and touches no data', rb.err);
+    const re = psql(DB, fs.readFileSync(path.join(ROOT, 'supabase/migrations/20261025000300_sofitgo_admin_accounts.sql'), 'utf8')); ok(!re.err, 're-applying the migration after rollback works', re.err); }
+
   G = 'no secrets needed';
   const defs = psql(DB, `select string_agg(prosrc, ' ') from pg_proc where proname like 'cms_%'`).out || '';
   ok(!/service_role|secret/i.test(defs), 'CMS functions rely on the caller\'s token, not a service key');
-  ok(psql(DB, `select bool_and(prosecdef) from pg_proc where proname in ('cms_publish','cms_set_status','cms_rollback','cms_set_role','cms_members_list','cms_role','cms_feedback_list','cms_feedback_set_status')`).out === 't', 'privileged functions are SECURITY DEFINER with role checks inside');
+  ok(psql(DB, `select bool_and(prosecdef) from pg_proc where proname in ('cms_publish','cms_set_status','cms_rollback','cms_set_role','cms_members_list','cms_role','cms_feedback_list','cms_feedback_set_status','cms_accounts_overview')`).out === 't', 'privileged functions are SECURITY DEFINER with role checks inside');
   ok(psql(DB, `select bool_and(array_to_string(proconfig, ',') like '%search_path=%') from pg_proc where proname like 'cms_%' and prosecdef`).out === 't', 'every SECURITY DEFINER function pins search_path');
 
   if (!process.env.KEEP) psql('postgres', `drop database if exists ${DB};`);

@@ -167,6 +167,17 @@ const procs = [];
     ok(/שינוי סטטוס · דיווח משוב/.test(await p.locator('[data-cms-audit-list]').innerText()), 'the status change appears in the audit log');
     ok(errs.length === 0, 'no JS errors (feedback)', errs); await ctx.close(); }
 
+  G = 'accounts overview (migration 20261025000300)';
+  { ok((await call('/rest/v1/rpc/cms_accounts_overview', { method: 'POST', body: '{}' }, tok.user)).status === 403 && (await call('/rest/v1/rpc/cms_accounts_overview', { method: 'POST', body: '{}' }, tok.editor)).status === 403, 'user and editor calling the accounts overview directly are refused by the server');
+    const { p: e, ctx: ec } = await mk(); await login(e, 'editor@cms.test'); await admin(e); await e.evaluate(() => { AdminCMS.state.tab = 'accounts'; App.render(); }); await e.waitForTimeout(300);
+    ok(await e.locator('[data-cms-acc-denied]').count() === 1 && await e.locator('[data-cms-acc-list]').count() === 0, 'editor: the accounts tab explains it is admin-only and shows no numbers'); await ec.close();
+    const { p, ctx, errs } = await mk(); await login(p, 'admin@cms.test'); await admin(p); await p.evaluate(() => { AdminCMS.state.tab = 'accounts'; App.render(); });
+    await waitFor(p, () => !!document.querySelector('[data-cms-acc-list]'));
+    const n = +(await p.locator('[data-acc=accounts_total]').innerText()); ok(n >= 4, 'admin sees the number of registered accounts', n);
+    ok(!/@cms\.test/.test(await text(p)) && /אינו/.test(await p.locator('[data-cms-acc]').innerText()) && await p.locator('[data-cms-acc-subs]').count() === 1, 'no e-mail shown; "synced" is not presented as active users; subscriptions stated as not existing');
+    ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal scroll on a phone (accounts)');
+    ok(errs.length === 0, 'no JS errors (accounts)', errs); await ctx.close(); }
+
   await b.close(); procs.forEach(pr => pr.kill());
   let pass = 0, fail = 0; res.forEach(x => { console.log((x.ok ? 'PASS ' : 'FAIL ') + '[' + x.g + '] ' + x.m); x.ok ? pass++ : fail++; });
   console.log(`admin e2e: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);

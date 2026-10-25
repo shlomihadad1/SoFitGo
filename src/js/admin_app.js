@@ -218,7 +218,7 @@ function status() {
 }
 
 /* ── registration ── */
-EXT.tabs.push(['texts', 'טקסטים', 'exercises'], ['layout', 'מסכים ופריסה', 'texts'], ['design', 'עיצוב', 'layout'], ['settings', 'הגדרות אפליקציה', 'design'], ['audit', 'יומן שינויים', 'roles'], ['feedback', 'משוב ותקלות', 'audit'], ['status', 'מצב מערכת', 'audit']);
+EXT.tabs.push(['texts', 'טקסטים', 'exercises'], ['layout', 'מסכים ופריסה', 'texts'], ['design', 'עיצוב', 'layout'], ['settings', 'הגדרות אפליקציה', 'design'], ['audit', 'יומן שינויים', 'roles'], ['feedback', 'משוב ותקלות', 'audit'], ['accounts', 'חשבונות', 'feedback'], ['status', 'מצב מערכת', 'audit']);
 /* ════════ 5b. feedback and issue review (migration 20261025000200; admin / owner only — checked by the server) ════════
    Testers' reports (#/feedback). The reporter is a short pseudonymous id; no e-mail is shown. A status change is visible to the
    reporter in their own list and is written to the audit log. */
@@ -244,7 +244,29 @@ function feedback() {
         ${x.handled_at ? `<div class="tiny muted">עודכן לאחרונה: ${esc(String(x.handled_at).slice(0, 16).replace('T', ' '))}</div>` : ''}<div class="btns">${btn('fbSave', 'שמירת סטטוס', `data-id="${esc(x.id)}"`, 'primary')}</div></div>` : ''}</div>`).join('') || '<p class="small muted" data-cms-fb-empty>אין דיווחים בסינון הזה.</p>'}</div>
     <div class="row between"><span class="tiny muted">עמוד ${f.page + 1} מתוך ${pages} · ${d.total || 0} דיווחים</span><div class="btns">${f.page > 0 ? btn('fbPage', 'הקודם', 'data-d="-1"') : ''}${f.page + 1 < pages ? btn('fbPage', 'הבא', 'data-d="1"') : ''}${btn('fbReload', 'רענון')}</div></div></section>`;
 }
-Object.assign(EXT.views, { texts, layout, design, settings, audit, feedback, status });
+/* ════════ 5c. accounts overview (migration 20261025000300; admin / owner only — checked by the server) ════════
+   AGGREGATE COUNTS ONLY: no list of users, no e-mail, no id. "Synced in the last 7 days" is not "active users" — the app works
+   offline and without an account, so the server cannot see usage. Subscriptions do not exist in this version (no payment provider). */
+S.acc = S.acc || { data: null, err: null };
+const ACC_ROWS = [['accounts_total', 'חשבונות רשומים'], ['accounts_confirmed', 'אימתו את כתובת המייל'], ['accounts_new_7d', 'נרשמו ב־7 הימים האחרונים'], ['accounts_new_30d', 'נרשמו ב־30 הימים האחרונים'],
+  ['accounts_with_synced_data', 'שומרים עותק מסונכרן בשרת'], ['accounts_synced_7d', 'סנכרנו ב־7 הימים האחרונים'], ['reports_total', 'דיווחי משוב'], ['reports_open', 'דיווחים פתוחים (לא "טופל")']];
+const ROLE_HE = { owner: 'בעלים', admin: 'מנהל/ת', editor: 'עורך/ת', reviewer: 'בודק/ת' };
+function loadAcc() { const a = S.acc; a.err = null;
+  return api('/rest/v1/rpc/cms_accounts_overview', { method: 'POST', body: {} })
+    .then(r => { a.data = r || {}; }, e => { a.data = {}; a.err = /42883|PGRST202|cms_accounts_overview/.test(String(e && (e.code || e.message) || e)) ? 'חשבונות: הפונקציה לא קיימת בשרת — ה־migration ‏20261025000300 עוד לא הוחל.' : A.errText(e); })
+    .then(() => root.App.render()); }
+function accounts() {
+  if (!canPub()) return `<section class="card" data-cms-acc-denied><h3>חשבונות</h3><p class="small muted">סקירת החשבונות זמינה למנהל/ת ולבעלים בלבד. ההרשאה נבדקת בשרת.</p></section>`;
+  const a = S.acc; if (!a.data) { loadAcc(); return '<section class="card"><p class="small muted" data-cms-acc-loading>טוען…</p></section>'; }
+  const d = a.data, staff = d.staff || {};
+  return `<section class="card stack" data-cms-acc><h3>חשבונות</h3><p class="small muted">מספרים מצטברים בלבד: אין כאן רשימת משתמשים, כתובות מייל או מזהים. "סנכרנו ב־7 הימים האחרונים" <b>אינו</b> "משתמשים פעילים" — האפליקציה עובדת גם בלי חשבון ובלי חיבור, כך שהשרת לא רואה שימוש.</p>
+    ${a.err ? `<div class="banner bad small" data-cms-acc-err>${icon('info')}<div>${esc(a.err)}</div></div>` : ''}
+    <div class="list" data-cms-acc-list>${ACC_ROWS.map(([k, he]) => `<div class="li"><div class="grow"><div class="t">${esc(he)}</div></div><b class="num" data-acc="${k}">${d[k] != null ? esc(String(d[k])) : '—'}</b></div>`).join('')}</div>
+    <div class="small" data-cms-acc-staff><b>צוות:</b> ${Object.keys(ROLE_HE).map(r => `${esc(ROLE_HE[r])} ${staff[r] || 0}`).join(' · ')}</div>
+    <div class="banner warn small" data-cms-acc-subs>${icon('info')}<div><b>מנויים (Free / Premium):</b> לא קיימים בגרסה הזו — אין ספק תשלומים ואין הרשאות מנוי. לא מוצג כאן אף מנוי.</div></div>
+    <div class="row between"><span class="tiny muted">${d.generated_at ? 'נכון ל־' + esc(String(d.generated_at).slice(0, 16).replace('T', ' ')) : ''}</span>${btn('accReload', 'רענון')}</div></section>`;
+}
+Object.assign(EXT.views, { texts, layout, design, settings, audit, feedback, accounts, status });
 EXT.open.text = id => { st.tab = 'texts'; S.tsel = id; loadCat().then(() => root.App.render()); };
 EXT.open.layout = id => { st.tab = 'layout'; S.lscreen = id; root.App.render(); };
 EXT.open.theme = () => { st.tab = 'design'; S.theme = null; root.App.render(); };
@@ -286,6 +308,7 @@ Object.assign(A.H, {
   fbOpen: el => { S.fb.open = S.fb.open === el.dataset.id ? null : el.dataset.id; root.App.render(); },
   fbPage: el => { S.fb.page = Math.max(0, S.fb.page + (+el.dataset.d)); S.fb.data = null; S.fb.open = null; root.App.render(); },
   fbReload: () => { S.fb.data = null; root.App.render(); },
+  accReload: () => { S.acc.data = null; root.App.render(); },
   fbSave: async el => { const v = document.getElementById('view'), id = el.dataset.id, stv = v.querySelector('#fb-new').value, note = v.querySelector('#fb-note').value.trim(); el.disabled = true;
     try { await api('/rest/v1/rpc/cms_feedback_set_status', { method: 'POST', body: { p_id: id, p_status: stv, p_note: note || null } }); root.UI.toast('הסטטוס נשמר בשרת: ' + FB_ST[stv]); S.fb.data = null; S.audit = null; }
     catch (e) { S.fb.err = 'השמירה נכשלה, הסטטוס לא השתנה: ' + A.errText(e); el.disabled = false; } root.App.render(); }
