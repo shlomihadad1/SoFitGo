@@ -58,6 +58,14 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
       await p.evaluate(tr => Plans.logDay(Plans.active().id, tr.n, { status: 'done', source: 'test' }), tr);
       const ad = await sc(tr.date, tr.date + 'T10:00:00'); ok(ad[0] && ad[0].k === 'meal' && ad[0].html.includes('#/nutrition'), 'workout logged and a planned meal unmarked → "רישום ארוחה" first', ad.map(x => x.k));
       await p.evaluate(tr => Plans.unlog(Plans.active().id, tr.n), tr); }
+    { const late = await sc(T, T + 'T23:59:00'), mid = await sc(T, T + 'T00:00:00');
+      ok(!mid.some(x => x.k === 'water') && (wv < wg ? late.some(x => x.k === 'water') : true), 'clock boundary: 23:59 is evening, 00:00 is not', { late: late.map(x => x.k), mid: mid.map(x => x.k) }); }
+    { const fx = (await sc(T, T + 'T09:00:00')).filter(x => ['planb', 'fridge', 'steps', 'travel'].includes(x.k)).map(x => x.k), order = ['planb', 'fridge', 'steps', 'travel'];
+      ok(JSON.stringify(fx) === JSON.stringify(order.filter(k => fx.includes(k))), 'fixed shortcuts keep their original order (Plan B, fridge, steps, travel)', fx); }
+    { const c2 = await b.newContext({ ...devices['iPhone 13'], locale: 'he-IL', serviceWorkers: 'block' }); const q = await c2.newPage(); const e2 = []; q.on('pageerror', e => e2.push(e.message));
+      await q.goto(URL0); await q.waitForTimeout(700); await q.evaluate(() => localStorage.clear()); await q.reload(); await q.waitForTimeout(700);
+      const fresh = await q.evaluate(() => { try { return Screens.nowShortcuts(Store.today(), new Date()).map(c => c.k); } catch (e) { return 'threw: ' + e.message; } });
+      ok(Array.isArray(fresh) && fresh.length >= 1 && fresh.length <= 4 && e2.length === 0, 'fresh install (no profile, no plan, no logs): shortcuts still work, no errors', { fresh, e2 }); await c2.close(); }
     await go('#/'); const before = await p.evaluate(() => JSON.stringify(Object.keys(localStorage).sort().map(k => [k, localStorage.getItem(k)])));
     await p.evaluate(() => { App.render(); App.render(); }); await p.waitForTimeout(300);
     ok(await p.evaluate(() => JSON.stringify(Object.keys(localStorage).sort().map(k => [k, localStorage.getItem(k)]))) === before, 'showing the shortcuts changes no stored data');

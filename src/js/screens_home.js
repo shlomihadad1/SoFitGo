@@ -174,7 +174,7 @@ Screens.nowModel = function (date) {
      1. today's workout is logged and a planned meal is not marked yet → "log a meal"
      2. evening (18:00 or later) and water below today's target → "+0.25 L water"
      3. tomorrow is a training day (personal plan, else the 30-day program) → "tomorrow's workout"
-     4. then the fixed shortcuts: Plan B, what to eat from what I have, travelling, steps
+     4. then the fixed shortcuts, in their original order: Plan B, what to eat from what I have, steps, travelling
    Not implemented: the "shopping day" rule — the app has no shopping-day preference yet (would be a new setting). */
 Screens.nowShortcuts = function (date, now) {
   now = now || new Date(); const h = now.getHours(), out = [];
@@ -187,7 +187,7 @@ Screens.nowShortcuts = function (date, now) {
   const tm = S.addDays(date, 1);
   if (ap) { const d = (root.Plans.days(ap) || []).find(x => x.date === tm); if (d && root.Plans.isTraining(d) && d.status !== 'skipped') add({ k: 'tomorrow', html: `<a class="chip" href="#/pday/${d.n}" data-sc="tomorrow">האימון של מחר</a>`, why: 'מחר יש אימון בתוכנית שלך' }); }
   else if (!C.nutritionOnly()) { const n = C.programDay(tm); const d = n >= 1 && n <= 30 ? C.dayDef(n) : null; if (d && d.type !== 'rest') add({ k: 'tomorrow', html: `<a class="chip" href="#/day/${n}" data-sc="tomorrow">האימון של מחר</a>`, why: 'מחר יש אימון בתוכנית 30 הימים' }); }
-  [['planb', '#/planb', 'Plan B — משהו לא מסתדר'], ['fridge', '#/fridge', 'מה לאכול ממה שיש?'], ['travel', '#/travel', 'נסיעה / שינוי בלו״ז'], ['steps', '#/activity', 'צעדים']]
+  [['planb', '#/planb', 'Plan B — משהו לא מסתדר'], ['fridge', '#/fridge', 'מה לאכול ממה שיש?'], ['steps', '#/activity', 'צעדים'], ['travel', '#/travel', 'נסיעה / שינוי בלו״ז']]
     .forEach(([k, href, he]) => add({ k, html: `<a class="chip" href="${href}" data-sc="${k}">${he}</a>`, why: 'קיצור קבוע' }));
   return out;
 };
