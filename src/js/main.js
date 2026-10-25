@@ -14,6 +14,10 @@ function helpLoading() {
 /* M10: any on-demand chunk by file name (account.js); one request per chunk, retried after a failure */
 const chunks = {};
 App.loadChunk = name => chunks[name] || (chunks[name] = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = name; sc.onload = res; sc.onerror = () => { delete chunks[name]; rej(new Error('chunk ' + name)); }; document.head.appendChild(sc); }));
+/* Workout mode (run.js + run_state.js) lives in extra.js with its setup sheet; until it is loaded, this stub loads it and forwards the
+   call, so every screen keeps calling Run.start / Run.open as before. In the single-file artifact the chunk is inline and replaces it. */
+if (!root.Run) { const later = n => (...a) => App.loadChunk('extra.js').then(() => { if (root.Run.real) return root.Run[n](...a); }, () => root.UI.toast('מצב אימון נטען בפעם הראשונה רק עם חיבור לאינטרנט. נסו שוב כשיש חיבור.'));
+  root.Run = { stub: true, start: later('start'), open: later('open'), close: () => { }, state: () => null }; }
 function accountLoading(title, back) {
   App.loadChunk('account.js').then(() => App.render(), () => { const v = document.querySelector('[data-extra-loading]'); if (v) v.innerHTML = '<p class="small warn">לא ניתן לטעון את המסך כרגע. בפעם הראשונה נדרש חיבור לאינטרנט.</p>'; });
   return { title, back, html: '<section class="card" data-extra-loading><p class="small muted">טוען…</p></section>', handlers: {} };
@@ -21,7 +25,7 @@ function accountLoading(title, back) {
 /* RC5: generic on-demand chunk (extra.js) — same pattern as help.js */
 let extraReq = null;
 function extraLoading(title, back) {
-  if (!extraReq) { extraReq = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'extra.js'; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); })
+  if (!extraReq) { extraReq = App.loadChunk('extra.js') /* one loader for extra.js (before: a second <script> could run the chunk twice) */
     .then(() => App.render()).catch(() => { extraReq = null; const v = document.querySelector('[data-extra-loading]'); if (v) v.innerHTML = '<p class="small warn">לא ניתן לטעון את המסך כרגע. בפעם הראשונה נדרש חיבור לאינטרנט; אחרי זה הוא זמין גם בלי חיבור.</p>'; }); }
   return { title, back, html: '<section class="card" data-extra-loading><p class="small muted">טוען…</p></section>', handlers: {} };
 }

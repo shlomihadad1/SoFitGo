@@ -61,7 +61,14 @@ const BASICS = () => { Store.resetAll(); localStorage.clear(); const pr = Store.
 
   G = 'recovery after reload (mid-rest)';
   const idxR = s.stepIdx; await p.reload(); await run(1200); s = await S();
+  /* 25.10.2026: since the session state machine, a reopen more than 60 s after the app was last seen is "interrupted" (time stops at
+     that moment, nothing advances). Playwright's fake clock moves ~100 s across this reload (measured: last seen → now), so the
+     expected state follows the measured gap instead of assuming a 1-second reload. */
+  const gap = await p.evaluate(() => { const x = JSON.parse(localStorage.getItem('fit30.session')); return Date.now() - (x.interruptedAt || x.seenAt || Date.now()); });
+  const wasInterrupted = await p.evaluate(() => Run.state() === 'interrupted');
   ok(await p.locator('.run').count() === 1 && s.stepIdx === idxR && s.mode === 'auto' && (s.rest || s.cd || s.work), 'reload resumes the same step in automatic mode', { idx: s.stepIdx, idxR });
+  ok(wasInterrupted === (gap > 60000), 'reopen state follows the 60 s interruption rule (gap ' + Math.round(gap / 1000) + ' s)', { gap, wasInterrupted });
+  if (wasInterrupted) { ok(await p.locator('[data-run-interrupted]').count() === 1 && Object.keys(s.log).length === idxR, 'interrupted: explained on screen, no set marked'); await p.locator('[data-run-interrupted] [data-a=resume]').click(); await run(200); s = await S(); }
 
   G = 'pause / resume';
   await p.locator('.run-top [data-a=pause]').click(); await run(200); const sp = await S(); await run(90000); const sp2 = await S();

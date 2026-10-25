@@ -1,5 +1,7 @@
-/* Active workout mode. State is saved after every action so a closed app resumes where it stopped. */
+/* Active workout mode (on-demand chunk extra.js; main.js holds a stub that loads it). State is saved after every action so a closed
+   app resumes where it stopped. States and allowed transitions: run_state.js (derived from the one session record). */
 (function (root) {
+if (root.Run && root.Run.real) return; /* loaded once — a second copy would run a second timer */
 const { esc, icon } = root.UI;
 const S = root.Store, C = root.Core, L = root.Logic, P = root.PROGRAM;
 let el = null, tick = null, figStop = null, wake = null, audioCtx = null, lastRestBeep = null;
@@ -13,6 +15,8 @@ const backHash = s => s.custom ? '#/builder/' + s.custom.id : s.plan ? '#/pday/'
 function elapsed(s) { return s.activeMs + (s.paused || !s.lastResume ? 0 : Date.now() - s.lastResume); }
 const mmss = ms => { const t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
 const PH = { warm: 'חימום', main: 'אימון', cool: 'שחרור' };
+/* where a saved workout lives right now: always on the device first; with a signed-in account it is sent on the next sync */
+const savedWhere = () => root.Account && root.Account.state && root.Account.state().signedIn ? ' במכשיר — יישלח לחשבון בסנכרון הבא' : ' במכשיר';
 
 function start(day, version, plan, custom) {
   const ex = sess(), ck = c => c ? c.id : null;
@@ -25,7 +29,7 @@ function start(day, version, plan, custom) {
     const st = L.buildSteps(defOf({ day, plan, custom }), version);
     if (!st.length) { root.UI.toast('אין תרגילים ביום הזה'); return; }
     const begin = cfg => {
-      saveSess({ plan: plan || null, custom: custom ? { id: custom.id, def: defOf({ custom }) } : null, day, version, stepIdx: 0, total: st.length, log: {}, startedAt: Date.now(), activeMs: 0, lastResume: Date.now(), paused: false, rest: null, work: null, notes: '', rpe: null, tests: {}, feedback: {}, finished: false,
+      saveSess({ plan: plan || null, custom: custom ? { id: custom.id, def: defOf({ custom }) } : null, day, version, stepIdx: 0, total: st.length, log: {}, startedAt: Date.now(), activeMs: 0, lastResume: Date.now(), seenAt: Date.now(), paused: false, rest: null, work: null, notes: '', rpe: null, tests: {}, feedback: {}, finished: false,
         mode: cfg.mode, cfg: { setRest: cfg.setRest, exRest: cfg.exRest, countdown: cfg.countdown, voice: cfg.voice }, cd: null, hold: null, restPlanMs: 0, restActualMs: 0 });
       open();
     };
@@ -47,8 +51,10 @@ function restAfter(all, i, cfg) { const a = all[i], b = all[i + 1]; if (!b) retu
   if (a.sec !== 'main' || b.sec !== 'main') return a.rest || 0; /* warm-up / cool-down keep their own (short) transitions */
   const v = same ? cfg.setRest : cfg.exRest; return v != null ? v : (a.rest || 0); }
 function estimateSec(all, cfg, auto) { let t = 0; all.forEach((x, i) => { const it = x.item; t += typeof it.sec === 'number' ? it.sec : (estSetSec(it) || 40); t += restAfter(all, i, cfg); if (auto) t += cfg.countdown || 0; }); return t; }
+let opened = false; /* first open in this page life → check for an interrupted session */
 function open() {
   const s = sess(); if (!s) return;
+  if (!opened) { opened = true; if (root.RunState && root.RunState.recover(s, Date.now())) saveSess(s); }
   if (s.parked) { s.parked = false; saveSess(s); }
   if (s.paused === false && !s.lastResume) { s.lastResume = Date.now(); saveSess(s); }
   if (!el) { el = document.createElement('div'); el.className = 'run'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'מצב אימון'); document.body.appendChild(el); document.body.style.overflow = 'hidden'; }
@@ -66,7 +72,8 @@ function requestWake() {
   try { if ('wakeLock' in navigator && !wake) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => { wake = null; }); }).catch(() => {}); } catch (e) { }
 }
 function releaseWake() { try { if (wake) wake.release(); } catch (e) { } wake = null; }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && el) requestWake(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && el) requestWake(); const s = sess(); if (el && s && !s.paused && !s.finished) { s.seenAt = Date.now(); saveSess(s); } });
+window.addEventListener('pagehide', () => { const s = sess(); if (el && s && !s.paused && !s.finished) { s.seenAt = Date.now(); saveSess(s); } });
 function beep() {
   if (!C.profile().display.sound) return;
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.25); } catch (e) { }
@@ -99,6 +106,7 @@ function autoStep(s) { /* returns true when the screen must re-render */
 function endRest(s, now) { if (!s.rest) return; s.restActualMs = (s.restActualMs || 0) + Math.max(0, Math.min(now, s.rest.endsAt + LATE) - s.rest.startedAt); s.rest = null; }
 function onTick() {
   const s = sess(); if (!s || !el) return;
+  if (!s.paused && !s.finished && Date.now() - (s.seenAt || 0) > 5000) { s.seenAt = Date.now(); saveSess(s); } /* heartbeat: the last moment the running app was seen */
   const e1 = el.querySelector('[data-el]'); if (e1) e1.textContent = mmss(elapsed(s));
   if (s.mode === 'auto') { if (s.rest && !s.paused && s.rest.endsAt - Date.now() <= 0 && lastRestBeep !== s.rest.endsAt) { lastRestBeep = s.rest.endsAt; beep(); }
     if (autoStep(s)) { saveSess(s); render(); return; }
@@ -143,7 +151,8 @@ function render() {
     restBlock = `<div class="rest-panel" data-rest-panel><span class="phase-tag">מנוחה${s.rest.planned ? ' · מתוכנן ' + s.rest.planned + ' שנ׳' : ''}</span><div class="timer" data-rest>${mmss(s.rest.endsAt - Date.now())}</div><div class="btns" style="width:100%"><button class="btn sm" data-a="restM15">−15 שנ׳</button><button class="btn sm" data-a="rest15">+15 שנ׳</button><button class="btn sm primary" data-a="skipRest">דלג על המנוחה</button></div><p class="small">הבא: <b>${esc(root.EX_BY_ID[st.ex].he)}</b> · סט ${st.set}/${st.sets}${auto ? ' · מתחיל אוטומטית' : ''}</p>${fbBlock}</div>`; }
   let autoBlock = '';
   if (auto && !s.rest) {
-    if (s.hold === 'late') autoBlock = `<div class="banner warn" data-auto-late>${icon('pause')}<div class="grow">האימון הושהה כי האפליקציה הייתה ברקע או שהמסך ננעל. הסט הזה <b>לא</b> סומן כבוצע.</div><button class="btn sm primary" data-a="resume">המשך מהסט הזה</button></div>`;
+    if (s.hold === 'interrupted') autoBlock = '';
+    else if (s.hold === 'late') autoBlock = `<div class="banner warn" data-auto-late>${icon('pause')}<div class="grow">האימון הושהה כי האפליקציה הייתה ברקע או שהמסך ננעל. הסט הזה <b>לא</b> סומן כבוצע.</div><button class="btn sm primary" data-a="resume">המשך מהסט הזה</button></div>`;
     else if (s.hold === 'input') autoBlock = `<div class="banner info small" data-auto-hold>${icon('info')}<div class="grow">${it.test ? 'מבדק — הזינו את התוצאה ולחצו "סיימתי סט".' : 'סט "מקסימום" — האפליקציה לא יודעת מתי סיימתם.'} המצב האוטומטי ממשיך אחרי הלחיצה.</div>${timed && it.sec === 'max' && !s.work ? `<button class="btn sm primary" data-a="go">התחלה</button>` : ''}</div>`;
     else if (s.cd) autoBlock = `<div class="rest-panel" data-auto-cd><span class="phase-tag">מתחילים בעוד</span><div class="timer" data-cd>${Math.max(1, Math.ceil((s.cd.endsAt - Date.now()) / 1000))}</div><p class="small"><b>${esc(e.he)}</b> · סט ${st.set}/${st.sets}</p></div>`;
     else if (s.work && s.work.auto) autoBlock = `<div class="card" data-auto-work><span class="phase-tag">${s.work.est ? 'זמן משוער לסט' : 'זמן עבודה'}</span><div class="timer" data-work>${mmss(s.work.startedAt + s.work.dur * 1000 - Date.now())}</div>${s.work.est ? '<p class="tiny muted">הערכה של כ־3 שניות לחזרה. סיימתם קודם? לחצו "סיימתי סט".</p>' : ''}</div>`;
@@ -152,7 +161,7 @@ function render() {
     <div class="run-top"><button class="icon-btn" data-a="exit" aria-label="יציאה">${icon('close')}</button><div class="grow"><h3>${esc(d.title)}</h3><span class="tiny muted">${s.custom ? 'אימון שבניתי' : 'יום ' + s.day} · גרסה ${esc(L.VERSIONS[s.version])} (~${L.estimateMinutes(d, s.version)} דק׳) · <span class="num" data-el>${mmss(elapsed(s))}</span>${s.paused ? ' · <b class="warn">מושהה</b>' : ''} · <span data-run-mode>${auto ? 'אוטומטי' : 'ידני'}</span></span></div><button class="icon-btn" data-a="settings" aria-label="הגדרות אימון: מצב ומנוחה">${icon('gear')}</button><button class="icon-btn" data-a="${s.paused ? 'resume' : 'pause'}" aria-label="${s.paused ? 'המשך' : 'השהיה'}">${icon(s.paused ? 'play' : 'pause')}</button></div>
     <div class="run-prog"><i style="width:${(s.stepIdx / all.length * 100).toFixed(1)}%"></i></div>
     <div class="run-body">
-      ${s.paused ? `<div class="banner warn">${icon('pause')}<div class="grow">האימון מושהה. הזמן לא נספר.</div><button class="btn sm primary" data-a="resume">המשך</button></div>` : ''}
+      ${s.hold === 'interrupted' ? `<div class="banner warn" data-run-interrupted>${icon('pause')}<div class="grow">האימון נקטע — האפליקציה נסגרה או נטענה מחדש${s.interruptedAt ? ' (ב־' + new Date(s.interruptedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) + ')' : ''}. הזמן נעצר באותו רגע ושום סט לא סומן מעצמו. ההתקדמות נשמרה.</div><button class="btn sm primary" data-a="resume">המשך מכאן</button></div>` : s.paused ? `<div class="banner warn">${icon('pause')}<div class="grow">האימון מושהה. הזמן לא נספר.</div><button class="btn sm primary" data-a="resume">המשך</button></div>` : ''}
       ${restBlock}${autoBlock}
       <div class="row between"><span class="phase-tag">${PH[st.sec]}${roundInfo} · שלב ${s.stepIdx + 1}/${all.length}</span><span class="set-dots" aria-label="סטים">${sameItem.map(o => `<i class="${s.log[o.i] && s.log[o.i].done ? 'done' : o.i === s.stepIdx ? 'cur' : ''}"></i>`).join('')}</span></div>
       <div class="run-ex">${esc(e.he)}</div>
@@ -205,11 +214,13 @@ function complete(s, a, opt) {
     if (s.rest) { s.restPlanMs = (s.restPlanMs || 0) + restSec * 1000; if (s.mode === 'auto') say('מנוחה ' + restSec + ' שניות'); } }
   return true;
 }
+const EV = { done: 'set_done', skip: 'set_skip', pause: 'pause', resume: 'resume', rest15: 'rest_adjust', restM15: 'rest_adjust', skipRest: 'rest_end', go: 'timer_start', startWork: 'timer_start', stopWork: 'timer_stop', nextEx: 'navigate', prevEx: 'navigate' };
 function act(a, opt) {
   const s = sess(); if (!s) return; const all = steps(s), st = all[s.stepIdx], it = st.item;
+  if (EV[a] && root.RunState && !root.RunState.can(s, EV[a])) { console.warn('run: ignored "' + a + '" in state ' + root.RunState.of(s)); return render(); } /* invalid transition: no change */
   const now = Date.now();
   if (a === 'pause') { s.activeMs = elapsed(s); s.paused = true; s.lastResume = null; if (s.rest) s.rest.left = s.rest.endsAt - now; if (s.work) s.work.pausedAt = now; if (s.cd) s.cd = null; }
-  else if (a === 'resume') { s.paused = false; s.lastResume = now; if (s.rest && s.rest.left != null) { s.rest.endsAt = now + s.rest.left; delete s.rest.left; } if (s.work && s.work.pausedAt) { s.work.startedAt += now - s.work.pausedAt; delete s.work.pausedAt; } if (s.hold === 'late') s.hold = null; }
+  else if (a === 'resume') { s.paused = false; s.lastResume = now; s.seenAt = now; if (s.rest && s.rest.left != null) { s.rest.endsAt = now + s.rest.left; delete s.rest.left; } if (s.work && s.work.pausedAt) { s.work.startedAt += now - s.work.pausedAt; delete s.work.pausedAt; } if (s.hold === 'late' || s.hold === 'interrupted') { s.hold = null; delete s.interruptedAt; } }
   else if (a === 'rest15') { if (s.rest) { s.rest.endsAt += 15000; s.restPlanMs = (s.restPlanMs || 0) + 15000; } }
   else if (a === 'restM15') { if (s.rest) { s.rest.endsAt = Math.max(now + 3000, s.rest.endsAt - 15000); } }
   else if (a === 'skipRest') { endRest(s, now); if (s.mode === 'auto' && !s.paused) autoBegin(s, now); }
@@ -227,7 +238,7 @@ function act(a, opt) {
 function exitSheet() {
   root.UI.sheet('יציאה ממצב אימון', `<p class="small muted">ההתקדמות נשמרת אוטומטית.</p><div class="stack"><button class="btn primary" data-act="keep">שמירה ויציאה — אמשיך אחר כך</button><button class="btn" data-act="finish">סיום האימון עכשיו (סיכום)</button><button class="btn danger" data-act="discard">ביטול האימון ומחיקת ההתקדמות</button></div>`,
     { keep: (b, e, cl) => { cl(); const s = sess(); s.activeMs = elapsed(s); s.paused = true; s.lastResume = null; s.parked = true; saveSess(s); close(); },
-      finish: (b, e, cl) => { cl(); const s = sess(); s.activeMs = elapsed(s); s.lastResume = null; s.finished = true; s.rest = null; s.work = null; saveSess(s); render(); },
+      finish: (b, e, cl) => { cl(); const s = sess(); s.activeMs = elapsed(s); s.lastResume = null; s.finished = true; s.rest = null; s.work = null; s.hold = null; delete s.interruptedAt; saveSess(s); render(); },
       discard: (b, e, cl) => { cl(); root.UI.confirmSheet('ביטול אימון', 'למחוק את ההתקדמות של האימון הנוכחי? רישומים קודמים לא יימחקו.', 'מחיקה', () => { S.clearSession(); close(); }, true); } });
 }
 function renderSummary(s) {
@@ -255,25 +266,25 @@ function renderSummary(s) {
   el.querySelectorAll('[data-fb]').forEach(b => b.addEventListener('click', () => { const ss = sess(); ss.feedback[b.dataset.fb] = b.dataset.v; saveSess(ss); el.querySelectorAll(`[data-fb="${b.dataset.fb}"]`).forEach(x => x.setAttribute('aria-pressed', x === b)); }));
   el.querySelector('#sm-n').addEventListener('input', ev => { const ss = sess(); ss.notes = ev.target.value; saveSess(ss); });
   el.querySelector('#sm-st').addEventListener('change', ev => { const ss = sess(); ss.status = ev.target.value; saveSess(ss); });
-  el.querySelector('[data-a=back]').addEventListener('click', () => { const ss = sess(); ss.finished = false; ss.lastResume = Date.now(); ss.paused = false; ss.stepIdx = Math.min(ss.stepIdx, all.length - 1); saveSess(ss); render(); });
+  el.querySelector('[data-a=back]').addEventListener('click', () => { const ss = sess(); ss.finished = false; ss.lastResume = Date.now(); ss.seenAt = Date.now(); ss.paused = false; ss.hold = null; ss.stepIdx = Math.min(ss.stepIdx, all.length - 1); saveSess(ss); render(); });
   el.querySelector('[data-a=save]').addEventListener('click', () => {
-    const ss = sess(), w = S.load('workouts');
+    const ss = sess(), w = S.load('workouts'); if (!ss || !ss.finished || ss.saving) return; ss.saving = true; /* completion is recorded once */
     const sets = all.map((x, i) => Object.assign({ key: i }, ss.log[i] || { done: false, ex: x.ex, sec: x.sec, set: x.set }));
     if (ss.custom) { /* Workout Builder: logged with a frozen snapshot; the 30-day log and plans are not touched */
       const rec = { runId: 'r' + ss.startedAt, status: el.querySelector('#sm-st').value, durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', notes: (ss.notes || '').trim() };
       if (root.Builder) root.Builder.logRun(ss.custom.id, rec); else { w.customLog = (w.customLog || []).concat([Object.assign({ wid: ss.custom.id, date: S.today(), at: new Date().toISOString(), snapshot: ss.custom.def }, rec)]); }
       Object.entries(ss.feedback).forEach(([ex, v]) => { w.feedback[ex] = (w.feedback[ex] || []).concat([v]).slice(-6); }); S.save('workouts');
-      S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast('האימון נשמר בהיסטוריה'); return;
+      S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast('האימון נשמר בהיסטוריה' + savedWhere()); return;
     }
     if (ss.plan) { /* personal plan: log into the plan (with a snapshot), never into the 30-day log */
       root.Plans.logDay(ss.plan.id, ss.plan.n, { status: el.querySelector('#sm-st').value, version: ss.version, durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', restPlannedSec: Math.round((ss.restPlanMs || 0) / 1000), restActualSec: Math.round((ss.restActualMs || 0) / 1000), notes: (ss.notes || '').trim(), source: 'run', feedback: Object.assign({}, ss.feedback) });
       Object.entries(ss.feedback).forEach(([ex, v]) => { w.feedback[ex] = (w.feedback[ex] || []).concat([v]).slice(-6); }); S.save('workouts');
-      S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast('האימון נשמר בתוכנית'); return;
+      S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast('האימון נשמר בתוכנית' + savedWhere()); return;
     }
     const prev = w.days[ss.day];
     w.days[ss.day] = { status: el.querySelector('#sm-st').value, version: ss.version, date: S.today(), durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', restPlannedSec: Math.round((ss.restPlanMs || 0) / 1000), restActualSec: Math.round((ss.restActualMs || 0) / 1000), notes: (ss.notes || '').trim(), tests: Object.assign({}, prev && prev.tests || {}, Object.fromEntries(Object.entries(ss.tests).filter(([, v]) => v != null))), feedback: ss.feedback, startedAt: new Date(ss.startedAt).toISOString() };
     Object.entries(ss.feedback).forEach(([ex, v]) => { w.feedback[ex] = (w.feedback[ex] || []).concat([v]).slice(-6); });
-    S.save('workouts'); S.clearSession(); close(); location.hash = '#/day/' + ss.day; root.UI.toast('האימון נשמר');
+    S.save('workouts'); S.clearSession(); close(); location.hash = '#/day/' + ss.day; root.UI.toast('האימון נשמר' + savedWhere());
   });
 }
 function renderTestSummary(s) {
@@ -287,7 +298,7 @@ function renderTestSummary(s) {
     <div class="run-bot"><button class="btn primary big" data-a="saveTest">${icon('check')} שמירת תוצאות המבחן</button><button class="btn ghost" data-a="back">חזרה למבחן</button></div>`;
   el.querySelector('[data-a=back]').addEventListener('click', () => { const ss = sess(); ss.finished = false; ss.lastResume = Date.now(); ss.paused = false; saveSess(ss); render(); });
   el.querySelector('[data-a=saveTest]').addEventListener('click', () => {
-    const ss = sess(), w = S.load('workouts'); w.tests = w.tests || {};
+    const ss = sess(), w = S.load('workouts'); if (!ss || !ss.finished || ss.saving) return; ss.saving = true; w.tests = w.tests || {};
     const results = {}; el.querySelectorAll('[data-t]').forEach(i => { if (i.value !== '' && +i.value >= 0) results[i.dataset.t] = +i.value; });
     if (ss.plan) { root.Plans.logDay(ss.plan.id, ss.plan.n, { status: 'done', version: 'test', tests: results, pushVar: el.querySelector('#ts-var').value, notes: el.querySelector('#ts-n').value.trim(), durationSec: Math.round(ss.activeMs / 1000), source: 'test-mode' });
       S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast(Object.keys(results).length ? 'תוצאות המבחן נשמרו בתוכנית' : 'נשמר ללא תוצאות'); return; }
@@ -295,5 +306,5 @@ function renderTestSummary(s) {
     S.save('workouts'); S.clearSession(); close(); location.hash = '#/day/' + ss.day; root.UI.toast(Object.keys(results).length ? 'תוצאות המבחן נשמרו' : 'נשמר ללא תוצאות');
   });
 }
-root.Run = { start, open, close, _: { RUN_DEF, runPrefs, estimateSec, sess, saveSess, steps, act: (a, o) => act(a, o), render: () => render() } };
+root.Run = { real: true, start, open, close, state: () => root.RunState ? root.RunState.of(sess()) : null, _: { RUN_DEF, runPrefs, estimateSec, sess, saveSess, steps, act: (a, o) => act(a, o), render: () => render() } };
 })(window);
