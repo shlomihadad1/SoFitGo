@@ -9,7 +9,7 @@
 ## 1. גיבוי (2 דקות)
 Supabase ← Database ← Backups ← לוודא שיש גיבוי מהיום.
 
-אם אין גיבוי בתוכנית שלך, ראו `docs/SUPABASE_ADMIN_ACTIVATION.md` סעיף 1: גיבוי לקובץ במחשב.
+בכל מקרה מריצים גם את `backup_sofitgo.sh` לפי `BACKUP.md`, שנמצאים בחבילת הגיבוי. ממשיכים רק אחרי שמופיע `BACKUP OK`.
 
 ## 2. הפעלת מערכת הניהול
 Supabase ← **SQL Editor** ← New query ← מדביקים את כל `activate_admin.sql` ← **Run**.
