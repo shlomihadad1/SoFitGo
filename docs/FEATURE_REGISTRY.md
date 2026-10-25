@@ -89,6 +89,8 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 | FR-M-05 | App settings / feature flags | Control modules | VERIFIED_PASS (local) | `checkConfig`, `isOff`, notice | `e2e_app_control` | kind `config` | No auth bypass | — | S | Internal cohorts (FR-X-01) |
 | FR-M-06 | Audit log | Accountability | VERIFIED_PASS (local) | `cms_revisions`, `cms_audit_list` | `rls_cms_test`, `e2e_app_control` | — | Read-only via API | — | S | — |
 | FR-M-07 | Media upload library | Images and videos | BLOCKED | inventory only | `e2e_admin` | Storage bucket | SVG / script risk documented | — | M | `docs/CMS-STORAGE-SETUP.md` |
+| FR-M-09 | Feedback and issue review (admin) | Act on beta reports | VERIFIED_PASS (local) / BLOCKED (live migration) | `admin_app.js` tab "משוב ותקלות"; migration `20261025000200` + rollback (`cms_feedback_list`, `cms_feedback_set_status`) | `rls_cms_test` 91, `e2e_admin` 50 | `bug_reports` | admin/owner only, checked on the server; reporter shown as a short pseudonymous id, no email; status changes in the audit log | Filter, page, status, staff note | M | Owner applies the migration |
+| FR-M-10 | Admin and user manuals | Operate without the developer | VERIFIED_PASS (checked against the code) | `docs/ADMIN_USER_GUIDE.md`, `USER_GUIDE.md`, `QUICK_START.md`, `KNOWN_ISSUES.md`, `BETA_INSTALL_AND_UPDATE.md` | label check (every tab, button and message named in the guides exists in `src/js`) | — | No credentials in the guides | — | S | Update per release |
 | FR-M-08 | Users / entitlements admin | Support | NOT_FOUND | — | — | entitlement model | Server-side only | — | L | After FR-B-01 |
 
 ## Business, platform, other
@@ -104,6 +106,8 @@ A feature's UI alone never makes it VERIFIED_PASS. Test evidence is the suite na
 | FR-P-04 | Hydration (litre quick-add) | Daily water | VERIFIED_PASS | `core.js` | `e2e_activity` / qa-agents tests | — | — | — | S | — |
 | FR-L-01 | Localization (full i18n) | Global users | PARTIAL | `i18n.js` (11 keys), CMS text overrides with English | `e2e_i18n` | — | Safety texts need review | Keys + completeness check | L | Key migration |
 | FR-S-01 | Community / social | Motivation | DEFERRED | — | — | Moderation and privacy model | Health data private by default | — | L | Not before the core |
+| FR-R-02 | Android test app (APK, sideload) | Install on Android without a store | IMPLEMENTED_UNTESTED on a device | `native/android-webview` (WebView over the bundled build from https://appassets.androidplatform.net, Downloads bridge, keep-screen-on, consent-based location; file/content access off; other hosts open outside) | `e2e_android_bridge` 10 (bridge simulated in a browser); APK build + `apksigner verify` (see release evidence) | Android SDK 35, JDK 17, keystore outside the repo | Local-only config enforced by `build_apk.sh` | Installs and runs on a phone | M | NEEDS_MANUAL_DEVICE_TEST |
+| FR-R-03 | iOS installable package | Install on iPhone | BLOCKED | — | — | Mac + Xcode + paid Apple Developer account (TestFlight) | — | — | L | Owner decision; meanwhile the web app |
 | FR-R-01 | Release Evidence Bundle (A) | Trustworthy releases | PARTIAL | master doc §16 + ZIP checks | — | — | — | One file per release | S | Generate a bundle file per run |
 
 ## Intelligence & Product Expansion (directive of 25.10.2026, audited against the code)
