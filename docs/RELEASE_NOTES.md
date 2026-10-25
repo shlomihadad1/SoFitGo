@@ -1,11 +1,11 @@
 # SoFitGo Beta 0.6.0 — הערות גרסה
 
-**Build:** `@@BUILD@@` · **Commit:** `@@COMMIT@@` · **ענף:** `fix/default-cuisine` · **תאריך:** 25.10.2026
+**Build:** `74bdd9483f` · **Commit:** `d246052` · **ענף:** `fix/default-cuisine` · **תאריך:** 25.10.2026
 
 **מצב הגרסה:**
 - גרסת בטא לבדיקה, **לא פורסמה**.
 - האתר החי ו־Supabase החי לא שונו.
-- הראיות: `docs/release/RELEASE-EVIDENCE-@@BUILD@@.md`.
+- הראיות: `docs/release/RELEASE-EVIDENCE-74bdd9483f.md`.
 
 ## חדש
 - **מכונת מצבים לאימון:**
