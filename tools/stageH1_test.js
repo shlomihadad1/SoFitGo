@@ -58,7 +58,10 @@ T('1c swaps, portions, regeneration, explicit user choice');
   const ings = L.recipeIngredients(cand.r), idx = ings.findIndex(x => Object.values(N.SWAP).some(l => l.includes(x.f)));
   if (idx >= 0) { const grp = Object.keys(N.SWAP).find(g => N.SWAP[g].includes(ings[idx].f)), to = N.SWAP[grp].find(f => f !== ings[idx].f && !bl.has(f)); const before = C.plannedTotals(d).k; C.setPlanSlot(d, 'm2', { rid: cand.r.id, ov: { [idx]: { f: to, g: 200 } } }); ok(!blockedIn(cand.r.id, C.plan(d).m2.ov).length && C.plannedTotals(d).k !== before, 'after an ingredient swap: no restricted food and totals updated'); }
   /* portion (scale) keeps the same foods */
-  C.setPlanSlot(d, 'snack', { rid: C.plan(d).snack.rid, ov: C.plan(d).snack.ov, scale: 1.5 }); ok(!blockedIn(C.plan(d).snack.rid, C.plan(d).snack.ov).length, 'portion change: still no restricted food');
+  /* the slot is whichever planned meal (other than the swapped m2) the day really has — since the v2 engine a snack exists only when
+     the day needs one, so a fixed 'snack' crashed on days without it (seen on 25.10.2026: TypeError reading 'ing' of undefined) */
+  { const ps = C.DAY.find(k => k !== 'm2' && C.plan(d)[k] && C.plan(d)[k].rid); ok(!!ps, 'the day has another planned meal to resize', ps);
+    if (ps) { C.setPlanSlot(d, ps, { rid: C.plan(d)[ps].rid, ov: C.plan(d)[ps].ov, scale: 1.5 }); ok(C.plan(d)[ps].scale === 1.5 && !blockedIn(C.plan(d)[ps].rid, C.plan(d)[ps].ov).length, 'portion change: still no restricted food'); } }
   /* regeneration via plan update */
   const pr = S.load('profile'); pr.availability.days = [0, 2, 4, 6]; pr.availability.sessions = 4; S.save('profile'); PS.applyParams(pl.id, PS.paramsFromProfile(pr), 't'); MP.applyChange(PS.get(pl.id), 't');
   ok(scan(NOW, 90).bad.length === 0, 'after plan regeneration (new segment + new menu): 0 restricted in 90 days');
