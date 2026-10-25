@@ -110,6 +110,21 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
 
   G = 'mobile layout';
   for (const h of ['#/builder', '#/builder/new', '#/privacy']) { await go(h, 400); const w = await p.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth })); ok(w.sw <= w.iw + 1, h + ': no horizontal scroll at 390 px', w); }
+  G = 'workout edited or deleted while its session is open (bugs fixed 25.10.2026: the open session switched to the edited workout; deleting it crashed the runner)';
+  for (const mode of ['edit', 'delete']) {
+    await p.evaluate(() => { localStorage.removeItem('fit30.session'); Run.close && Run.close(); });
+    const id = await p.evaluate(() => { const g = Builder.generate({ goal: 'general', minutes: 15, level: 'beginner' }); g.name = 'מקורי'; return Builder.save(g).id; });
+    const orig = await p.evaluate(id => Builder.get(id).main.map(x => x.ex), id);
+    await p.evaluate(id => Run.start(0, 'std', null, { id }), id); await p.waitForTimeout(600); await p.locator('.sheet [data-act=go]').click(); await p.waitForTimeout(300);
+    await p.locator('.run [data-a=done]').click(); await p.waitForTimeout(200); const total = await p.evaluate(() => JSON.parse(localStorage.getItem('fit30.session')).total);
+    await p.evaluate(() => Run.close());
+    await p.evaluate(([id, mode]) => { if (mode === 'delete') Builder.remove(id); else { const w = Builder.get(id); w.name = 'נערך'; w.main = w.main.slice(0, 1); Builder.save(w); } }, [id, mode]);
+    await p.evaluate(() => Run.open()); await p.waitForTimeout(500);
+    ok(/מקורי/.test(await p.locator('.run').innerText()) && await p.evaluate(() => JSON.parse(localStorage.getItem('fit30.session')).total) === total, mode + ': the open session keeps the workout as it was started');
+    await p.locator('.run [data-a=exit]').click(); await p.waitForTimeout(200); await p.locator('.sheet [data-act=finish]').click(); await p.waitForTimeout(300); await p.locator('.run [data-a=save]').click(); await p.waitForTimeout(400);
+    const l = await p.evaluate(() => Store.load('workouts').customLog.slice(-1)[0]);
+    ok(l && l.snapshot && l.snapshot.name === 'מקורי' && JSON.stringify(l.snapshot.main.map(x => x.ex)) === JSON.stringify(orig) && l.sets.length === total, mode + ': history records what was actually done', l && l.snapshot);
+  }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close();
   let pass = 0, fail = 0; for (const r of res) { console.log(`${r.ok ? 'PASS' : 'FAIL'} [${r.g}] ${r.m}`); r.ok ? pass++ : fail++; }

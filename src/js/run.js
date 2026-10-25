@@ -9,7 +9,7 @@ let el = null, tick = null, figStop = null, wake = null, audioCtx = null, lastRe
 function sess() { return S.load('session'); }
 function saveSess(s) { S.set('session', s); }
 /* a session belongs either to the fixed 30-day program (s.day) or to a personal plan day (s.plan = {id, n}) */
-function defOf(s) { return s.custom ? (root.Builder ? root.Builder.runDef(s.custom.id) : s.custom.def || null) : s.plan ? root.Plans.runDef(s.plan.id, s.plan.n) : C.dayDef(s.day); } /* s.custom = {id, def}: a Workout Builder workout (def kept so a reopened session runs without the chunk) */
+function defOf(s) { return s.custom ? (s.custom.def || (root.Builder ? root.Builder.runDef(s.custom.id) : null)) : /* fixed 25.10.2026: the definition frozen at start wins — editing the workout meanwhile changed the steps of the open session, deleting it crashed the reopened runner */ s.plan ? root.Plans.runDef(s.plan.id, s.plan.n) : C.dayDef(s.day); } /* s.custom = {id, def}: a Workout Builder workout (def kept so a reopened session runs without the chunk) */
 function steps(s) { const d = defOf(s); return L.buildSteps(d, s.version).map(st => Object.assign({}, st, { ex: s.plan || s.custom ? st.ex : C.exFor(s.day, st.ex) })); }
 const backHash = s => s.custom ? '#/builder/' + s.custom.id : s.plan ? '#/pday/' + s.plan.n : '#/day/' + s.day;
 function elapsed(s) { return s.activeMs + (s.paused || !s.lastResume ? 0 : Date.now() - s.lastResume); }
@@ -277,7 +277,7 @@ function renderSummary(s) {
     const ss = sess(), w = S.load('workouts'); if (!ss || !ss.finished || ss.saving) return; ss.saving = true; /* completion is recorded once */
     const sets = all.map((x, i) => Object.assign({ key: i }, ss.log[i] || { done: false, ex: x.ex, sec: x.sec, set: x.set }));
     if (ss.custom) { /* Workout Builder: logged with a frozen snapshot; the 30-day log and plans are not touched */
-      const rec = { runId: 'r' + ss.startedAt, status: el.querySelector('#sm-st').value, durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', notes: (ss.notes || '').trim() };
+      const fz = ss.custom.def, rec = { runId: 'r' + ss.startedAt, ...(fz ? { snapshot: { name: fz.title, warm: fz.warm || [], main: fz.main || [], cool: fz.cool || [], minutes: root.Builder ? (() => { try { return root.Builder.minutes({ warm: fz.warm || [], main: fz.main || [], cool: fz.cool || [] }); } catch (e) { return null; } })() : null } } : {}), status: el.querySelector('#sm-st').value, durationSec: Math.round(ss.activeMs / 1000), sets, rpe: ss.rpe, mode: ss.mode || 'manual', notes: (ss.notes || '').trim() };
       if (root.Builder) root.Builder.logRun(ss.custom.id, rec); else { w.customLog = (w.customLog || []).concat([Object.assign({ wid: ss.custom.id, date: S.today(), at: new Date().toISOString(), snapshot: ss.custom.def }, rec)]); }
       Object.entries(ss.feedback).forEach(([ex, v]) => { w.feedback[ex] = (w.feedback[ex] || []).concat([v]).slice(-6); }); S.save('workouts');
       S.clearSession(); close(); location.hash = backHash(ss); root.UI.toast('האימון נשמר בהיסטוריה' + savedWhere()); return;

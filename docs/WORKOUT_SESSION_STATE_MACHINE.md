@@ -65,7 +65,7 @@ Automatic mode keeps its own guard: a work phase noticed more than 4 s late paus
 - Where it is written:
   - 30-day program → `workouts.days[n]` (keyed by day);
   - personal plan → `Plans.logDay(id, n)` with a snapshot (keyed by day);
-  - Workout Builder → `Builder.logRun` with `runId = 'r' + startedAt` (a duplicate `runId` is refused).
+  - Workout Builder → `Builder.logRun` with `runId = 'r' + startedAt` (a duplicate `runId` is refused). The session runs, and history records, the workout definition frozen at start (`session.custom.def`): editing or deleting the saved workout meanwhile does not change the open session (fixed 25.10.2026; before, an edit changed the steps mid-session and a delete crashed the runner).
 
 **Abandonment** removes the record and logs nothing. Earlier logs are untouched.
 
