@@ -135,6 +135,10 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     await p.locator('[data-act=carryNo]').click(); await p.waitForTimeout(350); await p.reload(); await p.waitForTimeout(800); await go('#/shopping/7');
     ok(await p.locator('[data-carry]').count() === 0 && await p.evaluate(he => !Store.load('nutrition').shopping.custom.some(c => c.text === he), pick[0].he), '"לא תודה" → nothing added, and the offer does not come back after reload');
   }
+  G = 'SLL-32: meal prep split by fridge time';
+  { await go('#/shopping/14'); const ns = await p.locator('[data-mealprep] [data-batch-sessions]').count();
+    const exp = await p.evaluate(() => Signature.shopping(Store.today(), 14).batch.filter(b => b.sessions.length > 1).length);
+    ok(ns === exp && (exp === 0 || /3 ימים/.test(await p.locator('[data-mealprep] [data-batch-sessions]').first().textContent())), '14 days: every base that needs several cooking sessions shows them, with the 3-day reason', { ns, exp }); }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close(); const pass = res.filter(r => r.ok).length, fail = res.length - pass;
   fs.mkdirSync('dist/reports', { recursive: true }); fs.writeFileSync('dist/reports/e2e-grocery.json', JSON.stringify({ url: URL0, at: new Date().toISOString(), pass, fail, results: res }, null, 1));

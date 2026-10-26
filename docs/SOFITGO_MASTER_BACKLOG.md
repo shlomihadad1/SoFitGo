@@ -66,7 +66,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-29 | User-Controlled Experiments | missing | — | duration + end decision by the user | P3 |
 | SLL-30 | No-Shame Comeback | partial | `adapt.js` R-DOWN after gaps | load rules need professional review (DR-01) | P2 |
 | SLL-31 | Shared Household List | blocked | — | server lists + sharing permissions | P3 |
-| SLL-32 | Meal Prep Planner | partial | meal-prep tags; shopping-list prep section | batch plan with shared ingredients | P2 |
+| SLL-32 | Meal Prep Planner | verified-complete | Shopping list → "הכנה מראש — לבשל פעם אחת": bases that need cooking (raw / dry protein, grains, legumes) used in ≥2 meals are summed into batches (shared-ingredient totals = list totals), and the same dish on several days is grouped. **26.10 (safety fix):** batches used to span the whole range (up to 14 days) although the screen says cooked food keeps 3–4 days; each batch and each repeated dish is now split into cooking sessions of the cooking day + at most 3 days, with per-session amounts and meals (`Signature.shopping` → `sessions`; `stageG_test` +5, `e2e_grocery` group "SLL-32") | freezing plans for longer ranges are a note only | P2 |
 | SLL-33 | Contextual Shortcuts | partial (all documented rules done except one) | chips by state + local clock: log a meal after a logged workout; evening water below target; tomorrow's workout; then the fixed Plan B / fridge / steps / travel in their original order; max 4; "למה הקיצורים האלה?"; no data change without a tap; 23:59/00:00 boundary; fresh install (`Screens.nowShortcuts`; `e2e_now`) | "shopping day" rule needs a shopping-day setting (owner decision); "I have five minutes" waits for Minimum Mode content (SLL-02) | P1 |
 | SLL-34 | Explain My Plan | verified-complete | explanation mode (`stageG_test`, `e2e_m12_gate`) | — | P2 |
 | SLL-35 | Low-Data Mode | verified-complete | Setting "חיסכון בנתונים" in Settings → Display; it follows the browser's Save-Data request automatically unless you turn it on or off, and Settings says when it is on automatically. While on, no photo, thumbnail or video poster is downloaded (network checked): photos show "טעינת תמונה" and download only their small size on tap; thumbnails inside links show their illustration; videos start with preload=metadata. All text, plans and data work the same; the choice is recorded in the change log (`Media.lowData`; `e2e_lowdata` 17) | — (fonts and the app shell are cached once; account sync payloads are small JSON) | P3 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 13 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24 added 26.10.2026);
-- 17 partial;
+- 14 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32 added 26.10.2026);
+- 16 partial;
 - 7 missing;
 - 6 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 13 verified-complete, 17 partial, 7 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 14 verified-complete, 16 partial, 7 missing, 6 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

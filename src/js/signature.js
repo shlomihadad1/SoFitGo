@@ -95,6 +95,7 @@
   /* ---------- G3 Shopping list & meal prep ---------- */
   const GRP_HE = { protein: 'חלבון: עוף, דגים, בשר, ביצים', dairy: 'מוצרי חלב', legume: 'קטניות, טופו וסויה', carb: 'דגנים, לחם ותפוחי אדמה', veg: 'ירקות', fruit: 'פירות', fat: 'שמנים, אגוזים וזרעים', condiment: 'תבלינים ורטבים' };
   const ST_HE = { raw: 'נא', dry: 'יבש', ready: 'מוכן' };
+  const PREP_KEEP_DAYS = 3;
   function shopping(from, days) {
     from = from || S().today(); days = days || 7; const F = N().FOODS, items = {}, recipes = {}, dates = [];
     for (let i = 0; i < days; i++) {
@@ -102,7 +103,7 @@
       C().ALL.forEach(k => { const s = p[k]; if (!s || !s.rid || s.off || s.missing) return; if (k === 'extra' && !s.on) return; if (C().slotEntry && C().slotEntry(d, k)) return; /* already eaten */
         const r = L().recipe(s.rid); if (!r || r.est) return; /* restaurant estimates have no shopping list */
         (recipes[r.id] = recipes[r.id] || { id: r.id, he: r.he, n: 0, dates: [], mealprep: (r.tags || []).includes('mealprep') }); recipes[r.id].n++; recipes[r.id].dates.push(d);
-        L().recipeIngredients(r, s.ov).forEach(x => { const g = x.g * (s.scale || 1), f = F[x.f]; if (!f) return; const it = items[x.f] = items[x.f] || { f: x.f, he: f.he, grp: f.grp, st: f.st, g: 0, uses: 0, recipes: new Set(), dates: new Set() }; it.g += g; it.uses++; it.recipes.add(r.id); it.dates.add(d); }); });
+        L().recipeIngredients(r, s.ov).forEach(x => { const g = x.g * (s.scale || 1), f = F[x.f]; if (!f) return; const it = items[x.f] = items[x.f] || { f: x.f, he: f.he, grp: f.grp, st: f.st, g: 0, uses: 0, recipes: new Set(), dates: new Set(), byDate: {} }; it.g += g; it.uses++; it.recipes.add(r.id); it.dates.add(d); const bd = it.byDate[d] = it.byDate[d] || { g: 0, n: 0 }; bd.g += g; bd.n++; }); });
     }
     let blockedN = 0; const groups = {}; Object.values(items).forEach(it => { const f = F[it.f]; const o = { f: it.f, he: it.he.split(' (')[0], st: ST_HE[it.st] || it.st, g: Math.round(it.g), units: f.unit ? Math.ceil(it.g / f.unit - 0.05) : null, unitHe: f.unitHe || null, uses: it.uses, recipes: it.recipes.size };
       /* Stage H1: an item that conflicts with the user's restrictions can only come from a dish the user chose explicitly
@@ -113,9 +114,15 @@
     const order = ['protein', 'dairy', 'legume', 'carb', 'veg', 'fruit', 'fat', 'condiment'];
     /* meal prep: (a) the same recipe on ≥2 days → cook once; (b) a base that needs cooking (raw/dry protein, grains, legumes)
        used in ≥2 different meals → cook the total in one batch. Amounts are the sums of the planned servings. */
-    const prep = Object.values(recipes).filter(r => r.n >= 2).sort((a, b) => b.n - a.n).map(r => ({ kind: 'recipe', id: r.id, he: r.he, n: r.n, dates: r.dates, mealprep: r.mealprep }));
+    /* SLL-32: cooked food keeps ~3–4 days in the fridge (the note shown with this section), so a batch is split into cooking
+       sessions: each session covers its cooking day and up to PREP_KEEP_DAYS days after it. Totals stay the list totals. */
+    const sessionsOf = (ds, amount) => { const out = []; ds.slice().sort().forEach(d => { const s = out[out.length - 1];
+      if (s && S().diffDays(s.cook, d) <= PREP_KEEP_DAYS) { s.dates.push(d); s.g += amount(d).g; s.meals += amount(d).n; } else out.push({ cook: d, dates: [d], g: amount(d).g, meals: amount(d).n }); });
+      return out.map(s => Object.assign(s, { g: Math.round(s.g) })); };
+    const prep = Object.values(recipes).filter(r => r.n >= 2).sort((a, b) => b.n - a.n).map(r => ({ kind: 'recipe', id: r.id, he: r.he, n: r.n, dates: r.dates, mealprep: r.mealprep,
+      sessions: sessionsOf([...new Set(r.dates)], d => ({ g: 0, n: r.dates.filter(x => x === d).length })) }));
     const batch = Object.values(items).filter(it => ['raw', 'dry'].includes(it.st) && ['protein', 'carb', 'legume'].includes(it.grp) && it.recipes.size >= 2 && !F[it.f].unit)
-      .sort((a, b) => b.g - a.g).map(it => ({ kind: 'batch', f: it.f, he: it.he.split(' (')[0], st: ST_HE[it.st], g: Math.round(it.g), meals: it.uses, dates: [...it.dates].sort() }));
+      .sort((a, b) => b.g - a.g).map(it => ({ kind: 'batch', f: it.f, he: it.he.split(' (')[0], st: ST_HE[it.st], g: Math.round(it.g), meals: it.uses, dates: [...it.dates].sort(), sessions: sessionsOf([...it.dates], d => it.byDate[d]) }));
     return { from, days, to: dates[dates.length - 1], groups: order.filter(k => groups[k]).map(k => ({ k, he: GRP_HE[k], items: groups[k] })), prep, batch, blocked: blockedN, recipeCount: Object.keys(recipes).length, itemCount: Object.keys(items).length };
   }
   const shopKey = (from, days) => from + '+' + days;
