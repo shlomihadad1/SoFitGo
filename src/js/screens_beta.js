@@ -21,13 +21,41 @@ Screens.planbSignals = function (now) {
     const tv = ((ap.travel || []).find(x => x.status === 'active' && x.from <= t && t <= x.to)); if (tv) out.push({ k: 'travel', why: `מצב נסיעה פעיל עד ${S.fmtShort(tv.to)}.` }); }
   const w = (C.dailyProgress(t).tasks || []).find(x => x.k === 'workout'); if (w && w.v < 1 && now.getHours() >= 19) out.push({ k: 'time', why: `השעה ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} והאימון של היום עוד לא בוצע.` });
   const nu = S.load('nutrition'), nf = Object.values((nu.shopping && nu.shopping.state) || {}).filter(v => v === 'notfound').length;
+  { const ci = C.daily(t).checkin || {}, CI = 'סימנת היום ב"מה יש לך היום?": '; /* SLL-07: user-reported, today only */
+    if (ci.energy === 'low') out.push({ k: 'energy', why: CI + 'אנרגיה נמוכה.' });
+    if (ci.eq === 'none') out.push({ k: 'equip', why: CI + 'אין ציוד.' });
+    if (ci.space === 'quiet' || ci.space === 'small') out.push({ k: 'quiet', why: CI + (ci.space === 'quiet' ? 'צריך שקט.' : 'מקום קטן.') });
+    if ((ci.time === '5' || ci.time === '15') && !out.some(x => x.k === 'time') && w && w.v < 1) out.push({ k: 'time', why: CI + `יש לך כ־${ci.time} דקות.` }); }
   if (nf) out.push({ k: 'ingredient', why: `${nf === 1 ? 'פריט אחד' : nf + ' פריטים'} ברשימת הקניות ${nf === 1 ? 'סומן' : 'סומנו'} "לא נמצא". לכל אחד יש "חלופות".` });
   return out;
 };
+/* SLL-07 · "מה יש לך היום?" — an OPTIONAL check-in inside Plan B (not a step before every workout). Answers are kept for today only
+   (tracking.daily.checkin) and become Plan B signals with their reason. The recommendation uses only existing versions:
+   energy low or ~5 minutes → "מינימום"; ~15 minutes → "קצר"; otherwise the regular version. Applying it changes only today's workout
+   version (same mechanism as "היום שלי"), with undo. No equipment → the no-equipment options; quiet / small space → the "שקט" preset. */
+const CI_Q = [['time', 'זמן', [['5', '~5 דק׳'], ['15', '~15 דק׳'], ['30', '30+ דק׳']]], ['energy', 'אנרגיה', [['low', 'נמוכה'], ['ok', 'רגילה'], ['high', 'גבוהה']]],
+  ['eq', 'ציוד', [['none', 'אין'], ['some', 'יש']]], ['space', 'מקום', [['ok', 'רגיל'], ['small', 'קטן'], ['quiet', 'צריך שקט']]]];
+function ciRecommend(ci) { if (!ci) return null; if (ci.energy === 'low' || ci.time === '5') return 'min'; if (ci.time === '15') return 'short'; if (ci.time || ci.energy) return 'std'; return null; }
+function setTodayVersion(v) {
+  const t = S.today(), ap = root.Plans && root.Plans.active(), before = { daily: JSON.stringify(C.daily(t)), plans: JSON.stringify(S.load('plans')) };
+  let d = null; if (ap) { d = (root.Plans.days(ap) || []).find(x => (x.movedTo || x.date) === t && root.Plans.isTraining(x) && !x.log); if (!d) throw new Error('אין היום אימון פתוח בתוכנית'); root.Plans.setVersion(ap.id, d.n, v); }
+  else C.setDaily(t, { dayVer: v });
+  if (root.Screens.selectedVersion) root.Screens.selectedVersion._v = null;
+  return { undo: () => { const tr = S.load('tracking'); tr.daily[t] = JSON.parse(before.daily); S.save('tracking'); if (d) { const cur = S.load('plans'); Object.keys(cur).forEach(k => delete cur[k]); Object.assign(cur, JSON.parse(before.plans)); S.save('plans'); } if (root.Screens.selectedVersion) root.Screens.selectedVersion._v = null; } };
+}
+function checkinCard(dayHref) {
+  const ci = C.daily(S.today()).checkin || {}, rec = ciRecommend(ci), w = (C.dailyProgress(S.today()).tasks || []).find(x => x.k === 'workout');
+  return `<section class="card" data-checkin><h3>מה יש לך היום? <span class="tiny muted">(רשות)</span></h3>
+    ${CI_Q.map(([q, he, opts]) => `<div class="row wrap" data-ci-q="${q}"><span class="small" style="min-width:4.5em">${he}</span><div class="chips">${opts.map(([v, l]) => `<button class="chip" data-act="ciSet" data-q="${q}" data-v="${v}" aria-pressed="${ci[q] === v}">${l}</button>`).join('')}</div></div>`).join('')}
+    ${rec && w && w.v < 1 ? `<p class="small" data-ci-rec="${rec}"><b>הצעה:</b> גרסת "${esc(root.Logic.VERSIONS[rec])}" לאימון של היום${rec === 'min' ? ' (נרשמת כ"בוצע חלקית")' : ''}.</p><div class="btns"><button class="btn sm primary" data-act="ciApply" data-v="${rec}">להחיל להיום</button><a class="btn sm" href="${dayHref}">לאימון</a></div>` : ''}
+    ${Object.keys(ci).some(k => ci[k]) ? '<button class="btn sm ghost" data-act="ciClear">ניקוי התשובות</button>' : ''}
+    <p class="tiny faint">התשובות נשמרות להיום בלבד, במכשיר הזה. הן לא משנות כלום עד שבוחרים פעולה.</p></section>`;
+}
 Screens.planb = function () {
   const ap = root.Plans && root.Plans.active(), td = ap ? root.Plans.todayDay(ap) : null, n = ap ? (td && td.n) : C.clampDay(C.todayN()), dayHref = ap ? (n ? '#/pday/' + n : '#/plan') : '#/day/' + n;
   const opt = (k, t, s, href, lbl) => `<a class="li" href="${href}" data-planb="${k}"><div class="grow"><div class="t">${t}</div><div class="s">${s}</div></div><span class="pill">${lbl}</span></a>`;
   return { title: 'Plan B — משהו לא מסתדר?', back: '#/', html: `
+    ${checkinCard(dayHref)}
     <section class="card" data-planb-stop><div class="banner bad small">${icon('info')}<div><b>כאב חד, סחרחורת, לחץ בחזה או קוצר נשימה חריג?</b> עוצרים את האימון. לא ממשיכים "דרך הכאב". אם זה חמור או לא עובר — פונים לגורם רפואי או לשירותי החירום המקומיים.</div></div></section>
 ${(() => { const sig = Screens.planbSignals(), ks = sig.map(x => x.k), nfN = ks.includes('ingredient');
       const ALL = { parked: () => `<button class="li li-btn" data-act="resume" data-planb="parked"><div class="grow"><div class="t">להמשיך את האימון ששמרתי</div><div class="s">ממשיך מאותו שלב, עם הסטים שכבר סומנו.</div></div><span class="pill">אימון</span></button>`,
@@ -37,10 +65,14 @@ ${(() => { const sig = Screens.planbSignals(), ks = sig.map(x => x.k), nfN = ks.
         energy: () => opt('energy', 'אין לי כוח היום', 'מדווחים אנרגיה ביומן היומי; מנוחה היא בחירה לגיטימית ולא מורידה כלום.', '#/progress', 'מעקב'),
         ingredient: () => nfN ? opt('ingredient', 'חסר לי מרכיב', 'ברשימת הקניות: "חלופות" ליד מה שלא נמצא.', '#/shopping', 'קניות') : opt('ingredient', 'חסר לי מרכיב', 'ביומן התזונה: "החלף רכיב" במנה.', '#/nutrition', 'תזונה'),
         meal: () => opt('meal', 'אין את הארוחה / לא מתחשק', 'החלפת ארוחה, או מנה ממה שיש בבית.', '#/fridge', 'תזונה'),
+        quiet: () => opt('quiet', 'צריך שקט / מקום קטן', 'ערכת "שקט": בלי תרגילי קפיצה. אפשר גם גרסה קצרה של האימון.', '#/presets', 'העדפות'),
         travel: () => opt('travel', 'אני בנסיעה', ap ? 'מצב נסיעה בתוכנית: אימונים קצרים בלי ציוד לטווח שתבחרו.' : 'מצב נסיעה זמין בתוכנית אישית.', '#/travel', 'נסיעה') };
       const rest = ['time', 'equip', 'energy', 'ingredient', 'meal', 'travel'].filter(k => !ks.includes(k));
       return (sig.length ? `<section class="card" data-planb-now><h3>מומלץ עכשיו</h3><div class="list">${sig.map(x => ALL[x.k]() + `<p class="tiny muted" data-planb-why="${x.k}">למה: ${esc(x.why)}</p>`).join('')}</div></section>` : '')
-        + `<section class="card"><h3>${sig.length ? 'עוד אפשרויות' : 'מה קרה?'}</h3><div class="list">${rest.map(k => ALL[k]()).join('')}</div>`; })()}<p class="tiny faint">כל מעבר כאן פותח פעולה קיימת. שום דבר לא מסומן כבוצע ושום דבר לא משתנה בלי שתאשרו. ההמלצות למעלה נבחרות לפי מה שרשום במכשיר והשעה.</p></section>`, handlers: { resume: () => { const ss = S.load('session'); if (ss && root.Run) root.Run.open(); } } };
+        + `<section class="card"><h3>${sig.length ? 'עוד אפשרויות' : 'מה קרה?'}</h3><div class="list">${rest.map(k => ALL[k]()).join('')}</div>`; })()}<p class="tiny faint">כל מעבר כאן פותח פעולה קיימת. שום דבר לא מסומן כבוצע ושום דבר לא משתנה בלי שתאשרו. ההמלצות למעלה נבחרות לפי מה שרשום במכשיר והשעה.</p></section>`, handlers: { resume: () => { const ss = S.load('session'); if (ss && root.Run) root.Run.open(); },
+      ciSet: el => { const t = S.today(), ci = Object.assign({}, C.daily(t).checkin || {}); ci[el.dataset.q] = ci[el.dataset.q] === el.dataset.v ? undefined : el.dataset.v; C.setDaily(t, { checkin: ci }); root.App.render(); },
+      ciClear: () => { C.setDaily(S.today(), { checkin: null }); root.App.render(); },
+      ciApply: el => { try { const r = setTodayVersion(el.dataset.v); root.App.render(); root.UI.toast(`הגרסה של היום: ${root.Logic.VERSIONS[el.dataset.v]}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } catch (e) { root.UI.toast(e.message); } } } };
 };
 /* SLL-42 · #/changes — the settings change log recorded by Store.recordChanges (see store.js). Read-only list, newest first;
    "מחיקת היומן" empties only the log (never a setting), with undo. Plan changes have their own history in the plan screen. */

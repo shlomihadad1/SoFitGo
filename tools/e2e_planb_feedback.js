@@ -62,6 +62,30 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     const sM = await sig(T + 'T10:00:00'); ok(miss > 0 ? sM.some(x => x.k === 'missed') : true, 'missed sessions in the last 7 days → "פספסתי אימונים" suggested', { miss, sM });
     await go('#/'); await go('#/planb'); if (miss > 0) ok(await p.locator('[data-planb-now] [data-planb=missed]').getAttribute('href') === '#/plan', '"פספסתי אימונים" opens the plan screen (move or skip there, by choice)');
   }
+  G = 'SLL-07: "מה יש לך היום?" (optional check-in, today only)';
+  { await p.evaluate(() => { const pr = Store.load('profile'); pr.startDate = Store.today(); Store.save('profile'); Plans.active() && Plans.cancel && Plans.cancel(Plans.active().id); Core.setDaily(Store.today(), { checkin: null, dayVer: null }); });
+    await go('#/'); await go('#/planb');
+    const s0 = await p.evaluate(() => localStorage.getItem('fit30.tracking'));
+    ok(await p.locator('[data-checkin]').count() === 1 && await p.locator('[data-ci-rec]').count() === 0, 'Plan B shows the optional check-in; no recommendation before any answer');
+    ok(await p.evaluate(() => localStorage.getItem('fit30.tracking')) === s0, 'showing it writes nothing');
+    await p.locator('[data-act=ciSet][data-q=energy][data-v=low]').click(); await p.waitForTimeout(400);
+    const wv = await p.evaluate(() => (Core.dailyProgress(Store.today()).tasks.find(x => x.k === 'workout') || {}).v);
+    ok(await p.evaluate(() => Core.daily(Store.today()).checkin.energy) === 'low', 'the answer is kept for today');
+    ok(await p.locator('[data-planb-now] [data-planb=energy]').count() === 1 && /אנרגיה נמוכה/.test(await p.locator('[data-planb-why=energy]').textContent()), 'it becomes a Plan B signal with its reason');
+    if (wv === 0) { ok(await p.locator('[data-ci-rec=min]').count() === 1, 'low energy → suggests the minimum version');
+      await p.locator('[data-act=ciSet][data-q=energy][data-v=low]').click(); await p.waitForTimeout(300); await p.locator('[data-act=ciSet][data-q=time][data-v="15"]').click(); await p.waitForTimeout(400);
+      ok(await p.locator('[data-ci-rec=short]').count() === 1, '~15 minutes (energy cleared) → suggests the short version');
+      await p.locator('[data-act=ciApply]').click(); await p.waitForTimeout(500);
+      ok(await p.evaluate(() => Core.daily(Store.today()).dayVer) === 'short' && await p.evaluate(() => Screens.selectedVersion.v) === 'short', '"להחיל להיום" sets today\'s version (used by the start button)');
+      await p.locator('.toast button').first().click(); await p.waitForTimeout(400);
+      ok(!(await p.evaluate(() => Core.daily(Store.today()).dayVer)), '"ביטול" restores it'); }
+    else ok(false, 'test setup: today has an open workout', wv);
+    await p.locator('[data-act=ciSet][data-q=eq][data-v=none]').click(); await p.locator('[data-act=ciSet][data-q=space][data-v=quiet]').click(); await p.waitForTimeout(400);
+    const keys = await p.locator('[data-planb-now] [data-planb]').evaluateAll(a => a.map(x => x.dataset.planb));
+    ok(keys.includes('equip') && keys.includes('quiet') && await p.locator('[data-planb-now] [data-planb=quiet]').getAttribute('href') === '#/presets', 'no equipment / quiet → those options move up, "quiet" leads to the "שקט" preset', keys);
+    const all = await p.locator('[data-planb]').evaluateAll(a => a.map(x => x.dataset.planb)); ok(new Set(all).size === all.length, 'no option listed twice', all);
+    await p.locator('[data-act=ciClear]').click(); await p.waitForTimeout(400);
+    ok(!(await p.evaluate(() => Core.daily(Store.today()).checkin)) && await p.locator('[data-planb-now] [data-planb=quiet]').count() === 0, '"ניקוי התשובות" removes them and their signals'); }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close(); const pass = res.filter(r => r.ok).length, fail = res.length - pass;
   fs.mkdirSync('dist/reports', { recursive: true }); fs.writeFileSync('dist/reports/e2e-planb-feedback.json', JSON.stringify({ url: URL0, at: new Date().toISOString(), pass, fail, results: res }, null, 1));
