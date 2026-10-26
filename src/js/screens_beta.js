@@ -84,6 +84,50 @@ Screens.changes = function () {
     handlers: { chClear: () => { const cl = S.load('changelog'), keep = JSON.stringify(cl.items || []); cl.items = []; S.save('changelog'); root.App.render();
       root.UI.toast('היומן נמחק', 0, { label: 'ביטול', fn: () => { S.load('changelog').items = JSON.parse(keep); S.save('changelog'); root.App.render(); } }); } } };
 };
+/* SLL-25 · #/reset — One-Tap Weekly Reset. One screen that previews EXACTLY what a fresh start for the week would change, using
+   only existing actions; the user ticks what to include and confirms once; "ביטול" restores the shopping list and the plan exactly.
+     marks  — clear the shopping-list marks (bought / at home / not found / buy this time). "פריטים שלי", "בדרך כלל בבית" and the
+              carry-over offers stay. Pre-ticked: it changes no plan and no meal.
+     cdone  — remove "פריטים שלי" already marked bought. NOT pre-ticked (the user's own items are removed only by explicit choice).
+     menu   — the active plan's menu has a pending update (targets or preferences changed): apply it from the first open day, with
+              the same before/after averages the nutrition screen shows. NOT pre-ticked (it changes upcoming meals).
+   Past workouts are never changed here (history is never rewritten); missed sessions and pending adjustments are shown as links
+   to the plan screen, where moving or skipping stays a separate choice. Nothing to reset → the screen says so. */
+function resetItems() {
+  const nu = S.load('nutrition'), sh = nu.shopping || {}, ap = root.Plans && root.Plans.active(), out = [], info = [];
+  const marks = Object.keys(sh.checked || {}).length + Object.keys(sh.state || {}).length;
+  if (marks) out.push({ k: 'marks', def: true, he: 'ניקוי סימוני רשימת הקניות', s: `${marks === 1 ? 'סימון אחד' : marks + ' סימונים'} (נקנה / יש בבית / לא נמצא / צריך לקנות הפעם) יימחקו. "פריטים שלי" ו"בדרך כלל בבית" נשארים.` });
+  const cd = (sh.custom || []).filter(c => c.done);
+  if (cd.length) out.push({ k: 'cdone', def: false, he: 'הסרת "פריטים שלי" שכבר נקנו', s: cd.map(c => c.text).join(', ') });
+  if (ap && root.MealPlan && root.MealPlan.pending(ap)) { const pv = root.MealPlan.previewChange(ap);
+    out.push({ k: 'menu', def: false, he: 'עדכון התפריט לפי היעדים וההעדפות הנוכחיים', s: `מ־${S.fmtDate(pv.fromDate)}. ממוצע ל־14 ימים: ${pv.before.kcal} → ${pv.after.kcal} קק״ל, ${pv.before.protein} → ${pv.after.protein} ג׳ חלבון. ארוחות שכבר נאכלו לא משתנות.` }); }
+  if (ap) { const t = S.today(), miss = root.Plans.days(ap).filter(d => d.status === 'missed' && !d.log && d.date >= S.addDays(t, -7) && d.date < t).length;
+    if (miss) info.push(`<a href="#/plan" data-reset-info="missed">${miss === 1 ? 'אימון אחד' : miss + ' אימונים'} מהשבוע האחרון לא בוצעו — להעביר או לדלג במסך התוכנית</a>`);
+    const pr = root.Adapt ? (root.Adapt.proposals(ap).list || []).length : 0; if (pr) info.push(`<a href="#/plan" data-reset-info="adapt">${pr === 1 ? 'הצעת התאמה אחת' : pr + ' הצעות התאמה'} לתוכנית מחכות לאישור</a>`); }
+  return { items: out, info };
+}
+function resetApply(keys) {
+  const before = { nutrition: JSON.stringify(S.load('nutrition')), plans: JSON.stringify(S.load('plans')) }, done = [];
+  const nu = S.load('nutrition'); nu.shopping = nu.shopping || { checked: {} };
+  if (keys.includes('marks')) { nu.shopping.checked = {}; nu.shopping.state = {}; done.push('marks'); }
+  if (keys.includes('cdone')) { nu.shopping.custom = (nu.shopping.custom || []).filter(c => !c.done); done.push('cdone'); }
+  if (done.length) S.save('nutrition');
+  if (keys.includes('menu')) { const ap = root.Plans && root.Plans.active(); if (ap && root.MealPlan.pending(ap)) { root.MealPlan.applyChange(ap, 'איפוס שבועי'); done.push('menu'); } }
+  const back = (name, json) => { const cur = S.load(name); Object.keys(cur).forEach(k => delete cur[k]); Object.assign(cur, JSON.parse(json)); S.save(name); };
+  return { done, undo: () => { /* restore only what this reset changed, so an untouched store is not rewritten */
+    if (done.includes('marks') || done.includes('cdone')) back('nutrition', before.nutrition); if (done.includes('menu')) back('plans', before.plans); } };
+}
+Screens.reset = function () {
+  const R = resetItems();
+  return { title: 'איפוס שבועי', back: '#/review', html: `
+    <section class="card"><p class="small">התחלה נקייה לשבוע: מסמנים מה לכלול, רואים בדיוק מה ישתנה, ומאשרים פעם אחת. אפשר לבטל מיד אחרי.</p><p class="tiny muted">אימונים שכבר עברו לא משתנים כאן — ההיסטוריה לא נמחקת.</p></section>
+    ${R.items.length ? `<section class="card" data-reset-list><h3>מה ישתנה</h3><div class="list">${R.items.map(x => `<label class="li" data-reset="${x.k}"><input type="checkbox" data-reset-k="${x.k}" ${x.def ? 'checked' : ''}><div class="grow"><div class="t">${esc(x.he)}</div><div class="s">${esc(x.s)}</div></div></label>`).join('')}</div>
+      <div class="btns"><button class="btn primary" data-act="resetGo">איפוס</button></div></section>` : '<div class="empty" data-reset-empty>אין מה לאפס השבוע — הכול מסודר.</div>'}
+    ${R.info.length ? `<section class="card" data-reset-infos><h3>שווה להציץ</h3><ul class="bul small">${R.info.map(x => `<li>${x}</li>`).join('')}</ul></section>` : ''}`,
+    handlers: { resetGo: () => { const keys = [...document.querySelectorAll('[data-reset-k]:checked')].map(x => x.dataset.resetK); if (!keys.length) { root.UI.toast('לא סומן אף פריט'); return; }
+      const r = resetApply(keys); root.App.render(); root.UI.toast(`בוצע: ${r.done.length} ${r.done.length === 1 ? 'פעולה' : 'פעולות'}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } } };
+};
+Screens.reset.items = resetItems; Screens.reset.apply = resetApply;
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
   let standalone = false; try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (x) { }
