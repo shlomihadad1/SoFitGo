@@ -76,7 +76,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-39 | Safe Stop & Escalation | partial | Safe Stop in workout mode (`e2e_m11_run`) | escalation guidance beyond workouts | P1 |
 | SLL-40 | Preference Presets | missing | — | workday / hotel / weekend / no-cooking / quiet presets over existing preferences | P2 |
 | SLL-41 | Recipe Quality Gate | verified-complete | `tools/recipe_gate.js` 344/344 (completeness, provenance, quantities, timing, nutrition) | — | P1 |
-| SLL-42 | Transparent Change Log | partial | plan change history (`e2e_stageB`), CMS audit log | settings and recommendation changes | P2 |
+| SLL-42 | Transparent Change Log | partial | plan change history (`e2e_stageB`), CMS audit log; **new (26.10): settings change log** — every saved change to a profile setting after setup (goals, schedule, place/equipment, exercise and food exclusions, restriction kinds, targets, display) is recorded with time, old and new value, on this device only (not synced, not in backups); body data and identity never recorded; same-setting edits within 2 min merge, a change back removes the entry; max 300; `#/changes` (from Settings) lists them newest first with Hebrew labels; "מחיקת היומן" empties only the log, exact undo (`Store.recordChanges`, `Screens.changes`; `e2e_changelog` 20) | recommendation changes (e.g. adapt-engine target changes) are not yet logged | P2 |
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**

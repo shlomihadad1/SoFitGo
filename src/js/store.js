@@ -1,6 +1,6 @@
 /* Local persistence. Separate keys per data domain. Everything stays on this device. */
 (function (root) {
-const KEYS = { profile: 'fit30.profile', workouts: 'fit30.workouts', session: 'fit30.session', nutrition: 'fit30.nutrition', tracking: 'fit30.tracking', meta: 'fit30.meta', plans: 'fit30.plans', avatar: 'fit30.avatar' /* M9: the user's own profile photo (small JPEG data URL); NOT in backups, like progress photos */ };
+const KEYS = { profile: 'fit30.profile', workouts: 'fit30.workouts', session: 'fit30.session', nutrition: 'fit30.nutrition', tracking: 'fit30.tracking', meta: 'fit30.meta', plans: 'fit30.plans', avatar: 'fit30.avatar' /* M9: the user's own profile photo (small JPEG data URL); NOT in backups, like progress photos */, changelog: 'fit30.changelog' /* SLL-42: settings change log, this device only; not synced, not in backups */ };
 const VERSION = 2; /* 2 = Stage B: profile schema 2 + plans */
 let storageOK = true; const mem = {};
 function rawGet(k) { try { return localStorage.getItem(k); } catch (e) { storageOK = false; return mem[k] || null; } }
@@ -36,7 +36,8 @@ const DEFAULTS = {
   tracking: () => ({ v: VERSION, daily: {}, measures: [] }),
   meta: () => ({ v: VERSION, lastBackup: null, persisted: null }),
   plans: () => ({ v: VERSION, active: null, list: {} }),
-  avatar: () => ({ v: VERSION, src: null, at: null })
+  avatar: () => ({ v: VERSION, src: null, at: null }),
+  changelog: () => ({ v: VERSION, items: [] })
 };
 const cache = {};
 function load(name) {
@@ -77,10 +78,35 @@ function migrateProfile(p) {
    copy is rolled back to what is actually stored — so the screen never shows a change that was not saved — and a
    'fit30:savefail' event names the data area; the app shows a specific error. save() returns true/false. */
 const okAtStart = storageOK, lastSaved = {};
+/* SLL-42 · Transparent Change Log: every saved change to a profile SETTING (goals, schedule, place and equipment, exercise and
+   food exclusions, targets, display) is recorded with its time, old and new value, on this device only.
+   - Body data and identity (age, height, weight, sex, name, photo) are NOT recorded.
+   - Only changes after setup (the stored profile was already onboarded); setup itself and account sync (applyRemote) are not.
+   - Several saves of the same setting within 2 minutes (typing a number) become one entry; a change back to the old value
+     within that time removes it. At most 300 entries, oldest dropped. Nothing is ever recorded without a saved change. */
+const CHANGE_FIELDS = ['aims.primary', 'aims.secondary', 'experience', 'availability.days', 'availability.sessions', 'availability.prefMin', 'availability.maxMin',
+  'environment.place', 'environment.equipment', 'exercisePrefs.exclude', 'exercisePrefs.noJump', 'goals.steps', 'goals.water', 'goals.sleep', 'targetWeight',
+  'prefs.chicken', 'prefs.egg', 'prefs.dairy', 'prefs.veg', 'prefs.exclude', 'prefs.flex', 'restrictionKinds', 'mode', 'units.w',
+  'display.size', 'display.motion', 'display.sound', 'display.wake', 'mediaPrefs.autoplay'];
+const CHANGE_MAX = 300, CHANGE_MERGE_MS = 120000;
+const pathGet = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
+function recordChanges(prevTxt, txt, now) {
+  let a, b; try { a = JSON.parse(prevTxt); b = JSON.parse(txt); } catch (e) { return 0; }
+  if (!a || !b || a.onboarded !== true) return 0;
+  const cl = load('changelog'), t = now || Date.now(); let n = 0; if (!Array.isArray(cl.items)) cl.items = [];
+  CHANGE_FIELDS.forEach(p => { const x = pathGet(a, p), y = pathGet(b, p), xs = JSON.stringify(x === undefined ? null : x), ys = JSON.stringify(y === undefined ? null : y); if (xs === ys) return;
+    const last = cl.items.filter(i => i.path === p).pop();
+    if (last && t - Date.parse(last.at) < CHANGE_MERGE_MS && JSON.stringify(last.to) === xs) { last.to = JSON.parse(ys); last.at = new Date(t).toISOString();
+      if (JSON.stringify(last.from) === ys) cl.items.splice(cl.items.indexOf(last), 1); n++; return; }
+    cl.items.push({ at: new Date(t).toISOString(), path: p, from: JSON.parse(xs), to: JSON.parse(ys) }); n++; });
+  if (n) { if (cl.items.length > CHANGE_MAX) cl.items.splice(0, cl.items.length - CHANGE_MAX); save('changelog'); }
+  return n;
+}
 function save(name) {
   if (name === 'session' && !cache.session) { rawDel(KEYS.session); return true; }
-  const txt = JSON.stringify(cache[name]);
+  const txt = JSON.stringify(cache[name]), prevProfile = name === 'profile' ? (lastSaved.profile !== undefined ? lastSaved.profile : rawGet(KEYS.profile)) : null;
   if (rawSet(KEYS[name], txt)) { const changed = lastSaved[name] !== txt; lastSaved[name] = txt;
+    if (changed && name === 'profile' && prevProfile && prevProfile !== txt) { try { recordChanges(prevProfile, txt); } catch (e) { } }
     /* M10: account sync listens for this (marks the data area as not yet synced). Fired only after the local write succeeded. */
     if (changed) { try { root.dispatchEvent(new CustomEvent('fit30:saved', { detail: { name } })); } catch (e) { } } return true; }
   if (okAtStart) { storageOK = true; /* storage exists; this write failed */ let prev = null; try { prev = localStorage.getItem(KEYS[name]); } catch (e) { }
@@ -174,6 +200,6 @@ async function photoAll() { const db = await idb(); return new Promise((res, rej
 async function photoPut(p) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('photos', 'readwrite'); t.objectStore('photos').put(p); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
 async function photoDel(id) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('photos', 'readwrite'); t.objectStore('photos').delete(id); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
 
-root.Store = { KEYS, VERSION, migrateProfile, load, save, get storageOKAtStart() { return okAtStart; }, set, clearSession, exportAll, importAll, validateBackup, resetAll, applyRemote, wipeDevice, usageBytes, get storageOK() { return storageOK; },
+root.Store = { KEYS, VERSION, CHANGE_FIELDS, recordChanges, migrateProfile, load, save, get storageOKAtStart() { return okAtStart; }, set, clearSession, exportAll, importAll, validateBackup, resetAll, applyRemote, wipeDevice, usageBytes, get storageOK() { return storageOK; },
   iso, parse, addDays, diffDays, today, fmtDate, fmtShort, HE_DAYS, photoAll, photoPut, photoDel };
 })(typeof window !== 'undefined' ? window : globalThis);

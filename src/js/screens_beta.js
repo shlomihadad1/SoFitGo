@@ -42,6 +42,41 @@ ${(() => { const sig = Screens.planbSignals(), ks = sig.map(x => x.k), nfN = ks.
       return (sig.length ? `<section class="card" data-planb-now><h3>מומלץ עכשיו</h3><div class="list">${sig.map(x => ALL[x.k]() + `<p class="tiny muted" data-planb-why="${x.k}">למה: ${esc(x.why)}</p>`).join('')}</div></section>` : '')
         + `<section class="card"><h3>${sig.length ? 'עוד אפשרויות' : 'מה קרה?'}</h3><div class="list">${rest.map(k => ALL[k]()).join('')}</div>`; })()}<p class="tiny faint">כל מעבר כאן פותח פעולה קיימת. שום דבר לא מסומן כבוצע ושום דבר לא משתנה בלי שתאשרו. ההמלצות למעלה נבחרות לפי מה שרשום במכשיר והשעה.</p></section>`, handlers: { resume: () => { const ss = S.load('session'); if (ss && root.Run) root.Run.open(); } } };
 };
+/* SLL-42 · #/changes — the settings change log recorded by Store.recordChanges (see store.js). Read-only list, newest first;
+   "מחיקת היומן" empties only the log (never a setting), with undo. Plan changes have their own history in the plan screen. */
+const CH_HE = { 'aims.primary': 'מטרה עיקרית', 'aims.secondary': 'מטרות נוספות', experience: 'ניסיון', 'availability.days': 'ימי אימון', 'availability.sessions': 'אימונים בשבוע',
+  'availability.prefMin': 'משך אימון מועדף (דק׳)', 'availability.maxMin': 'משך אימון מרבי (דק׳)', 'environment.place': 'מקום אימון', 'environment.equipment': 'ציוד',
+  'exercisePrefs.exclude': 'תרגילים מוחרגים', 'exercisePrefs.noJump': 'בלי קפיצות', 'goals.steps': 'יעד צעדים', 'goals.water': 'יעד מים (מ״ל)', 'goals.sleep': 'יעד שינה (שעות)',
+  targetWeight: 'משקל יעד (ק״ג)', 'prefs.chicken': 'עוף בתפריט', 'prefs.egg': 'ביצים בתפריט', 'prefs.dairy': 'מוצרי חלב בתפריט', 'prefs.veg': 'צמחוני', 'prefs.exclude': 'מזונות מוחרגים',
+  'prefs.flex': 'ארוחה גמישה', restrictionKinds: 'סוג ההגבלה (אלרגיה / רגישות / העדפה)', mode: 'מצב שימוש', 'units.w': 'יחידת משקל', 'display.size': 'גודל טקסט',
+  'display.motion': 'אנימציות', 'display.sound': 'צלילים', 'display.wake': 'מסך דולק באימון', 'mediaPrefs.autoplay': 'ניגון אוטומטי של סרטונים' };
+const DAY_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+function chVal(path, v) {
+  if (v == null || (Array.isArray(v) && !v.length) || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'כן' : 'לא';
+  const F = (root.NUTRI && root.NUTRI.FOODS) || {}, EQ = (root.CATALOG && root.CATALOG.EQUIPMENT) || {}, G = (root.PROGRAMS && root.PROGRAMS.GOALS) || {}, LV = (root.Planner && root.Planner.LEVEL_HE) || {};
+  const one = x => path === 'availability.days' ? (DAY_HE[x] || x) : path === 'environment.equipment' ? ((EQ[x] || {}).he || x) : path === 'prefs.exclude' ? ((F[x] || {}).he || C.PREF_HE[x] || x).split(' (')[0]
+    : path.startsWith('aims.') ? (G[x] || x) : path === 'experience' ? (LV[x] || x) : path === 'environment.place' ? ({ home: 'בבית', gym: 'חדר כושר', outdoor: 'בחוץ', mixed: 'משולב' }[x] || x)
+    : path === 'exercisePrefs.exclude' ? (((root.EX_BY_ID || {})[x] || {}).he || ((root.EX_BY_ID || {})[x] || {}).name || x) : path === 'mode' ? ({ nutrition: 'תזונה בלבד' }[x] || x) : String(x);
+  if (Array.isArray(v)) return v.map(one).join(', ');
+  if (typeof v === 'object') return Object.keys(v).length ? Object.keys(v).map(k => `${one(k)}: ${v[k]}`).join(', ') : '—';
+  return one(v);
+}
+Screens.changes = function () {
+  const items = (S.load('changelog').items || []).slice().reverse(), byDay = {};
+  const day = at => { const x = new Date(at); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }; /* local calendar day */
+  items.forEach(i => { const d = day(i.at); (byDay[d] = byDay[d] || []).push(i); });
+  const tm = at => { const x = new Date(at); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };
+  const ap = root.Plans && root.Plans.active();
+  return { title: 'יומן שינויים בהגדרות', back: '#/settings', html: `
+    <section class="card"><p class="small">כל שינוי שנשמר בהגדרות הפרופיל אחרי ההגדרה הראשונה: מתי, מה היה ומה נהיה. נשמר רק במכשיר הזה; לא נשלח ולא מסונכרן.</p>
+      <p class="tiny muted">לא נרשמים: גיל, גובה, משקל, מין, שם ותמונה. כמה שינויים באותה הגדרה בתוך 2 דקות נרשמים כשינוי אחד.${ap ? ' שינויים בתוכנית האימונים מופיעים ב<a href="#/plan">מסך התוכנית</a>.' : ''}</p></section>
+    ${items.length ? Object.keys(byDay).map(d => `<section class="card" data-ch-day="${d}"><h3>${esc(S.fmtDate(d, true))}</h3><div class="list">${byDay[d].map(i => `<div class="li" data-ch="${esc(i.path)}"><div class="grow"><div class="t">${esc(CH_HE[i.path] || i.path)}</div><div class="s"><span data-ch-from>${esc(chVal(i.path, i.from))}</span> ← <span data-ch-to>${esc(chVal(i.path, i.to))}</span></div></div><span class="tiny muted">${tm(i.at)}</span></div>`).join('')}</div></section>`).join('')
+      + '<div class="btns"><button class="btn ghost" data-act="chClear">מחיקת היומן</button></div><p class="tiny faint">המחיקה מוחקת רק את היומן, לא אף הגדרה.</p>'
+      : '<div class="empty" data-ch-empty>עוד לא נשמרו שינויים בהגדרות.</div>'}`,
+    handlers: { chClear: () => { const cl = S.load('changelog'), keep = JSON.stringify(cl.items || []); cl.items = []; S.save('changelog'); root.App.render();
+      root.UI.toast('היומן נמחק', 0, { label: 'ביטול', fn: () => { S.load('changelog').items = JSON.parse(keep); S.save('changelog'); root.App.render(); } }); } } };
+};
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
   let standalone = false; try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (x) { }
