@@ -27,6 +27,22 @@ C.targetInputs = () => {
   const activity = C.PAL[p.activity] ? p.activity : null;
   return { sex, sexFrom, deficit, deficitFrom, goal, minor, bmi: bmi != null ? Math.round(bmi * 10) / 10 : null, underweight: under, activity, af: activity ? C.PAL[activity] : 1.55, afFrom: activity ? 'user' : 'assumed' };
 };
+/* SLL-42 part 2 · app-generated changes: the AUTOMATIC calorie and protein targets are recalculated from the profile. When a saved
+   profile change moves them, one app entry records old → new and why (which inputs changed). Manual targets are the user's own
+   (recorded as settings), so nothing is logged while a manual target is in use. The first run after setup only stores a baseline.
+   Water is not tracked here: its automatic value follows each day's workout, so it would log daily noise, not a change. */
+const AUTO_IN = { weight: ['משקל', ' ק״ג'], height: ['גובה', ' ס״מ'], age: ['גיל', ''], sex: ['מין', ''], goal: ['מטרה', ''], activity: ['רמת פעילות', ''] };
+const autoV = (k, v) => v == null ? '—' : k === 'sex' ? ({ m: 'זכר', f: 'נקבה' }[v] || v) : k === 'goal' ? ((root.PROGRAMS && root.PROGRAMS.GOALS[v]) || v) : k === 'activity' ? ((C.ACTIVITY_HE && C.ACTIVITY_HE[v] && C.ACTIVITY_HE[v][0]) || v) : v + AUTO_IN[k][1];
+C.trackAuto = now => {
+  const p = C.profile(); if (!p.onboarded) return 0; const a = C.autoTargets(); if (!a) return 0; const t = C.targets(), i = a.inputs;
+  const cur = { kcal: a.kcal, protein: a.protein, custom: !!t.custom, in: { weight: p.weight, height: p.height, age: p.age, sex: i.sex, goal: i.goal || null, activity: i.activity || null } };
+  const cl = S().load('changelog'), prev = cl.auto; if (prev && JSON.stringify(prev) === JSON.stringify(cur)) return 0; cl.auto = cur;
+  if (!prev || !prev.in) { S().save('changelog'); return 0; }
+  const why = Object.keys(AUTO_IN).filter(k => JSON.stringify(prev.in[k]) !== JSON.stringify(cur.in[k])).map(k => `${AUTO_IN[k][0]} ${autoV(k, prev.in[k])} → ${autoV(k, cur.in[k])}`);
+  let n = 0; if (!prev.custom && !cur.custom) [['kcal', 'auto.kcal'], ['protein', 'auto.protein']].forEach(([k, path]) => { if (prev[k] !== cur[k]) n += S().recordEntry({ path, from: prev[k], to: cur[k], src: 'app', why: why.length ? 'חושב מחדש כי השתנה: ' + why.join('; ') : 'החישוב עודכן בגרסה חדשה של האפליקציה' }, now); });
+  if (!n) S().save('changelog'); return n;
+};
+try { root.addEventListener('fit30:saved', e => { if (e && e.detail && e.detail.name === 'profile') { try { C.trackAuto(); } catch (x) { } } }); } catch (e) { }
 C.autoTargets = () => { const p = C.profile(); if (!C.hasBasics(p)) return null; const i = C.targetInputs(); return Object.assign(L().computeTargets({ weight: p.weight, height: p.height, age: p.age, sex: i.sex, deficit: i.deficit, activity: i.af }), { inputs: i }); };
 /* warnings shown with the targets (targets, profile, nutrition, explain). level: bad | warn | info. Sources are cited. */
 C.targetWarnings = () => {

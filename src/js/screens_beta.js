@@ -49,7 +49,11 @@ const CH_HE = { 'aims.primary': 'מטרה עיקרית', 'aims.secondary': 'מט
   'exercisePrefs.exclude': 'תרגילים מוחרגים', 'exercisePrefs.noJump': 'בלי קפיצות', 'goals.steps': 'יעד צעדים', 'goals.water': 'יעד מים (מ״ל)', 'goals.sleep': 'יעד שינה (שעות)',
   targetWeight: 'משקל יעד (ק״ג)', 'prefs.chicken': 'עוף בתפריט', 'prefs.egg': 'ביצים בתפריט', 'prefs.dairy': 'מוצרי חלב בתפריט', 'prefs.veg': 'צמחוני', 'prefs.exclude': 'מזונות מוחרגים',
   'prefs.flex': 'ארוחה גמישה', restrictionKinds: 'סוג ההגבלה (אלרגיה / רגישות / העדפה)', mode: 'מצב שימוש', 'units.w': 'יחידת משקל', 'display.size': 'גודל טקסט',
-  'display.motion': 'אנימציות', 'display.sound': 'צלילים', 'display.wake': 'מסך דולק באימון', 'mediaPrefs.autoplay': 'ניגון אוטומטי של סרטונים' };
+  'display.motion': 'אנימציות', 'display.sound': 'צלילים', 'display.wake': 'מסך דולק באימון', 'mediaPrefs.autoplay': 'ניגון אוטומטי של סרטונים',
+  'targets.kcal': 'יעד קלוריות ידני', 'targets.protein': 'יעד חלבון ידני (ג׳)', 'targets.carbs': 'יעד פחמימות ידני (ג׳)', 'targets.fat': 'יעד שומן ידני (ג׳)', 'goals.waterMode': 'אופן קביעת יעד המים',
+  'auto.kcal': 'יעד קלוריות אוטומטי', 'auto.protein': 'יעד חלבון אוטומטי (ג׳)' };
+/* plan change types (Plans / Adapt / meal planner / travel) → who initiated it */
+const PLAN_SRC = { adapt: 'הצעת האפליקציה, אישרת', 'adapt-revert': 'ביטלת התאמה של האפליקציה', nutrition: 'עדכון תפריט אחרי שינוי יעדים', travel: 'מצב נסיעה', 'travel-revert': 'מצב נסיעה בוטל' };
 const DAY_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 function chVal(path, v) {
   if (v == null || (Array.isArray(v) && !v.length) || v === '') return '—';
@@ -57,7 +61,8 @@ function chVal(path, v) {
   const F = (root.NUTRI && root.NUTRI.FOODS) || {}, EQ = (root.CATALOG && root.CATALOG.EQUIPMENT) || {}, G = (root.PROGRAMS && root.PROGRAMS.GOALS) || {}, LV = (root.Planner && root.Planner.LEVEL_HE) || {};
   const one = x => path === 'availability.days' ? (DAY_HE[x] || x) : path === 'environment.equipment' ? ((EQ[x] || {}).he || x) : path === 'prefs.exclude' ? ((F[x] || {}).he || C.PREF_HE[x] || x).split(' (')[0]
     : path.startsWith('aims.') ? (G[x] || x) : path === 'experience' ? (LV[x] || x) : path === 'environment.place' ? ({ home: 'בבית', gym: 'חדר כושר', outdoor: 'בחוץ', mixed: 'משולב' }[x] || x)
-    : path === 'exercisePrefs.exclude' ? (((root.EX_BY_ID || {})[x] || {}).he || ((root.EX_BY_ID || {})[x] || {}).name || x) : path === 'mode' ? ({ nutrition: 'תזונה בלבד' }[x] || x) : String(x);
+    : path === 'exercisePrefs.exclude' ? (((root.EX_BY_ID || {})[x] || {}).he || ((root.EX_BY_ID || {})[x] || {}).name || x) : path === 'mode' ? ({ nutrition: 'תזונה בלבד' }[x] || x)
+    : path === 'goals.waterMode' ? ({ manual: 'ידני', auto: 'אוטומטי' }[x] || x) : path === 'units.w' ? ({ kg: 'ק״ג', lb: 'ליברות' }[x] || x) : path === 'display.motion' ? ({ auto: 'רגיל', reduce: 'מופחת' }[x] || x) : String(x);
   if (Array.isArray(v)) return v.map(one).join(', ');
   if (typeof v === 'object') return Object.keys(v).length ? Object.keys(v).map(k => `${one(k)}: ${v[k]}`).join(', ') : '—';
   return one(v);
@@ -67,13 +72,14 @@ Screens.changes = function () {
   const day = at => { const x = new Date(at); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }; /* local calendar day */
   items.forEach(i => { const d = day(i.at); (byDay[d] = byDay[d] || []).push(i); });
   const tm = at => { const x = new Date(at); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };
-  const ap = root.Plans && root.Plans.active();
+  const ap = root.Plans && root.Plans.active(), pch = ap ? (ap.changes || []).slice(-60).reverse() : [];
   return { title: 'יומן שינויים בהגדרות', back: '#/settings', html: `
     <section class="card"><p class="small">כל שינוי שנשמר בהגדרות הפרופיל אחרי ההגדרה הראשונה: מתי, מה היה ומה נהיה. נשמר רק במכשיר הזה; לא נשלח ולא מסונכרן.</p>
-      <p class="tiny muted">לא נרשמים: גיל, גובה, משקל, מין, שם ותמונה. כמה שינויים באותה הגדרה בתוך 2 דקות נרשמים כשינוי אחד.${ap ? ' שינויים בתוכנית האימונים מופיעים ב<a href="#/plan">מסך התוכנית</a>.' : ''}</p></section>
-    ${items.length ? Object.keys(byDay).map(d => `<section class="card" data-ch-day="${d}"><h3>${esc(S.fmtDate(d, true))}</h3><div class="list">${byDay[d].map(i => `<div class="li" data-ch="${esc(i.path)}"><div class="grow"><div class="t">${esc(CH_HE[i.path] || i.path)}</div><div class="s"><span data-ch-from>${esc(chVal(i.path, i.from))}</span> ← <span data-ch-to>${esc(chVal(i.path, i.to))}</span></div></div><span class="tiny muted">${tm(i.at)}</span></div>`).join('')}</div></section>`).join('')
+      <p class="tiny muted">לא נרשמים: גיל, גובה, משקל, מין, שם ותמונה. כמה שינויים באותה הגדרה בתוך 2 דקות נרשמים כשינוי אחד. שורה עם "האפליקציה" היא שינוי שהאפליקציה חישבה בעצמה, עם הסיבה.</p></section>
+    ${items.length ? Object.keys(byDay).map(d => `<section class="card" data-ch-day="${d}"><h3>${esc(S.fmtDate(d, true))}</h3><div class="list">${byDay[d].map(i => `<div class="li" data-ch="${esc(i.path)}" data-ch-src="${i.src === 'app' ? 'app' : 'user'}"><div class="grow"><div class="t">${esc(CH_HE[i.path] || i.path)}${i.src === 'app' ? ' <span class="pill" data-ch-app>האפליקציה</span>' : ''}</div><div class="s"><span data-ch-from>${esc(chVal(i.path, i.from))}</span> ← <span data-ch-to>${esc(chVal(i.path, i.to))}</span></div>${i.why ? `<div class="tiny muted" data-ch-why>${esc(i.why)}</div>` : ''}</div><span class="tiny muted">${tm(i.at)}</span></div>`).join('')}</div></section>`).join('')
       + '<div class="btns"><button class="btn ghost" data-act="chClear">מחיקת היומן</button></div><p class="tiny faint">המחיקה מוחקת רק את היומן, לא אף הגדרה.</p>'
-      : '<div class="empty" data-ch-empty>עוד לא נשמרו שינויים בהגדרות.</div>'}`,
+      : '<div class="empty" data-ch-empty>עוד לא נשמרו שינויים בהגדרות.</div>'}
+    ${pch.length ? `<section class="card" data-plan-changes><h3>שינויים בתוכנית "${esc(((root.PROGRAMS && root.PROGRAMS.byId(ap.templateId)) || {}).he || 'התוכנית הפעילה')}"</h3><div class="list">${pch.map(c => `<div class="li" data-pch="${esc(c.type || '')}"><div class="grow"><div class="t">${esc(c.text || '')}</div><div class="s">${esc(PLAN_SRC[c.type] || 'שינוי שלך')}</div></div><span class="tiny muted">${c.date ? esc(S.fmtShort(c.date)) : ''}</span></div>`).join('')}</div><p class="tiny faint">היסטוריית התוכנית לא נמחקת; ביטול התאמה נעשה ב<a href="#/plan">מסך התוכנית</a>.</p></section>` : ''}`,
     handlers: { chClear: () => { const cl = S.load('changelog'), keep = JSON.stringify(cl.items || []); cl.items = []; S.save('changelog'); root.App.render();
       root.UI.toast('היומן נמחק', 0, { label: 'ביטול', fn: () => { S.load('changelog').items = JSON.parse(keep); S.save('changelog'); root.App.render(); } }); } } };
 };

@@ -83,25 +83,32 @@ const okAtStart = storageOK, lastSaved = {};
    - Body data and identity (age, height, weight, sex, name, photo) are NOT recorded.
    - Only changes after setup (the stored profile was already onboarded); setup itself and account sync (applyRemote) are not.
    - Several saves of the same setting within 2 minutes (typing a number) become one entry; a change back to the old value
-     within that time removes it. At most 300 entries, oldest dropped. Nothing is ever recorded without a saved change. */
+     within that time removes it. At most 300 entries, oldest dropped. Nothing is ever recorded without a saved change.
+   Part 2: recordEntry() also takes entries the APP generated (src: 'app', with a reason), e.g. Core.trackAuto() when the
+   automatic calorie/protein targets change because the weight or goal changed. Entries without src are the user's. */
 const CHANGE_FIELDS = ['aims.primary', 'aims.secondary', 'experience', 'availability.days', 'availability.sessions', 'availability.prefMin', 'availability.maxMin',
   'environment.place', 'environment.equipment', 'exercisePrefs.exclude', 'exercisePrefs.noJump', 'goals.steps', 'goals.water', 'goals.sleep', 'targetWeight',
   'prefs.chicken', 'prefs.egg', 'prefs.dairy', 'prefs.veg', 'prefs.exclude', 'prefs.flex', 'restrictionKinds', 'mode', 'units.w',
-  'display.size', 'display.motion', 'display.sound', 'display.wake', 'mediaPrefs.autoplay'];
+  'display.size', 'display.motion', 'display.sound', 'display.wake', 'mediaPrefs.autoplay', 'targets.kcal', 'targets.protein', 'targets.carbs', 'targets.fat', 'goals.waterMode'];
 const CHANGE_MAX = 300, CHANGE_MERGE_MS = 120000;
 const pathGet = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
 function recordChanges(prevTxt, txt, now) {
   let a, b; try { a = JSON.parse(prevTxt); b = JSON.parse(txt); } catch (e) { return 0; }
   if (!a || !b || a.onboarded !== true) return 0;
-  const cl = load('changelog'), t = now || Date.now(); let n = 0; if (!Array.isArray(cl.items)) cl.items = [];
-  CHANGE_FIELDS.forEach(p => { const x = pathGet(a, p), y = pathGet(b, p), xs = JSON.stringify(x === undefined ? null : x), ys = JSON.stringify(y === undefined ? null : y); if (xs === ys) return;
-    const last = cl.items.filter(i => i.path === p).pop();
-    if (last && t - Date.parse(last.at) < CHANGE_MERGE_MS && JSON.stringify(last.to) === xs) { last.to = JSON.parse(ys); last.at = new Date(t).toISOString();
-      if (JSON.stringify(last.from) === ys) cl.items.splice(cl.items.indexOf(last), 1); n++; return; }
-    cl.items.push({ at: new Date(t).toISOString(), path: p, from: JSON.parse(xs), to: JSON.parse(ys) }); n++; });
-  if (n) { if (cl.items.length > CHANGE_MAX) cl.items.splice(0, cl.items.length - CHANGE_MAX); save('changelog'); }
-  return n;
+  let n = 0; const t = now || Date.now();
+  CHANGE_FIELDS.forEach(p => { const x = pathGet(a, p), y = pathGet(b, p); if (JSON.stringify(x === undefined ? null : x) !== JSON.stringify(y === undefined ? null : y)) n += addEntry({ path: p, from: x, to: y }, t); });
+  if (n) save('changelog'); return n;
 }
+function addEntry(e, t) { /* merge rule shared by user and app entries; the caller saves */
+  const cl = load('changelog'); if (!Array.isArray(cl.items)) cl.items = [];
+  const xs = JSON.stringify(e.from === undefined ? null : e.from), ys = JSON.stringify(e.to === undefined ? null : e.to); if (xs === ys) return 0;
+  const last = cl.items.filter(i => i.path === e.path && (i.src || 'user') === (e.src || 'user')).pop();
+  if (last && t - Date.parse(last.at) < CHANGE_MERGE_MS && JSON.stringify(last.to) === xs) { last.to = JSON.parse(ys); last.at = new Date(t).toISOString(); if (e.why) last.why = e.why;
+    if (JSON.stringify(last.from) === ys) cl.items.splice(cl.items.indexOf(last), 1); return 1; }
+  const it = { at: new Date(t).toISOString(), path: e.path, from: JSON.parse(xs), to: JSON.parse(ys) }; if (e.src) it.src = e.src; if (e.why) it.why = String(e.why).slice(0, 300);
+  cl.items.push(it); if (cl.items.length > CHANGE_MAX) cl.items.splice(0, cl.items.length - CHANGE_MAX); return 1;
+}
+function recordEntry(e, now) { const n = addEntry(e, now || Date.now()); if (n) save('changelog'); return n; }
 function save(name) {
   if (name === 'session' && !cache.session) { rawDel(KEYS.session); return true; }
   const txt = JSON.stringify(cache[name]), prevProfile = name === 'profile' ? (lastSaved.profile !== undefined ? lastSaved.profile : rawGet(KEYS.profile)) : null;
@@ -200,6 +207,6 @@ async function photoAll() { const db = await idb(); return new Promise((res, rej
 async function photoPut(p) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('photos', 'readwrite'); t.objectStore('photos').put(p); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
 async function photoDel(id) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('photos', 'readwrite'); t.objectStore('photos').delete(id); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
 
-root.Store = { KEYS, VERSION, CHANGE_FIELDS, recordChanges, migrateProfile, load, save, get storageOKAtStart() { return okAtStart; }, set, clearSession, exportAll, importAll, validateBackup, resetAll, applyRemote, wipeDevice, usageBytes, get storageOK() { return storageOK; },
+root.Store = { KEYS, VERSION, CHANGE_FIELDS, recordChanges, recordEntry, migrateProfile, load, save, get storageOKAtStart() { return okAtStart; }, set, clearSession, exportAll, importAll, validateBackup, resetAll, applyRemote, wipeDevice, usageBytes, get storageOK() { return storageOK; },
   iso, parse, addDays, diffDays, today, fmtDate, fmtShort, HE_DAYS, photoAll, photoPut, photoDel };
 })(typeof window !== 'undefined' ? window : globalThis);
