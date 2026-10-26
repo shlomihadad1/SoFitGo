@@ -46,6 +46,11 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 6 | SLL-21: in-app reminders, quiet hours | done → verified-complete | (see git log) | e2e_reminders 22 (fixed clocks; two weak assertions found in my own draft and replaced before commit); e2e, now, shell, m10_ux, rc1_layout, beta, changelog, stageA (e2e+unit), rc1, build_check: all pass |
 | 7 | Quality pass + final regression + report | | | |
 
+## Full regression checkpoints
+| Commit | Build | Result |
+|---|---|---|
+| 4b2bbfa (after SLL-42/28/35/25/40/21) | a9a81b64f7 | `bash tools/run_all.sh`: **76/76 suites exit 0**, artcheck 2/2, 27,277 checks passed, 0 failed |
+
 ## Decisions taken without the owner (safe defaults, reversible)
 (each entry: what, why, how to change)
 - **SLL-42, what counts as an app change:** only the automatic calorie/protein targets. The automatic water target follows each day's workout, so logging it would produce daily noise rather than real changes. To change this: add a path to `Core.trackAuto`.
