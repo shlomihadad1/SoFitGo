@@ -104,7 +104,9 @@ const ok = (c, m) => { groups[G] = groups[G] || { pass: 0, fail: 0 }; resG.push(
   G = 'workouts';
   await go('#/day/3');
   const segs = await p.locator('.seg [data-v] small').allInnerTexts();
-  ok(segs.length === 3 && /1[45]|16/.test(segs[0]) && /(29|30|31)/.test(segs[1]) && /(59|60|61)/.test(segs[2]), 'version buttons show ~15 / ~30 / ~60 (' + segs.join(' | ') + ')');
+  /* SLL-02 (26.10.2026): a 4th button, "מינימום", comes first; the three existing ones keep their exact ranges */
+  const mins = segs.map(s => +((s.match(/~(\d+)/) || [])[1]));
+  ok(segs.length === 4 && mins[0] >= 3 && mins[0] <= 10 && mins[0] < mins[1] && /1[45]|16/.test(segs[1]) && /(29|30|31)/.test(segs[2]) && /(59|60|61)/.test(segs[3]), 'version buttons show minimum (≤10, shorter than short) / ~15 / ~30 / ~60 (' + segs.join(' | ') + ')');
   ok((await p.locator('main').innerText()).includes('הערכה') && (await p.locator('main').innerText()).includes('זמן מתוכנן'), 'planned time shown and labelled as estimate');
   await p.locator('[data-act=swap][data-ex=reverse_lunge]').click(); await p.locator('.sheet [data-act=pick][data-id=split_squat]').click(); await p.waitForTimeout(200);
   ok((await state('workouts')).swaps[3].reverse_lunge === 'split_squat', 'exercise swap');

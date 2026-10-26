@@ -141,7 +141,7 @@
     if (busy) throw new Error(`ב־${S().fmtDate(to)} כבר יש אימון (${busy.title}). בחרו יום מנוחה, או דלגו על אחד מהם.`);
     p.overrides[n] = Object.assign(p.overrides[n] || {}, { moveTo: to }); addChange(p, 'move', `יום ${n} הועבר ל־${S().fmtDate(to)}`); save();
   }
-  function setVersion(id, n, v) { const p = get(id), d = dayOf(p, n); assertFuture(p, d, 'לשנות'); if (!['short', 'std', 'long'].includes(v)) throw new Error('גרסה לא תקינה');
+  function setVersion(id, n, v) { const p = get(id), d = dayOf(p, n); assertFuture(p, d, 'לשנות'); if (!['min', 'short', 'std', 'long'].includes(v)) throw new Error('גרסה לא תקינה');
     if (['assess', 'active'].includes(d.type)) throw new Error('למבחן ולהתאוששות אין גרסאות'); p.overrides[n] = Object.assign(p.overrides[n] || {}, { version: v === 'std' ? undefined : v }); save(); }
 
   /* Smart Exercise Substitution — ONE ranking shared by personal plans (alternatives below) and the Workout Builder.

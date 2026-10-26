@@ -64,13 +64,21 @@ function computeTargets(pr) {
    std   (target 30 min): the day's warm-up + the explicitly selected main exercises (d.std indices) + the day's cool-down.
    long  (target 60 min): the day's warm-up + all main exercises + the first d.longExtra extra exercises + cool-down (+ mobility flow if d.longFlow).
    Walk-based days set the walk length per version in d.walkMin. 'test' = the standardized fitness test (days 1 and 29). */
-const VERSIONS = { short: 'קצר', std: 'רגיל', long: 'ארוך', test: 'מבחן' };
-const VERSION_TARGET = { short: 15, std: 30, long: 60 };
+const VERSIONS = { min: 'מינימום', short: 'קצר', std: 'רגיל', long: 'ארוך', test: 'מבחן' };
+const VERSION_TARGET = { min: 5, short: 15, std: 30, long: 60 };
+/* SLL-02 · Minimum Mode ("min", ~5 minutes): built ONLY from what the day already contains — the quick warm-up, the first two work
+   exercises of the day (the short version's when it exists) at 1 set each on the easy level, and the quick cool-down. No new
+   exercise content. Never on test / recovery days. Logged as PARTIAL (it never counts as a full workout). A personal-plan day that
+   Planner.versioned already reduced (d.version === 'min') passes through unchanged. */
+const MIN_ITEMS = 2;
 const withWalk = (items, min) => items.map(it => it.ex === 'brisk_walk' && min != null ? Object.assign({}, it, { sec: min * 60, note: (it.note && !/^\d|דקות/.test(it.note) ? it.note + ' ' : '') + min + ' דקות.' }) : it);
 function versionParts(d, v) {
   if (v === 'test') { const T = root.PROGRAM.TEST_PROTOCOL; return { warm: T.warm, main: T.items, cool: T.cool, circuit: 0 }; }
   if (!d.main.length) return { warm: [], main: [], cool: [], circuit: 0 };
   const W = root.PROGRAM_W, Cc = root.PROGRAM_C, wm = d.walkMin || {};
+  if (v === 'min' && d.version !== 'min') { const src = (d.short || d.main).filter(it => it.ex !== 'brisk_walk' && (it.reps || typeof it.sec === 'number'));
+    if (d.walkOnly || !src.length) return { warm: W.quick, main: withWalk(d.main.filter(it => it.ex === 'brisk_walk').slice(0, 1), 3), cool: Cc.quick, circuit: 0 };
+    return { warm: W.quick, main: src.slice(0, MIN_ITEMS).map(it => Object.assign({}, it, { sets: 1, lvl: 'easy' })), cool: Cc.quick, circuit: 0 }; }
   if (d.walkOnly) return { warm: d.warm, main: withWalk(d.main, wm[v] != null ? wm[v] : wm.std), cool: v === 'short' ? Cc.shortFlow : d.cool.concat(v === 'long' && d.longFlow ? Cc.longFlow : []), circuit: 0 };
   if (v === 'short' && d.short) {
     const r = d.shortRounds || 3;

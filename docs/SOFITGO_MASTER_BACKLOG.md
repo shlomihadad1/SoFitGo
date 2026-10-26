@@ -36,7 +36,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ID | Name | Status | Evidence in the code | Missing / next | P |
 |---|---|---|---|---|---|
 | SLL-01 | Sofit Flex | partial | 15/30/60 versions, swaps, low-energy suggestion (`Logic.VERSIONS`, `plans.js`, `builder.js`) | choice by reported energy + place in one step | P1 |
-| SLL-02 | Minimum Mode | blocked | ~15-min short version only; "rest is a valid choice" wording on NOW card | reviewed 1/3/5/8-min content + partial-logging rule | P1 |
+| SLL-02 | Minimum Mode | partial | **26.10 (owner authorized safe defaults):** a "מינימום" version (~5 min) in every version picker (home, plan day, manual log), built ONLY from the day's own content: quick warm-up, the first two work exercises at 1 set on the easy level, quick cool-down. Never on test / recovery days; works for the 30-day program and personal plans (never reduced twice). Always logged as "בוצע חלקית" ("done" cannot be chosen; a manual "done" becomes partial), so it never counts as a full workout and today counts it as half (`Logic.versionParts(d,'min')`, `Planner.versioned(…,'min')`; `e2e_minimum` 13, `e2e` version buttons) | 1 / 3 / 8-minute variants and a professional review of the minimum format (DR-01) | P1 |
 | SLL-03 | Fridge-to-Meal | verified-complete | `screens_fridge.js`; `e2e_fridge` | — | P1 |
 | SLL-04 | Restaurant Copilot | blocked | — | menu understanding / local language needs an AI or translation service (privacy + cost decision) | P2 |
 | SLL-05 | Travel Mode | partial | travel sheet, no-equipment swaps, quick meals (`stageG_test`, `e2e_m12_gate`) | flights / festivals / hotel schedules / local food beyond swaps | P2 |
@@ -67,7 +67,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-30 | No-Shame Comeback | partial | `adapt.js` R-DOWN after gaps | load rules need professional review (DR-01) | P2 |
 | SLL-31 | Shared Household List | blocked | — | server lists + sharing permissions | P3 |
 | SLL-32 | Meal Prep Planner | verified-complete | Shopping list → "הכנה מראש — לבשל פעם אחת": bases that need cooking (raw / dry protein, grains, legumes) used in ≥2 meals are summed into batches (shared-ingredient totals = list totals), and the same dish on several days is grouped. **26.10 (safety fix):** batches used to span the whole range (up to 14 days) although the screen says cooked food keeps 3–4 days; each batch and each repeated dish is now split into cooking sessions of the cooking day + at most 3 days, with per-session amounts and meals (`Signature.shopping` → `sessions`; `stageG_test` +5, `e2e_grocery` group "SLL-32") | freezing plans for longer ranges are a note only | P2 |
-| SLL-33 | Contextual Shortcuts | partial (all documented rules done except one) | chips by state + local clock: log a meal after a logged workout; evening water below target; tomorrow's workout; then the fixed Plan B / fridge / steps / travel in their original order; max 4; "למה הקיצורים האלה?"; no data change without a tap; 23:59/00:00 boundary; fresh install (`Screens.nowShortcuts`; `e2e_now`) | "shopping day" rule needs a shopping-day setting (owner decision); "I have five minutes" waits for Minimum Mode content (SLL-02) | P1 |
+| SLL-33 | Contextual Shortcuts | verified-complete | Chips from stored state + local clock, max 4, "למה הקיצורים האלה?", no data change without a tap, 23:59/00:00 boundary, fresh install (`Screens.nowShortcuts`; `e2e_now` 38). Rules: log a meal after a logged workout; evening water below target; **"יש לי 5 דקות" from 17:00 when today's workout is not done → today's workout, where "מינימום" is offered (26.10, SLL-02)**; **shopping day (26.10): an explicit setting on the shopping list, off by default; the chip shows on that weekday and the day before, with the reason; recorded in the change log**; tomorrow's workout; then the fixed Plan B / fridge / steps / travel | — | P1 |
 | SLL-34 | Explain My Plan | verified-complete | explanation mode (`stageG_test`, `e2e_m12_gate`) | — | P2 |
 | SLL-35 | Low-Data Mode | verified-complete | Setting "חיסכון בנתונים" in Settings → Display; it follows the browser's Save-Data request automatically unless you turn it on or off, and Settings says when it is on automatically. While on, no photo, thumbnail or video poster is downloaded (network checked): photos show "טעינת תמונה" and download only their small size on tap; thumbnails inside links show their illustration; videos start with preload=metadata. All text, plans and data work the same; the choice is recorded in the change log (`Media.lowData`; `e2e_lowdata` 17) | — (fonts and the app shell are cached once; account sync payloads are small JSON) | P3 |
 | SLL-36 | Consent-Based Wearables | blocked | — | native app (HealthKit / Health Connect) | P3 |
@@ -80,10 +80,10 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 16 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12 added 26.10.2026);
+- 17 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33 added 26.10.2026);
 - 15 partial;
 - 6 missing;
-- 6 blocked;
+- 5 blocked;
 - 0 broken (none found by the regression).
 
 **Loop:** context → realistic options → choice → action → feedback → consent-based learning → adaptation.
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 16 verified-complete, 15 partial, 6 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 17 verified-complete, 15 partial, 6 missing, 5 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

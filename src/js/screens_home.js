@@ -9,7 +9,7 @@ Screens.needProfile = (what) => `<section class="card need-profile" data-need="p
 Screens.thumb = (exId, pose) => { const e = root.EX_BY_ID[exId]; const s = root.Figure.staticSvg(e, pose || 'B'); return `<div class="thumb">${root.Figure.svgShell(s.props + s.fig, e.he)}</div>`; };
 Screens.versionSeg = (d, sel, act) => {
   if (!L.hasVersions(d)) return '';
-  return `<div class="seg" role="group" aria-label="משך האימון">${['short', 'std', 'long'].map(v => `<button data-act="${act}" data-v="${v}" aria-pressed="${sel === v}">${v === 'short' ? 'קצר' : v === 'std' ? 'רגיל' : 'ארוך'}<small>~${L.estimateMinutes(d, v)} דק׳ (הערכה)</small></button>`).join('')}</div>`;
+  return `<div class="seg" role="group" aria-label="משך האימון">${['min', 'short', 'std', 'long'].map(v => `<button data-act="${act}" data-v="${v}" aria-pressed="${sel === v}">${L.VERSIONS[v]}<small>~${L.estimateMinutes(d, v)} דק׳ (הערכה)</small></button>`).join('')}</div>`;
 };
 Screens.selectedVersion = { v: 'std' };
 
@@ -186,6 +186,10 @@ Screens.nowShortcuts = function (date, now) {
   if (w && w.v >= 1 && mealOpen) add({ k: 'meal', html: '<a class="chip" href="#/nutrition" data-sc="meal">רישום ארוחה</a>', why: 'האימון של היום נרשם, ויש ארוחה מתוכננת שעוד לא סומנה' });
   const wg = C.waterGoalOn(date).ml, wv = C.daily(date).water || 0;
   if (h >= 18 && wv < wg) add({ k: 'water', html: '<button class="chip" data-act="water" data-ml="250" data-sc="water" aria-label="הוספת 0.25 ליטר מים">+0.25 ל׳ מים</button>', why: `ערב (מ־18:00) ושתית ${C.fmtL(wv)} מתוך ${C.fmtL(wg)} ליטר` });
+  if (w && w.v < 1 && h >= 17) { const td = ap ? root.Plans.todayDay(ap) : null, href = ap ? (td && td.n ? '#/pday/' + td.n : '#/plan') : '#/day/' + C.clampDay(C.todayN());
+    add({ k: 'five', html: `<a class="chip" href="${href}" data-sc="five">יש לי 5 דקות</a>`, why: 'האימון של היום עוד לא בוצע ומ־17:00 הזמן מתקצר — גרסת "מינימום" (~5 דק׳) נרשמת כ"בוצע חלקית"' }); } /* SLL-33 + SLL-02 */
+  { const sd = (C.profile().shopDay); if (sd != null && sd !== '') { const dw = new Date(date + 'T12:00:00').getDay(), DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    if (dw === +sd || (dw + 1) % 7 === +sd) add({ k: 'shop', html: '<a class="chip" href="#/shopping" data-sc="shop">רשימת קניות</a>', why: dw === +sd ? `היום יום ${DOW[+sd]} — יום הקניות שבחרת` : `מחר יום ${DOW[+sd]} — יום הקניות שבחרת` }); } } /* SLL-33: shopping day (explicit setting, off by default) */
   const tm = S.addDays(date, 1);
   if (ap) { const d = (root.Plans.days(ap) || []).find(x => x.date === tm); if (d && root.Plans.isTraining(d) && d.status !== 'skipped') add({ k: 'tomorrow', html: `<a class="chip" href="#/pday/${d.n}" data-sc="tomorrow">האימון של מחר</a>`, why: 'מחר יש אימון בתוכנית שלך' }); }
   else if (!C.nutritionOnly()) { const n = C.programDay(tm); const d = n >= 1 && n <= 30 ? C.dayDef(n) : null; if (d && d.type !== 'rest') add({ k: 'tomorrow', html: `<a class="chip" href="#/day/${n}" data-sc="tomorrow">האימון של מחר</a>`, why: 'מחר יש אימון בתוכנית 30 הימים' }); }

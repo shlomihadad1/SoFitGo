@@ -74,6 +74,20 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
     ok(chips.length >= 1 && chips.length <= 4 && why === chips.length, 'home shows 1–4 chips and "למה הקיצורים האלה?" explains each one', { chips, why });
     for (const c of chips.filter(c => c.href)) { await go(c.href); ok(await p.evaluate(() => (document.getElementById('view').innerText || '').length > 40), 'shortcut ' + c.k + ' opens a working screen (' + c.href + ')'); }
     await go('#/'); }
+  G = 'SLL-33: shopping day';
+  { const T = await p.evaluate(() => Store.today()), dw = new Date(T + 'T12:00:00').getDay();
+    const has = t => p.evaluate(x => Screens.nowShortcuts(x, new Date(x + 'T10:00:00')).some(c => c.k === 'shop'), t);
+    ok(!(await has(T)), 'no shopping-day chip until the user chooses a day (off by default)');
+    await p.evaluate(() => { location.hash = '#/shopping'; }); await p.waitForTimeout(900);
+    await p.locator('#shop-day').selectOption(String(dw)); await p.waitForTimeout(400);
+    ok(await p.evaluate(() => Store.load('profile').shopDay) === dw && await p.evaluate(() => (Store.load('changelog').items || []).some(x => x.path === 'shopDay')), 'chosen on the shopping list, stored, recorded in the change log');
+    const why = await p.evaluate(x => (Screens.nowShortcuts(x, new Date(x + 'T10:00:00')).find(c => c.k === 'shop') || {}).why, T);
+    ok(/היום/.test(why || '') && /יום הקניות שבחרת/.test(why || ''), 'on the shopping day: the chip, with "היום … יום הקניות שבחרת"', why);
+    const before = await p.evaluate(x => Store.addDays(x, -1), T), after = await p.evaluate(x => Store.addDays(x, 1), T);
+    ok(await has(before) && !(await has(after)), 'the day before: shown ("מחר"); the day after: not');
+    await p.evaluate(() => { location.hash = '#/home'; }); await p.waitForTimeout(300); await p.evaluate(() => { location.hash = '#/shopping'; }); await p.waitForTimeout(900);
+    await p.locator('#shop-day').selectOption(''); await p.waitForTimeout(400);
+    ok(await p.evaluate(() => Store.load('profile').shopDay) === null && !(await has(T)), '"אין" turns it off again'); }
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   await b.close(); const pass = res.filter(r => r.ok).length, fail = res.length - pass;
   fs.mkdirSync('dist/reports', { recursive: true }); fs.writeFileSync('dist/reports/e2e-now.json', JSON.stringify({ url: URL0, at: new Date().toISOString(), pass, fail, results: res }, null, 1));

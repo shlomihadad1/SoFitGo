@@ -186,12 +186,13 @@
     return s;
   }
   /* short / standard / long variant of a planned session (standard = as planned). Tests and recovery days have no variants. */
-  const VERSION_HE = { short: 'קצרה', std: 'רגילה', long: 'ארוכה' };
+  const VERSION_HE = { min: 'מינימום', short: 'קצרה', std: 'רגילה', long: 'ארוכה' };
   function versioned(day, v) {
     if (!day.main || !v || v === 'std' || ['assess', 'active', 'rest'].includes(day.type)) return day;
     const d = JSON.parse(JSON.stringify(day)); const work = it => it.reps || typeof it.sec === 'number';
     if (v === 'short') { d.warm = d.warm.slice(0, 3); d.main.forEach(it => { if (work(it) && it.sets > 1) it.sets--; }); d.finisher = []; d.cool = d.cool.slice(0, 2); }
     if (v === 'long') { d.main.forEach(it => { if (work(it) && it.sets < 4 && it.rest) it.sets++; }); }
+    if (v === 'min') { d.warm = d.warm.slice(0, 2); d.main = d.main.filter(work).slice(0, 2).map(it => Object.assign(it, { sets: 1, lvl: 'easy' })); d.finisher = []; d.cool = d.cool.slice(0, 1); } /* SLL-02: see Logic MIN_ITEMS */
     d.minutes = sessionMinutes(d); d.version = v; d.notes = (d.notes || []).concat(['גרסה ' + VERSION_HE[v] + ' של האימון המתוכנן.']); return d;
   }
   /* RC4: the build-time gradual-load cap and volume measure, shared so changes made AFTER the build (Adapt "+1 set") are held to

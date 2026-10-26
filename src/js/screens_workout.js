@@ -147,14 +147,15 @@ Screens.manualLog = function (n, v) {
   root.UI.sheet('רישום ידני — יום ' + n, `
     <p class="small muted">לשימוש כשהאימון בוצע בלי מצב אימון פעיל. שום דבר לא מסומן אוטומטית.</p>
     <label class="field">סטטוס<select id="ml-st"><option value="done" ${lg.status !== 'partial' ? 'selected' : ''}>הושלם</option><option value="partial" ${lg.status === 'partial' ? 'selected' : ''}>הושלם חלקית</option></select></label>
-    ${L.hasVersions(d) ? `<label class="field">גרסה<select id="ml-v">${['short', 'std', 'long'].map(x => `<option value="${x}" ${vv === x ? 'selected' : ''}>${L.VERSIONS[x]} (~${L.estimateMinutes(d, x)} דק׳)</option>`).join('')}</select></label>` : ''}
+    ${L.hasVersions(d) ? `<label class="field">גרסה<select id="ml-v">${['min', 'short', 'std', 'long'].map(x => `<option value="${x}" ${vv === x ? 'selected' : ''}>${L.VERSIONS[x]} (~${L.estimateMinutes(d, x)} דק׳)</option>`).join('')}</select></label>` : ''}
     <div class="grid2"><label class="field">תאריך ביצוע<input type="date" id="ml-d" value="${lg.date || (C.dateOfDay(n) <= S.today() ? C.dateOfDay(n) : S.today())}"></label><label class="field">משך (דקות)<input type="number" id="ml-m" inputmode="numeric" min="1" max="240" value="${lg.durationSec ? Math.round(lg.durationSec / 60) : L.estimateMinutes(d, vv)}"></label></div>
     <label class="field">קושי כללי (1–10)<input type="number" id="ml-r" inputmode="numeric" min="1" max="10" value="${lg.rpe || ''}"></label>
     <label class="field">הערות<textarea id="ml-n">${esc(lg.notes || '')}</textarea></label>
     <button class="btn primary" data-act="save">שמירה</button>`,
     { save: (el, ev, close, b) => { const w = S.load('workouts');
         const rv = +b.querySelector('#ml-r').value;
-        w.days[n] = Object.assign({}, lg, { status: b.querySelector('#ml-st').value, version: b.querySelector('#ml-v') ? b.querySelector('#ml-v').value : 'std', date: b.querySelector('#ml-d').value, durationSec: (+b.querySelector('#ml-m').value || 0) * 60, rpe: rv >= 1 && rv <= 10 ? rv : null, notes: b.querySelector('#ml-n').value.trim(), sets: lg.sets || [], manual: true });
+        const mv = b.querySelector('#ml-v') ? b.querySelector('#ml-v').value : 'std'; /* SLL-02: a minimum session is always partial */
+        w.days[n] = Object.assign({}, lg, { status: mv === 'min' && b.querySelector('#ml-st').value === 'done' ? 'partial' : b.querySelector('#ml-st').value, version: mv, date: b.querySelector('#ml-d').value, durationSec: (+b.querySelector('#ml-m').value || 0) * 60, rpe: rv >= 1 && rv <= 10 ? rv : null, notes: b.querySelector('#ml-n').value.trim(), sets: lg.sets || [], manual: true });
         S.save('workouts'); close(); root.UI.toast('הרישום נשמר'); root.App.render(); } });
 };
 
