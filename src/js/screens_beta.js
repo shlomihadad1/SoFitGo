@@ -97,7 +97,7 @@ function chVal(path, v) {
   const one = x => (path === 'availability.days' || path === 'shopDay') ? (DAY_HE[x] || x) : path === 'environment.equipment' ? ((EQ[x] || {}).he || x) : path === 'prefs.exclude' ? ((F[x] || {}).he || C.PREF_HE[x] || x).split(' (')[0]
     : path.startsWith('aims.') ? (G[x] || x) : path === 'experience' ? (LV[x] || x) : path === 'environment.place' ? ({ home: 'בבית', gym: 'חדר כושר', outdoor: 'בחוץ', mixed: 'משולב' }[x] || x)
     : path === 'exercisePrefs.exclude' ? (((root.EX_BY_ID || {})[x] || {}).he || ((root.EX_BY_ID || {})[x] || {}).name || x) : path === 'mode' ? ({ nutrition: 'תזונה בלבד' }[x] || x)
-    : path === 'goals.waterMode' ? ({ manual: 'ידני', auto: 'אוטומטי' }[x] || x) : path === 'units.w' ? ({ kg: 'ק״ג', lb: 'ליברות' }[x] || x) : path === 'display.motion' ? ({ auto: 'רגיל', reduce: 'מופחת' }[x] || x) : String(x);
+    : path === 'display.tone' ? ({ std: 'רגיל', brief: 'תמציתי', warm: 'מעודד' }[x] || x) : path === 'goals.waterMode' ? ({ manual: 'ידני', auto: 'אוטומטי' }[x] || x) : path === 'units.w' ? ({ kg: 'ק״ג', lb: 'ליברות' }[x] || x) : path === 'display.motion' ? ({ auto: 'רגיל', reduce: 'מופחת' }[x] || x) : String(x);
   if (Array.isArray(v)) return v.map(one).join(', ');
   if (typeof v === 'object') return Object.keys(v).length ? Object.keys(v).map(k => `${one(k)}: ${v[k]}`).join(', ') : '—';
   return one(v);
@@ -181,7 +181,7 @@ function presetDiff(k) { const pr = PRESETS.find(x => x.k === k), prof = S.load(
 function presetApply(k) { const d = presetDiff(k); if (!d.length) return { n: 0 }; const before = JSON.stringify(S.load('profile')), prof = S.load('profile');
   d.forEach(x => pSet(prof, x.path, x.to)); S.save('profile');
   return { n: d.length, undo: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); } }; }
-CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)'; CH_HE.places = 'ציוד לפי מקום'; CH_HE['patterns.consent'] = 'חיפוש דפוסים אישיים';
+CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)'; CH_HE.places = 'ציוד לפי מקום'; CH_HE['patterns.consent'] = 'חיפוש דפוסים אישיים'; CH_HE['display.tone'] = 'סגנון המאמנת';
 Object.assign(CH_HE, { shopDay: 'יום קניות קבוע', 'reminders.on': 'תזכורות בתוך האפליקציה', 'reminders.workout': 'תזכורת אימון', 'reminders.meals': 'תזכורת ארוחות', 'reminders.water': 'תזכורת מים', 'reminders.weigh': 'תזכורת שקילה', 'reminders.quiet': 'שעות שקט' });
 /* SLL-17 · Equipment Passport: the equipment you have, saved per place (profile.places = { home|gym|work|hotel: { equipment, place } }).
    "שמירת הציוד הנוכחי כ…" stores the current profile equipment under a place; "מעבר ל…" shows current → new and applies that place's

@@ -71,7 +71,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-34 | Explain My Plan | verified-complete | explanation mode (`stageG_test`, `e2e_m12_gate`) | — | P2 |
 | SLL-35 | Low-Data Mode | verified-complete | Setting "חיסכון בנתונים" in Settings → Display; it follows the browser's Save-Data request automatically unless you turn it on or off, and Settings says when it is on automatically. While on, no photo, thumbnail or video poster is downloaded (network checked): photos show "טעינת תמונה" and download only their small size on tap; thumbnails inside links show their illustration; videos start with preload=metadata. All text, plans and data work the same; the choice is recorded in the change log (`Media.lowData`; `e2e_lowdata` 17) | — (fonts and the app shell are cached once; account sync payloads are small JSON) | P3 |
 | SLL-36 | Consent-Based Wearables | blocked | — | native app (HealthKit / Health Connect) | P3 |
-| SLL-37 | Coach Tone Selector | missing | — | tone setting applied to coach texts | P3 |
+| SLL-37 | Coach Tone Selector | verified-complete | Settings → תצוגה → "סגנון המאמנת" (recorded in the change log), applied to the coach's NOW card: רגיל = as written; תמציתי = only the next action; מעודד = the same text with one short neutral opener (deterministic per day; encouragement only — no new advice or health claim) (`e2e_tone` 6) | tones for other coach texts (Coach screen, workout cues) | P3 |
 | SLL-38 | Micro-Learning Cards | missing | — | sourced content (needs review) | P3 |
 | SLL-39 | Safe Stop & Escalation | partial | Safe Stop in workout mode (`e2e_m11_run`) | escalation guidance beyond workouts | P1 |
 | SLL-40 | Preference Presets | verified-complete | `#/presets` (from Settings): five presets — יום עבודה, סוף שבוע, בלי בישול, שקט, חדר במלון — over existing settings only (max workout minutes, max prep minutes, no jumping). Each shows current → new before applying (only what differs; "כבר מוגדר כך" otherwise); owned equipment never changed; one undo restores the profile exactly; every change recorded in the change log. The plan and the menu are never changed here: the screen links to the existing preview-and-approve update on the plan screen, and a prep-time change becomes the existing pending menu update (`Screens.presets`; `e2e_presets` 14) | preset values are this release's defaults (see docs/OVERNIGHT_LOG.md) | P2 |
@@ -80,9 +80,9 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 27 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13, SLL-07, SLL-19, SLL-01, SLL-14, SLL-16, SLL-10, SLL-06, SLL-11, SLL-29 added 26.10.2026);
+- 28 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13, SLL-07, SLL-19, SLL-01, SLL-14, SLL-16, SLL-10, SLL-06, SLL-11, SLL-29, SLL-37 added 26.10.2026);
 - 9 partial;
-- 2 missing;
+- 1 missing;
 - 5 blocked;
 - 0 broken (none found by the regression).
 
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 27 verified-complete, 9 partial, 2 missing, 5 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 28 verified-complete, 9 partial, 1 missing, 5 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

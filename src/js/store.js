@@ -89,7 +89,7 @@ const okAtStart = storageOK, lastSaved = {};
 const CHANGE_FIELDS = ['aims.primary', 'aims.secondary', 'experience', 'availability.days', 'availability.sessions', 'availability.prefMin', 'availability.maxMin',
   'environment.place', 'environment.equipment', 'places', 'exercisePrefs.exclude', 'exercisePrefs.noJump', 'goals.steps', 'goals.water', 'goals.sleep', 'targetWeight',
   'prefs.chicken', 'prefs.egg', 'prefs.dairy', 'prefs.veg', 'prefs.exclude', 'prefs.flex', 'prefs.maxPrep', 'prefs.budget', 'restrictionKinds', 'mode', 'units.w',
-  'display.size', 'display.motion', 'display.sound', 'display.wake', 'display.lowData', 'mediaPrefs.autoplay', 'targets.kcal', 'targets.protein', 'targets.carbs', 'targets.fat', 'goals.waterMode',
+  'display.size', 'display.motion', 'display.sound', 'display.wake', 'display.lowData', 'display.tone', 'mediaPrefs.autoplay', 'targets.kcal', 'targets.protein', 'targets.carbs', 'targets.fat', 'goals.waterMode',
   'shopDay', 'patterns.consent', 'reminders.on', 'reminders.workout', 'reminders.meals', 'reminders.water', 'reminders.weigh', 'reminders.quiet'];
 const CHANGE_MAX = 300, CHANGE_MERGE_MS = 120000;
 const pathGet = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);

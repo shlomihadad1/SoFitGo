@@ -199,6 +199,10 @@ Screens.nowShortcuts = function (date, now) {
 };
 Screens.nowCard = function (date, opts) {
   const m = Screens.nowModel(date), coach = root.FIT30_COACH;
+  /* SLL-37 · coach tone (Settings → תצוגה): std = as written; brief = only the next action (the secondary line is hidden); warm = the same
+     text with one short neutral opener (deterministic per day; encouragement only — no health claim, no new advice). */
+  { const tone = (C.profile().display || {}).tone || 'std', OPEN = ['כל צעד נחשב.', 'ממשיכים בקצב שלך.', 'גם צעד קטן הוא התקדמות.'];
+    if (tone === 'brief') m.small = null; else if (tone === 'warm' && m.next) m.next = Object.assign({}, m.next, { he: OPEN[(+date.replace(/-/g, '')) % OPEN.length] + ' ' + m.next.he }); m.tone = tone; }
   /* M9: on Home the dashboard card above already has the lime "start workout"; here it is secondary (one lime action per area) */
   if (opts && opts.secondaryStart && m.next && m.next.k === 'workout') m.next.btn = m.next.btn.replace('class="btn primary"', 'class="btn secondary"');
   return `<section class="card now" data-now><div class="row now-h">${coach ? `<a href="#/coach" class="now-coach" data-coach-link aria-label="${esc(coach.name)} — מסך המאמנת"><img class="coach-av" src="${esc(coach.avatar)}" alt="" width="48" height="48" loading="lazy"></a>` : ''}<div class="stack tight grow"><span class="eyebrow" data-coach-label>${coach ? `<a href="#/coach" class="now-name">${esc(coach.name)}</a> — המאמנת הדיגיטלית` : 'המאמן הדיגיטלי'}</span><b class="now-q">${m.next ? 'הצעד הבא' : 'כל מה שתוכנן להיום בוצע ✓'}</b></div></div>
