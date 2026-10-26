@@ -57,6 +57,8 @@ function screenFor(r) {
     case 'install': return Screens.install ? Screens.install() : extraLoading('התקנה ועבודה בלי חיבור', '#/settings'); /* M10: moved to extra.js */
     case 'builder': return Screens.builder ? Screens.builder(r.arg) : extraLoading('בניית אימון', '#/workouts'); /* Workout Builder (extra.js) */
     case 'privacy': return Screens.privacy ? Screens.privacy() : extraLoading('מרכז פרטיות', '#/settings'); /* Privacy Center (extra.js) */
+    case 'experiments': return Screens.experiments ? Screens.experiments() : extraLoading('ניסויים אישיים', '#/progress'); /* SLL-29 (extra.js) */
+    case 'patterns': return Screens.patterns ? Screens.patterns() : extraLoading('דפוסים אישיים', '#/progress'); /* SLL-06 / SLL-11 (extra.js) */
     case 'today': return Screens.today ? Screens.today() : extraLoading('היום שלי', '#/'); /* SLL-13 (extra.js) */
     case 'presets': return Screens.presets ? Screens.presets() : extraLoading('ערכות העדפות', '#/settings'); /* SLL-40 (extra.js) */
     case 'reset': return Screens.reset ? Screens.reset() : extraLoading('איפוס שבועי', '#/review'); /* SLL-25 (extra.js) */

@@ -181,7 +181,7 @@ function presetDiff(k) { const pr = PRESETS.find(x => x.k === k), prof = S.load(
 function presetApply(k) { const d = presetDiff(k); if (!d.length) return { n: 0 }; const before = JSON.stringify(S.load('profile')), prof = S.load('profile');
   d.forEach(x => pSet(prof, x.path, x.to)); S.save('profile');
   return { n: d.length, undo: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); } }; }
-CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)'; CH_HE.places = 'ציוד לפי מקום';
+CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)'; CH_HE.places = 'ציוד לפי מקום'; CH_HE['patterns.consent'] = 'חיפוש דפוסים אישיים';
 Object.assign(CH_HE, { shopDay: 'יום קניות קבוע', 'reminders.on': 'תזכורות בתוך האפליקציה', 'reminders.workout': 'תזכורת אימון', 'reminders.meals': 'תזכורת ארוחות', 'reminders.water': 'תזכורת מים', 'reminders.weigh': 'תזכורת שקילה', 'reminders.quiet': 'שעות שקט' });
 /* SLL-17 · Equipment Passport: the equipment you have, saved per place (profile.places = { home|gym|work|hotel: { equipment, place } }).
    "שמירת הציוד הנוכחי כ…" stores the current profile equipment under a place; "מעבר ל…" shows current → new and applies that place's
@@ -248,6 +248,77 @@ Screens.today = function () {
       apNo: () => { C.setDaily(S.today(), { autopilot: { rejected: true, at: new Date().toISOString() } }); location.hash = '#/'; } } };
 };
 Screens.today.model = apModel; Screens.today.apply = apApply;
+/* SLL-06 · Personal Pattern Finder + SLL-11 · Ripple Effect — #/patterns. OFF until the user turns it on (profile.patterns.consent);
+   computed on this device from the last 56 completed days, nothing stored but the switch. Each pattern compares workout completion
+   (done 1, partial ½) between two groups of days and shows both groups' sizes:
+     sleep — days after a logged night with sleep ≥ the goal vs. a logged night below it
+     water — days with water at the day's goal vs. logged below it
+   Fewer than 5 days in a group → "not enough data" (no numbers drawn as a conclusion). A difference counts as clear only with ≥8 days
+   in each group AND ≥20 points; otherwise "no clear difference". Every pattern says it is a correlation, not proof of a cause.
+   SLL-11: a clear pattern offers ONE constructive next step — an existing feature (a reminder, or a 14-day experiment to check it). */
+const PAT_MIN = 5, PAT_CLEAR_N = 8, PAT_CLEAR_D = 20;
+function patterns(date) {
+  date = date || S.today(); const days = []; for (let i = 1; i <= 56; i++) days.push(S.addDays(date, -i));
+  const g = C.profile().goals || {}, wv = d => { const w = (C.dailyProgress(d).tasks || []).find(x => x.k === 'workout'); return w ? (w.v >= 1 ? 1 : w.v > 0 ? 0.5 : 0) : null; };
+  const cmp = (k, he, aHe, bHe, inA, inB, step) => { const A = [], B = []; days.forEach(d => { const v = wv(d); if (v == null) return; if (inA(d)) A.push(v); else if (inB(d)) B.push(v); });
+    const pc = a => a.length ? Math.round(a.reduce((s, x) => s + x, 0) / a.length * 100) : null, a = pc(A), b = pc(B);
+    const enough = A.length >= PAT_MIN && B.length >= PAT_MIN, clear = enough && A.length >= PAT_CLEAR_N && B.length >= PAT_CLEAR_N && Math.abs(a - b) >= PAT_CLEAR_D;
+    return { k, he, aHe, bHe, nA: A.length, nB: B.length, a, b, enough, clear, step: clear && a > b ? step : null }; };
+  const sleepGoal = g.sleep || 7.5;
+  return [
+    cmp('sleep', 'שינה ואימונים', `אחרי לילה של ${sleepGoal}+ שעות`, `אחרי לילה קצר יותר`, d => C.daily(d).sleep >= sleepGoal, d => C.daily(d).sleep > 0 && C.daily(d).sleep < sleepGoal,
+      { he: 'אפשר לבדוק את זה בניסוי של 14 יום: לכוון לשינה של ' + sleepGoal + '+ שעות ולראות אם ההשלמה משתנה.', href: '#/experiments', act: 'לניסוי' }),
+    cmp('water', 'מים ואימונים', 'בימים שהגעת ליעד המים', 'בימים שנרשמו פחות מים', d => (C.daily(d).water || 0) >= C.waterGoalOn(d).ml && C.daily(d).water > 0, d => C.daily(d).water > 0 && C.daily(d).water < C.waterGoalOn(d).ml,
+      { he: 'תזכורת מים בתוך האפליקציה מופיעה רק כשמאחורי הקצב — אפשר להפעיל ולבדוק.', href: '#/settings', act: 'לתזכורות' }) ];
+}
+Screens.patterns = function () {
+  const on = !!((C.profile().patterns || {}).consent), list = on ? patterns() : [];
+  return { title: 'דפוסים אישיים', back: '#/progress', html: `
+    <section class="card" data-pat-consent><p class="small">האפליקציה יכולה לחפש קשרים בין הרגלים לבין השלמת האימונים — מתוך מה שרשמת ב־56 הימים האחרונים. החישוב נעשה רק במכשיר הזה, לא נשמר ולא נשלח. ${on ? '' : '<b>כבוי.</b>'}</p>
+      <label class="switch"><span>חיפוש דפוסים</span><input type="checkbox" id="pat-on" data-act="patOn" ${on ? 'checked' : ''}></label></section>
+    ${on ? list.map(x => `<section class="card" data-pat="${x.k}" data-pat-state="${x.clear ? 'clear' : x.enough ? 'unclear' : 'little'}"><h3>${esc(x.he)} ${root.UI.srcTag('calc')}</h3>
+      ${x.enough ? `<ul class="bul small"><li>${esc(x.aHe)}: השלמת <b>${x.a}%</b> מהאימונים (${x.nA} ימים)</li><li>${esc(x.bHe)}: <b>${x.b}%</b> (${x.nB} ימים)</li></ul>
+        <p class="small">${x.clear ? `<b>הבדל ברור</b> של ${Math.abs(x.a - x.b)} נקודות.` : `<b>אין הבדל ברור</b>${x.nA < PAT_CLEAR_N || x.nB < PAT_CLEAR_N ? ' — המדגם עוד קטן, ייתכן שזה מקרי' : ''}.`} זה <b>מתאם, לא הוכחה</b> שאחד גורם לשני.</p>
+        ${x.step ? `<div class="banner info small" data-pat-step>${icon('info')}<div>${esc(x.step.he)} <a href="${x.step.href}">${esc(x.step.act)}</a></div></div>` : ''}`
+      : `<p class="small muted" data-pat-little>עוד אין מספיק נתונים: ${x.nA} ו־${x.nB} ימים (צריך לפחות ${PAT_MIN} בכל קבוצה).</p>`}</section>`).join('') : ''}`,
+    handlers: { patOn: el => { const pr = S.load('profile'); pr.patterns = Object.assign({}, pr.patterns || {}, { consent: el.checked, at: S.today() }); S.save('profile'); root.App.render(); } } };
+};
+Screens.patterns.compute = patterns;
+/* SLL-29 · User-Controlled Experiments — #/experiments. The user chooses ONE change and a duration (7 / 14 days); one at a time.
+   The app never changes anything by itself: it only counts how often the change happened (adherence, from the log) and compares workout
+   completion during the experiment with the same number of days just before it, both with their sample sizes and the correlation note.
+   It ends when the period is over or when the user ends it; the user then decides — keep the change, stop, or run it again — and the
+   decision is kept in the history. Stored in profile.experiments = { current, history[] }. */
+const EXP_CH = { sleep: { he: 'לישון לפחות לפי יעד השינה', ok: (d, g) => C.daily(d).sleep >= (g.sleep || 7.5), has: d => C.daily(d).sleep > 0 },
+  water: { he: 'להגיע ליעד המים', ok: d => (C.daily(d).water || 0) >= C.waterGoalOn(d).ml, has: d => C.daily(d).water > 0 },
+  meals: { he: 'לסמן כל יום את הארוחות ביומן', ok: d => C.entries(d).length > 0, has: () => true } };
+function expEval(x, today) {
+  today = today || S.today(); const g = C.profile().goals || {}, ch = EXP_CH[x.change], end = S.addDays(x.start, x.days - 1), last = end < today ? end : S.addDays(today, -1);
+  const span = (a, b) => { const o = []; for (let d = a; d <= b; d = S.addDays(d, 1)) o.push(d); return o; };
+  const during = last >= x.start ? span(x.start, last) : [], before = span(S.addDays(x.start, -x.days), S.addDays(x.start, -1));
+  const comp = ds => { const v = ds.map(d => (C.dailyProgress(d).tasks || []).find(t => t.k === 'workout')).filter(Boolean).map(w => w.v >= 1 ? 1 : w.v > 0 ? 0.5 : 0); return { n: v.length, p: v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 100) : null }; };
+  const logged = during.filter(ch.has); return { day: Math.min(x.days, S.diffDays(x.start, today) + 1), over: end < today, end, adh: { n: logged.length, ok: logged.filter(d => ch.ok(d, g)).length }, now: comp(during), base: comp(before) };
+}
+Screens.experiments = function () {
+  const pr = S.load('profile'), E = pr.experiments || { current: null, history: [] }, x = E.current, ev = x ? expEval(x) : null;
+  return { title: 'ניסויים אישיים', back: '#/progress', html: `
+    <section class="card"><p class="small">בוחרים שינוי אחד לתקופה קצרה ובודקים מה קורה. האפליקציה רק סופרת מתוך מה שנרשם — היא לא משנה שום דבר בעצמה, ובסוף ההחלטה שלך.</p></section>
+    ${x ? `<section class="card" data-exp-current="${x.change}"><h3>${esc(EXP_CH[x.change].he)}</h3><p class="small">יום ${ev.day} מתוך ${x.days} · מ־${esc(S.fmtShort(x.start))} עד ${esc(S.fmtShort(ev.end))}</p>
+      <ul class="bul small"><li data-exp-adh>השינוי קרה ב־${ev.adh.ok} מתוך ${ev.adh.n} ימים עם רישום</li>
+      <li data-exp-cmp>השלמת אימונים: ${ev.now.p != null ? ev.now.p + '%' : '—'} עכשיו (${ev.now.n} אימונים) לעומת ${ev.base.p != null ? ev.base.p + '%' : '—'} ב־${x.days} הימים שלפני (${ev.base.n} אימונים)</li></ul>
+      <p class="tiny muted">${ev.now.n < 5 || ev.base.n < 5 ? 'מדגם קטן — קשה להסיק. ' : ''}גם הבדל ברור הוא מתאם, לא הוכחה שהשינוי גרם לו.</p>
+      ${ev.over ? `<div class="banner info small" data-exp-over>${icon('info')}<div><b>הניסוי הסתיים.</b> מה עכשיו?</div></div><div class="btns"><button class="btn sm primary" data-act="expEnd" data-d="keep">להמשיך עם השינוי</button><button class="btn sm" data-act="expEnd" data-d="stop">להפסיק</button><button class="btn sm ghost" data-act="expEnd" data-d="again">לנסות שוב</button></div>`
+        : '<div class="btns"><button class="btn sm ghost" data-act="expEnd" data-d="early">לסיים עכשיו</button></div>'}</section>`
+    : `<section class="card" data-exp-new><h3>ניסוי חדש</h3><label class="field">השינוי<select id="exp-ch">${Object.entries(EXP_CH).map(([k, v]) => `<option value="${k}">${esc(v.he)}</option>`).join('')}</select></label>
+      <label class="field">משך<select id="exp-days"><option value="7">7 ימים</option><option value="14" selected>14 ימים</option></select></label><button class="btn primary" data-act="expGo">התחלה</button></section>`}
+    ${(E.history || []).length ? `<section class="card" data-exp-history><h3>ניסויים קודמים</h3><ul class="bul small">${E.history.slice().reverse().map(h => `<li>${esc(EXP_CH[h.change].he)} · ${h.days} ימים מ־${esc(S.fmtShort(h.start))} · השלמה ${h.now != null ? h.now + '%' : '—'} לעומת ${h.base != null ? h.base + '%' : '—'} · ההחלטה: ${({ keep: 'להמשיך', stop: 'להפסיק', again: 'לנסות שוב', early: 'הסתיים מוקדם' })[h.decision]}</li>`).join('')}</ul></section>` : ''}`,
+    handlers: {
+      expGo: () => { const p = S.load('profile'), e = p.experiments = p.experiments || { current: null, history: [] }; if (e.current) return; e.current = { id: 'x' + Date.now().toString(36), change: document.getElementById('exp-ch').value, days: +document.getElementById('exp-days').value === 7 ? 7 : 14, start: S.today() }; S.save('profile'); root.App.render(); },
+      expEnd: el => { const p = S.load('profile'), e = p.experiments; if (!e || !e.current) return; const v = expEval(e.current);
+        e.history = (e.history || []).concat(Object.assign({}, e.current, { ended: S.today(), decision: el.dataset.d, now: v.now.p, base: v.base.p, adh: v.adh }));
+        e.current = el.dataset.d === 'again' ? Object.assign({}, e.current, { id: 'x' + Date.now().toString(36), start: S.today() }) : null; S.save('profile'); root.App.render(); } } };
+};
+Screens.experiments.eval = expEval;
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
   let standalone = false; try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (x) { }
