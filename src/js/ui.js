@@ -140,5 +140,22 @@ function dishArt(r) {
     seg += `<path d="M${cx},${cy} L${(cx + R * Math.cos(a0)).toFixed(1)},${(cy + R * Math.sin(a0)).toFixed(1)} A${R},${R} 0 ${large} 1 ${(cx + R * Math.cos(a1)).toFixed(1)},${(cy + R * Math.sin(a1)).toFixed(1)} Z" fill="${col[F[x.f].grp] || '#999'}" opacity=".9" stroke="#12181c" stroke-width="1.5"/>`; a0 = a1; });
   return `<svg viewBox="0 0 160 100" role="img" aria-label="איור צלחת: ${esc(r.he)}"><rect width="160" height="100" fill="#141b20"/><circle cx="80" cy="50" r="52" fill="#20292f"/><circle cx="80" cy="50" r="49" fill="#2a343b"/>${seg}<circle cx="80" cy="50" r="12" fill="#2a343b" opacity=".7"/></svg>`;
 }
-root.UI = { esc, icon, bind, toast, sheet, closeAllSheets, confirmSheet, ring, meter, dots, lineChart, barChart, U, dishArt };
+/* SLL-28 · Data provenance labels — ONE vocabulary for where a number comes from, used everywhere a source is shown.
+   srcTag(kind, text?) renders a small label; tapping it (or Enter/Space) explains what the label means, with the full legend.
+   The tag is a span with role=button so it can sit inside a link or a label without nesting interactive elements; the tap
+   never triggers the surrounding link. Kinds:
+     user     — a value you entered yourself
+     measured — read from a device or an imported file
+     calc     — computed by a stated rule or formula from your own data (targets, plan checks, recipe totals from ingredients)
+     est      — an estimate with real uncertainty (general assumptions, ranges, durations)
+     rec      — a suggestion; nothing changes until you choose
+     none     — no data; nothing is invented */
+const TR = (k) => (root.I18N ? root.I18N.t(k) : k);
+const SRC = {}; ['user', 'measured', 'calc', 'est', 'rec', 'none'].forEach(k => { Object.defineProperty(SRC, k, { enumerable: true, get: () => [TR('src.' + k), TR('src.' + k + '.why')] }); }); /* labels follow the language (i18n keys src.*) */
+function srcTag(kind, text, attrs) { const s = SRC[kind] || SRC.none; return `<span class="pill src-tag src-${SRC[kind] ? kind : 'none'}" role="button" tabindex="0" data-src="${SRC[kind] ? kind : 'none'}"${attrs ? ' ' + attrs : ''} aria-label="${esc((text || s[0]) + ' — ' + TR('src.aria'))}">${esc(text || s[0])}</span>`; }
+function srcExplain(kind) { const s = SRC[kind] || SRC.none;
+  sheet(TR('src.title'), `<p data-src-explain="${SRC[kind] ? kind : 'none'}"><b>${esc(s[0])}</b> — ${esc(s[1])}</p><h4>${esc(TR('src.all'))}</h4><div class="list">${Object.keys(SRC).map(k => `<div class="li"><div class="grow"><div class="t">${esc(SRC[k][0])}</div><div class="s">${esc(SRC[k][1])}</div></div></div>`).join('')}</div>`); }
+try { document.addEventListener('click', e => { const t = e.target && e.target.closest && e.target.closest('[data-src][role=button]'); if (!t) return; e.preventDefault(); e.stopPropagation(); srcExplain(t.dataset.src); }, true);
+  document.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; const t = e.target && e.target.closest && e.target.closest('[data-src][role=button]'); if (!t) return; e.preventDefault(); srcExplain(t.dataset.src); }, true); } catch (e) { }
+root.UI = { esc, icon, bind, toast, sheet, closeAllSheets, confirmSheet, ring, meter, dots, lineChart, barChart, U, dishArt, SRC, srcTag, srcExplain };
 })(typeof window !== 'undefined' ? window : globalThis);

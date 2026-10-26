@@ -40,6 +40,8 @@ function day(date, t) {
   if (typeof d.steps === 'number' && d.steps >= 0) return { value: d.steps, kind: d.stepsSrc === 'estimated' ? 'estimated' : 'user', src: null, syncedAt: null, user: d.steps };
   return { value: null, kind: 'none', src: null, syncedAt: null, user: null };
 }
+const SRC_KIND = { measured: 'measured', user: 'user', estimated: 'est', none: 'none' }; /* SLL-28: activity kinds → the shared provenance vocabulary (UI.SRC) */
+function srcKind(v) { return SRC_KIND[v && v.kind] || 'none'; }
 function label(v) { return v.kind === 'measured' && v.src === 'file' ? 'יובא מקובץ' : v.kind === 'measured' ? `${KIND_HE.measured} · ${SRC_HE[v.src] || v.src}` : KIND_HE[v.kind]; }
 function setUserSteps(date, steps) { /* manual entry: always labelled 'user' */
   const t = tracking(); t.daily[date] = Object.assign({}, t.daily[date] || {}, { steps: Math.max(0, Math.round(steps)), stepsSrc: 'user' }); return S().save('tracking');
@@ -58,5 +60,5 @@ function setTarget(steps, from) {
   if (!h.length && p.goals.steps > 0 && today > '0000') h.push({ from: '0000-01-01', steps: p.goals.steps }); /* keep the old value for earlier days */
   const v = steps > 0 ? Math.round(steps) : null; h.push({ from: today, steps: v }); p.goals.stepsHistory = h; p.goals.steps = v; return S().save('profile');
 }
-root.Activity = { env, envText, day, label, setUserSteps, targetOn, setTarget, health, SRC_HE, KIND_HE, _localDate: null };
+root.Activity = { srcKind, env, envText, day, label, setUserSteps, targetOn, setTarget, health, SRC_HE, KIND_HE, _localDate: null };
 })(typeof window !== 'undefined' ? window : globalThis);

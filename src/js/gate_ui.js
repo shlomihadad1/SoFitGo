@@ -9,7 +9,7 @@
 const { esc, icon } = root.UI; const S = root.Store, C = root.Core, G = () => root.Gate;
 const detail = () => ((C.profile().display || {}).explain === 'detail');
 const TAG = { data: 'לפי ההגדרות שלך', est: 'הערכה', rec: 'המלצה' };
-const tag = k => `<span class="pill tag-${k}" data-tag="${k}">${TAG[k]}</span>`;
+const tag = k => root.UI.srcTag({ data: 'calc', est: 'est', rec: 'rec' }[k] || 'none', null, `data-tag="${k}"`); /* SLL-28: shared vocabulary (TAG kept for reference) */
 const SEV = { block: 'סותר הגדרה', warn: 'שימו לב', info: 'לידיעה' };
 /* alternatives for an exercise that pass the gate: classic → library alts; plan → Plans.alternatives (ranked) */
 function altsFor(is, env) {

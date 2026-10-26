@@ -39,7 +39,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 |---|---|---|---|---|
 | 0 | Secure existing work | done: 7 commits scanned for secrets (none); bundle `sofitgo-local-891fc3b.bundle` restored into a fresh clone with the identical tree `1a7660a2b429`, and sent to the owner | — | — |
 | 1 | SLL-42 part 2: app-generated changes | done → SLL-42 verified-complete | (see git log) | e2e_changelog 28; stageA/B/F/H1, e2e_stageB/F/H1, savefail, m11_sync, m9_identity, now: all pass |
-| 2 | SLL-28: data provenance labels | | | |
+| 2 | SLL-28: data provenance labels | done → verified-complete | (see git log) | e2e_provenance 19; activity_test, e2e_activity, m12_gate, m10_ux, m8, m11_sync, now, e2e, stageH1, m11_meals, beta, rc1, shell, i18n, recipe_gate, food_global, content, menu_structure: all pass |
 | 3 | SLL-35: data-saving mode | | | |
 | 4 | SLL-25: weekly reset | | | |
 | 5 | SLL-40: preference presets | | | |
@@ -50,6 +50,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 (each entry: what, why, how to change)
 - **SLL-42, what counts as an app change:** only the automatic calorie/protein targets. The automatic water target follows each day's workout, so logging it would produce daily noise rather than real changes. To change this: add a path to `Core.trackAuto`.
 - **SLL-42, merge window:** 2 minutes, the same for user and app entries. To change it: `CHANGE_MERGE_MS` in store.js.
+- **SLL-28, label wording:** the gate's "לפי ההגדרות שלך" became the shared "לפי הנתונים שלך" (same meaning, one word everywhere). Workout-duration sentences keep "(הערכה)" as text, because a tappable label inside the version buttons would nest one interactive element in another.
 - **Testing per feature:** focused suites after each change, local commit as a recovery point, then the full regression on the final tree (it takes ~45 min, so not after every feature). Each commit message says which tests ran.
 
 ## BLOCKED (needs the owner)

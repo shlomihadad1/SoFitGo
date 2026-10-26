@@ -62,7 +62,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-25 | One-Tap Weekly Reset | partial | weekly review, grocery clear | one approved reset with a preview | P2 |
 | SLL-26 | Adaptive Recipe Scaling | verified-complete | portion limits, portion sheet (`nutrition_v2_test`) | — | P2 |
 | SLL-27 | Accessible Coaching Modes | partial | voice cues in workout mode, aria labels, contrast tokens (`e2e_m10_ux`) | captions / audio for coaching text; screen-reader pass | P2 |
-| SLL-28 | Data Confidence Labels | partial | "estimate ±%" labels; measured vs typed steps | consistent labels user / verified / estimate / unknown | P2 |
+| SLL-28 | Data Confidence Labels | verified-complete | One vocabulary for where a number comes from (`UI.SRC`, i18n keys `src.*`, Hebrew + English): **הוזן ידנית** (you entered), **נמדד** (device / imported file), **לפי הנתונים שלך** (a stated rule or formula over your data), **הערכה** (real uncertainty), **המלצה** (suggestion), **אין נתון** (nothing invented). Used for steps (home + activity), nutrition targets (manual vs automatic, targets + settings), water goal and water suggestion, recipe nutrition (summed from ingredients vs estimated dish, list + detail), estimated-dish ranges in the menu, and the meal-fit checks (gate). Every label explains itself on tap or Enter (sheet with all six), never triggers a surrounding link, role=button with a spoken meaning, writes nothing. A check fails if any label on home / nutrition / targets / settings / activity uses one of these words without the shared tag (`e2e_provenance` 19; `activity_test`, `e2e_activity`, `e2e_m12_gate`, `e2e_i18n`) | inline sentences that already say "(הערכה)" (e.g. workout durations) keep the word as text, not as a tappable label | P2 |
 | SLL-29 | User-Controlled Experiments | missing | — | duration + end decision by the user | P3 |
 | SLL-30 | No-Shame Comeback | partial | `adapt.js` R-DOWN after gaps | load rules need professional review (DR-01) | P2 |
 | SLL-31 | Shared Household List | blocked | — | server lists + sharing permissions | P3 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 7 verified-complete (SLL-08 and SLL-42 added 26.10.2026);
-- 22 partial;
+- 8 verified-complete (SLL-08, SLL-42, SLL-28 added 26.10.2026);
+- 21 partial;
 - 8 missing;
 - 6 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 7 verified-complete, 22 partial, 8 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 8 verified-complete, 21 partial, 8 missing, 6 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.
