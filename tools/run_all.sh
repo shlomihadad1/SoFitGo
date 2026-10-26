@@ -14,6 +14,7 @@ for t in e2e e2e_menu_structure e2e_stageA e2e_stageB e2e_stageC e2e_stageD e2e_
 node tools/artcheck.js "$PWD/dist/artifact/fit30.html" > $L/artcheck.log 2>&1; echo "artcheck :: $(grep -c PASS $L/artcheck.log) PASS / $(grep -c FAIL $L/artcheck.log) FAIL"
 # RC5: service-worker shell test runs its own server (no port 8096 needed)
 timeout 600 node tools/e2e_sw_shell.js > $L/e2e_sw_shell.log 2>&1; echo "e2e_sw_shell exit=$? :: $(tail -1 $L/e2e_sw_shell.log)"
+timeout 600 node tools/e2e_offline_pack.js > $L/e2e_offline_pack.log 2>&1; echo "e2e_offline_pack exit=$? :: $(tail -1 $L/e2e_offline_pack.log)"
 # M10: backend (real local PostgreSQL 16 + Supabase shim) and account/sync e2e against the local Supabase emulator
 sh tools/pg_local.sh > $L/pg_local.log 2>&1
 for t in rls_test rls_cms_test rollback_test migration_audit_test; do PGHOST=/tmp PGPORT=54329 node tools/$t.js > $L/$t.log 2>&1; echo "$t exit=$? :: $(tail -1 $L/$t.log)"; done

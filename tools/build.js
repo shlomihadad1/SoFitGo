@@ -49,7 +49,7 @@ let esb = null; try { esb = require('esbuild'); } catch (e) { /* esbuild not ins
 const minJs = (code, f) => esb && !process.env.FIT30_NOMIN ? `/* ${f} */` + esb.transformSync(code, { loader: 'js', minifyWhitespace: true, minifySyntax: true, legalComments: 'none', charset: 'utf8', target: 'esnext' }).code : `/* ${f} */\n` + code;
 const css = esb && !process.env.FIT30_NOMIN ? esb.transformSync(cssSrc, { loader: 'css', minifyWhitespace: true, charset: 'utf8' }).code : cssSrc;
 /* first-load budget: recipe media records with no media at all are dropped from the shipped copy (Media.* treats a missing record as "none") */
-const slim = (f, t) => f === 'src/data/media.js' ? expandPosters(t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}').replace(/"[sl]Bytes":\d+,|"sha":"[0-9a-f]+",|,"origin":"generated"/g, '')) : t;
+const slim = (f, t) => f === 'src/data/media.js' ? expandPosters(t.replace(/"[a-z0-9_]+":\{"photo":null,"prep":null,"steps":\[\]\},?/g, '').replace(/,\}/g, '}').replace(/"lBytes":\d+,|"sha":"[0-9a-f]+",|,"origin":"generated"/g, '') /* SLL-24: sBytes (small size) kept — the offline pack shows its real download size */) : t;
 /* 25.10.2026 (first-load budget): a generated cover's large file name, size and the empty video slot are derivable — the shipped copy
    keeps only the small file name and restores the rest when the file runs, so every Media.* reader sees the same records as before */
 function expandPosters(t) {

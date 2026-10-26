@@ -58,7 +58,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-21 | Smart Reminders | verified-complete | **In the app** (26.10): Settings → "תזכורות בתוך האפליקציה", off by default — workout not done (from a chosen time), planned meals not marked (from a chosen time), water clearly behind the day's pace (≥2 h after waking), weigh-in on a chosen weekday; **quiet hours** (default 22:00–07:00, may cross midnight) show nothing. A reminder is due only when the logged data says so; the home card offers the action (+0.25 L, open the workout / journal / weight) and "לא היום" (that day only); rendering writes nothing; settings recorded in the change log (`Core.remindersDue`, `e2e_reminders` 22, fixed clocks). **Outside the app:** the existing calendar export (.ics) with an alert before each training day | push notifications when the app is closed need a push server or a native app (cost / platform decision) | P2 |
 | SLL-22 | Recovery Choice | partial | rest-day guidance | new routines need content review | P2 |
 | SLL-23 | Local Food Translator | blocked | — | translation service decision | P3 |
-| SLL-24 | Offline Travel Pack | partial | offline readiness check in the travel hub; SW shell | pre-cache pack | P2 |
+| SLL-24 | Offline Travel Pack | verified-complete | The app itself is stored on the device (service worker; readiness check in the travel hub). **Pack (26.10):** the travel screen lists exactly the photos of the workouts in the trip (or the next 14 days) and the planned dishes, with count and real size; nothing is downloaded until "שמירת החבילה במכשיר"; then each listed photo is saved through the normal media cache (≤160). Checked with a real network outage: packed photos load, an unpacked one does not. Disabled with an explanation when the offline copy is not active yet; data-saving mode noted (`Screens.travel.packList`; `e2e_offline_pack` 9, SW on) | videos stay network-only (size; by design) | P2 |
 | SLL-25 | One-Tap Weekly Reset | verified-complete | `#/reset` (from the weekly review and the shopping list): one preview of exactly what a fresh week would change, ticked items applied with one confirmation, one "ביטול" restores the shopping list and the plan exactly. Items: clear shopping-list marks (pre-ticked; own items, "usually at home" and carry-over offers stay); remove own items already bought (listed by name, not pre-ticked); apply a pending menu update with 14-day before/after averages (not pre-ticked; recorded in the plan history as "איפוס שבועי"). Past workouts are never changed; missed sessions and pending adaptations are shown as links to the plan screen. Nothing to reset → says so (`Screens.reset`; `e2e_reset` 16) | — | P2 |
 | SLL-26 | Adaptive Recipe Scaling | verified-complete | portion limits, portion sheet (`nutrition_v2_test`) | — | P2 |
 | SLL-27 | Accessible Coaching Modes | partial | voice cues in workout mode, aria labels, contrast tokens (`e2e_m10_ux`) | captions / audio for coaching text; screen-reader pass | P2 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 12 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21 added 26.10.2026);
-- 18 partial;
+- 13 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24 added 26.10.2026);
+- 17 partial;
 - 7 missing;
 - 6 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 12 verified-complete, 18 partial, 7 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 13 verified-complete, 17 partial, 7 missing, 6 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

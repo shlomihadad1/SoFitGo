@@ -44,6 +44,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 4 | SLL-25: weekly reset | done → verified-complete; **bug found and fixed during testing:** undo rewrote the plans store even when the reset had not touched it (it created an empty plans record); undo now restores only the stores that changed | (see git log) | e2e_reset 16, grocery, stageG (+unit), m11_meals, meal_journal, planb_feedback: all pass |
 | 5 | SLL-40: preference presets | done → verified-complete (was missing) | (see git log) | e2e_presets 14, stageB, m9_identity, changelog, m11_meals, m12_gate, beta: all pass |
 | 6 | SLL-21: in-app reminders, quiet hours | done → verified-complete | (see git log) | e2e_reminders 22 (fixed clocks; two weak assertions found in my own draft and replaced before commit); e2e, now, shell, m10_ux, rc1_layout, beta, changelog, stageA (e2e+unit), rc1, build_check: all pass |
+| 6b | SLL-24: offline travel pack (chosen next from the backlog: P2, no decision, no content review) | done → verified-complete; **defect found:** the build stripped the photo sizes from the media data, so the pack could not show its download size. The small-image size is now kept (+5 KB first load, still under budget) | (see git log) | e2e_offline_pack 9 (SW on, real outage), build_check, m8, sw_shell, rc1_layout, content, stageA, lowdata, content_coverage: all pass |
 | 7 | Quality pass + final regression + report | | | |
 
 ## Full regression checkpoints
@@ -60,6 +61,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 - **SLL-25, what the reset covers:** shopping marks (pre-ticked), own bought items (not pre-ticked), and a pending menu update (not pre-ticked). Past workouts are never changed (history rule); missed sessions are a link only. To change the defaults: the `def` flags in `resetItems()`.
 - **SLL-40, preset values:** יום עבודה = workout ≤30 min, prep ≤20 min; סוף שבוע = ≤45 min, no prep limit; בלי בישול = prep ≤15 min; שקט = no jumping; חדר במלון = ≤30 min + no jumping (with a link to travel mode). Presets never touch equipment, the plan or the menu. To change the values: `PRESETS` in screens_beta.js.
 - **SLL-21 defaults:** everything off until the user turns it on. Workout from 18:00, meals from 20:30, water by pace, weigh-in off (Friday 08:00 when on), quiet hours 22:00–07:00. Reminders are in-app only; for alerts while the app is closed there is the existing calendar export. To change the defaults: `C.REM_DEF` in core.js.
+- **SLL-24:** the pack covers the trip dates, or the next 14 days when no trip is set, and only small (480 px) photos. Videos are not packed (size). To change this: `packList()` in screens_m8.js.
 - **Testing per feature:** focused suites after each change, local commit as a recovery point, then the full regression on the final tree (it takes ~45 min, so not after every feature). Each commit message says which tests ran.
 
 ## BLOCKED (needs the owner)

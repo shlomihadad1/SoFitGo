@@ -98,6 +98,25 @@ async function offlineCheck() {
   out.ready = out.controlled && out.appFiles === 5;
   return out;
 }
+/* SLL-24 · Offline travel pack. The app itself is already stored on the device (service worker); what is NOT stored until first
+   viewed are the photos of exercises and dishes. The pack lists exactly the photos of the workouts in the trip (or the next 14
+   days when no trip is set) and the planned dishes in that range, shows their count and size, and downloads them only when the
+   user taps — through the normal media cache (bounded to 160 files). Videos stay network-only. Needs the offline copy to be active
+   in this page (service worker controlling it); otherwise the button explains why it is disabled. */
+const MEDIA_MAX = 160;
+function packList() {
+  const p = S.load('profile'), tr = p.travel || {}, t = S.today(), trip = tr.from && tr.to && tr.to >= t;
+  const from = trip && tr.from > t ? tr.from : t, to = trip ? tr.to : S.addDays(t, 13), ids = new Set(), rids = new Set(), ap = root.Plans && root.Plans.active();
+  if (ap) root.Plans.days(ap).filter(d => d.date >= from && d.date <= to && root.Plans.isTraining(d) && d.status !== 'skipped').forEach(d => { const r = root.Plans.runDef(ap.id, d.n); if (r) [].concat(r.warm || [], r.main || [], r.cool || []).forEach(it => it && it.ex && ids.add(it.ex)); });
+  else for (let d = from; d <= to; d = S.addDays(d, 1)) { const n = C.programDay(d); if (n >= 1 && n <= 30 && C.isTraining(n)) root.Logic.buildSteps(C.dayDef(n), 'std').forEach(s => s.ex && ids.add(s.ex)); }
+  for (let d = from; d <= to; d = S.addDays(d, 1)) { const pl = C.plan(d); C.ALL.forEach(k => { const s = pl[k]; if (s && s.rid && !s.off) rids.add(s.rid); }); }
+  const M = root.MEDIA || { ex: {}, rc: {} }, files = [];
+  ids.forEach(id => { const ph = M.ex[id] && M.ex[id].poster; if (ph) files.push({ url: 'media/' + ph.s, bytes: ph.sBytes || 0 }); });
+  rids.forEach(id => { const ph = M.rc[id] && M.rc[id].photo; if (ph) files.push({ url: 'media/' + ph.s, bytes: ph.sBytes || 0 }); });
+  return { from, to, trip: !!trip, exercises: ids.size, dishes: rids.size, files, bytes: files.reduce((a, f) => a + f.bytes, 0) };
+}
+async function packRun(list) { let ok = 0; for (const f of list.files) { try { const r = await fetch(f.url); if (r.ok) ok++; } catch (e) { } } return { ok, total: list.files.length }; }
+const kb = b => b >= 1048576 ? (Math.round(b / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 /* M12 · Travel Mode (extended): trip dates, minutes per day and equipment where you stay (profile.travel). While a trip is active
    the Plan Integrity Gate checks today's workout against THOSE limits; the original plan is never rewritten — changes go through
    the existing per-day mechanisms (shorter version, skip, move, swap) and the screen shows original / updated / done side by side. */
@@ -150,6 +169,11 @@ Screens.travel = function () {
     <section class="card" data-travel-offline><h3>בלי אינטרנט</h3>
       <p class="small muted">האפליקציה שומרת עותק של עצמה במכשיר. לפני טיסה כדאי לבדוק שהעותק באמת שמור.</p>
       <button class="btn" data-act="offCheck" ${trSt.busy ? 'disabled' : ''}>${trSt.busy ? 'בודק…' : 'בדיקה עכשיו'}</button>
+        ${(() => { const pk = packList(), ctl = !!(navigator.serviceWorker && navigator.serviceWorker.controller), low = root.Media && root.Media.lowData();
+          return `<div class="stack tight" data-pack><h4>חבילה לנסיעה</h4><p class="small">${pk.trip ? 'לימי הנסיעה' : 'ל־14 הימים הקרובים'} (${esc(S.fmtShort(pk.from))}–${esc(S.fmtShort(pk.to))}): ${pk.exercises} תרגילים ו־${pk.dishes} מנות. ${pk.files.length ? `<b data-pack-size>${pk.files.length} תמונות, כ־${kb(pk.bytes)}</b> יישמרו במכשיר.` : '<span data-pack-none>אין תמונות לשמור — האיורים המובנים עובדים גם בלי חיבור.</span>'}</p>
+            ${pk.files.length > MEDIA_MAX ? `<p class="tiny warn">המטמון שומר עד ${MEDIA_MAX} תמונות; חלק מהישנות יפנו מקום.</p>` : ''}${low ? '<p class="tiny muted" data-pack-lowdata>חיסכון בנתונים פעיל — ההורדה תקרה רק בלחיצה כאן.</p>' : ''}
+            ${pk.files.length ? (ctl ? `<button class="btn" data-act="packGo" ${trSt.packBusy ? 'disabled' : ''}>${trSt.packBusy ? 'שומר…' : 'שמירת החבילה במכשיר'}</button>` : '<p class="tiny warn" data-pack-blocked>העותק הלא־מקוון עוד לא פעיל בדף הזה — טענו מחדש פעם אחת כשיש חיבור, ואז אפשר לשמור.</p>') : ''}
+            ${trSt.pack ? `<p class="small ${trSt.pack.ok === trSt.pack.total ? 'good' : 'warn'}" data-pack-result>נשמרו ${trSt.pack.ok} מתוך ${trSt.pack.total} תמונות.</p>` : ''}</div>`; })()}
       ${ck ? `<div class="stack tight" data-offline-result="${ck.ready ? 'ready' : 'not-ready'}">
         ${row(ck.online, ck.online ? 'יש חיבור כרגע' : 'אין חיבור כרגע')}
         ${ck.error === 'no-caches' ? row(false, 'בסביבה הזו אין מטמון דפדפן — הבדיקה לא אפשרית') : ''}
@@ -176,7 +200,8 @@ Screens.travel = function () {
       dayUnwell: () => { if (!ap) { root.UI.toast('מנוחה היום. אין צורך לסמן — אפשר להשלים כשמרגישים טוב.'); return; }
         root.UI.confirmSheet('מנוחה היום', 'לסמן דילוג על האימון של היום? אפשר לבטל במסך התוכנית. אם יש חום, כאב בחזה או סחרחורת — לפנות לגורם רפואי.', 'דילוג', () => { try { root.Plans.skip(ap.id, n); root.UI.toast('דילוג נשמר. החלמה מהירה.'); root.App.render(); } catch (e) { root.UI.toast(e.message); } }); },
       ...(root.GateUI ? root.GateUI.handlers({ plan: ap, n, date: S.today(), onShort: () => { try { if (ap) root.Plans.setVersion(ap.id, n, 'short'); root.UI.toast('היום: גרסה קצרה'); root.App.render(); } catch (e) { root.UI.toast(e.message); } } }) : {}),
+      packGo: async () => { trSt.packBusy = true; root.App.render(); try { trSt.pack = await packRun(packList()); } finally { trSt.packBusy = false; root.App.render(); } },
       offCheck: async () => { trSt.busy = true; root.App.render(); try { trSt.check = await offlineCheck(); } finally { trSt.busy = false; root.App.render(); } } } };
 };
-Screens.travel.offlineCheck = offlineCheck;
+Screens.travel.offlineCheck = offlineCheck; Screens.travel.packList = packList;
 })(window);
