@@ -57,6 +57,7 @@ const PLAN_SRC = { adapt: 'הצעת האפליקציה, אישרת', 'adapt-reve
 const DAY_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 function chVal(path, v) {
   if (path === 'display.lowData' && v == null) return 'לפי הדפדפן';
+  if (path.startsWith('reminders.') && v && typeof v === 'object') return path === 'reminders.quiet' ? `${v.from}–${v.to}` : (v.on ? 'פעיל' : 'כבוי') + (v.at ? ' · ' + v.at : '') + (v.dow != null ? ' · יום ' + ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'][v.dow] : '');
   if (v == null || (Array.isArray(v) && !v.length) || v === '') return '—';
   if (typeof v === 'boolean') return v ? 'כן' : 'לא';
   const F = (root.NUTRI && root.NUTRI.FOODS) || {}, EQ = (root.CATALOG && root.CATALOG.EQUIPMENT) || {}, G = (root.PROGRAMS && root.PROGRAMS.GOALS) || {}, LV = (root.Planner && root.Planner.LEVEL_HE) || {};
@@ -148,6 +149,7 @@ function presetApply(k) { const d = presetDiff(k); if (!d.length) return { n: 0 
   d.forEach(x => pSet(prof, x.path, x.to)); S.save('profile');
   return { n: d.length, undo: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); } }; }
 CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)';
+Object.assign(CH_HE, { 'reminders.on': 'תזכורות בתוך האפליקציה', 'reminders.workout': 'תזכורת אימון', 'reminders.meals': 'תזכורת ארוחות', 'reminders.water': 'תזכורת מים', 'reminders.weigh': 'תזכורת שקילה', 'reminders.quiet': 'שעות שקט' });
 Screens.presets = function () {
   const ap = root.Plans && root.Plans.active(), planDiff = ap && root.Plans.profileDiff ? (root.Plans.profileDiff(ap.id) || []) : [];
   const menuPending = !!(ap && root.MealPlan && root.MealPlan.pending(ap));

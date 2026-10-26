@@ -154,6 +154,15 @@ Screens.settings = function () {
       <label class="field">רמת הסבר<select id="d-exp" data-act="display"><option value="short" ${(p.display.explain || 'short') === 'short' ? 'selected' : ''}>קצר — עיקר ההוראה</option><option value="detail" ${p.display.explain === 'detail' ? 'selected' : ''}>מפורט — כולל "למה" וחישובים</option></select></label>
       <label class="switch"><span>צליל בסוף מנוחה</span><input type="checkbox" id="d-snd" ${p.display.sound ? 'checked' : ''} data-act="display"></label>
       ${(() => { const ld = root.Media ? root.Media.lowData() : null; return `<label class="switch" data-lowdata-row><span>חיסכון בנתונים: תמונות נטענות רק בהקשה</span><input type="checkbox" id="d-low" ${ld ? 'checked' : ''} data-act="display"></label>${ld === 'auto' ? '<p class="tiny muted" data-lowdata-auto>הופעל אוטומטית, כי הדפדפן מבקש לחסוך בנתונים. אפשר לכבות כאן.</p>' : ''}`; })()}</section>
+    ${(() => { const r = C.remSettings(), sw = (id, on, lbl) => `<label class="switch"><span>${lbl}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}></label>`, DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+      return `<section class="card" data-rem-settings><h2>תזכורות בתוך האפליקציה</h2><p class="small muted">מופיעות בעמוד הבית כשפותחים את האפליקציה, ורק כשמה שנרשם היום מצדיק אותן. כבויות כברירת מחדל.</p>
+      ${sw('rem-on', r.on, '<b>להפעיל תזכורות</b>')}
+      <div class="stack tight" data-rem-detail>${sw('rem-w', r.workout.on, 'אימון שעוד לא בוצע')}<label class="field">משעה<input type="time" id="rem-w-at" value="${esc(r.workout.at)}"></label>
+      ${sw('rem-m', r.meals.on, 'ארוחות שלא סומנו ביומן')}<label class="field">משעה<input type="time" id="rem-m-at" value="${esc(r.meals.at)}"></label>
+      ${sw('rem-wa', r.water.on, 'מים — כשמאחורי הקצב של היום')}
+      ${sw('rem-g', r.weigh.on, 'יום שקילה')}<div class="grid2"><label class="field">יום<select id="rem-g-dow">${DOW.map((d, i) => `<option value="${i}" ${+r.weigh.dow === i ? 'selected' : ''}>${d}</option>`).join('')}</select></label><label class="field">משעה<input type="time" id="rem-g-at" value="${esc(r.weigh.at)}"></label></div>
+      <h4>שעות שקט</h4><div class="grid2"><label class="field">מ־<input type="time" id="rem-q-from" value="${esc(r.quiet.from)}"></label><label class="field">עד<input type="time" id="rem-q-to" value="${esc(r.quiet.to)}"></label></div><p class="tiny muted">בשעות השקט לא מוצגת אף תזכורת. אפשר גם טווח שחוצה חצות.</p></div>
+      <button class="btn" data-act="remSave">שמירת תזכורות</button></section>`; })()}
     <section class="card"><h2>תזכורות</h2><p class="small">התראות דחיפה מאפליקציית ווב באייפון דורשות שרת התראות — לא מומש באפליקציה הזו. במקום זה אפשר להעתיק את לוח האימונים כקובץ יומן (iCalendar) ולייבא ליומן של האייפון עם התראה יומית.</p>
       <div class="grid2"><label class="field">שעת אימון<input type="time" id="ics-t" value="07:00"></label><label class="field">התראה לפני (דק׳)<input type="number" id="ics-a" inputmode="numeric" value="15"></label></div><button class="btn" data-act="ics">${icon('cal')} ${root.Plans && root.Plans.active() ? 'יצירת קובץ יומן לתוכנית האישית' : 'יצירת קובץ יומן ל־30 הימים'}</button></section>
     <section class="card"><h2>גיבוי ושחזור</h2>
@@ -205,6 +214,10 @@ Screens.settings = function () {
       units: () => { p.units = { w: document.getElementById('u-w').value, len: document.getElementById('u-l').value }; S.save('profile'); root.App.render(); },
       display: () => { p.display = Object.assign({}, p.display, { size: document.getElementById('d-size').value, motion: document.getElementById('d-mo').checked ? 'reduce' : 'auto', wake: document.getElementById('d-wake').checked, sound: document.getElementById('d-snd').checked, explain: document.getElementById('d-exp') ? document.getElementById('d-exp').value : 'short' });
         { const el = document.getElementById('d-low'); if (el) { const auto = !!(navigator.connection && navigator.connection.saveData); p.display.lowData = (p.display.lowData == null && el.checked === auto) ? null : el.checked; } } /* SLL-35: null = follow the browser */ /* keeps display.run (workout prefs) */ S.save('profile'); root.App.applyDisplay(); },
+      remSave: () => { const v = id => document.getElementById(id), tm = id => (/^\d{2}:\d{2}$/.test(v(id).value) ? v(id).value : null);
+        const q = { from: tm('rem-q-from') || '22:00', to: tm('rem-q-to') || '07:00' };
+        p.reminders = { on: v('rem-on').checked, workout: { on: v('rem-w').checked, at: tm('rem-w-at') || '18:00' }, meals: { on: v('rem-m').checked, at: tm('rem-m-at') || '20:30' }, water: { on: v('rem-wa').checked }, weigh: { on: v('rem-g').checked, dow: +v('rem-g-dow').value, at: tm('rem-g-at') || '08:00' }, quiet: q };
+        S.save('profile'); root.UI.toast(p.reminders.on ? 'התזכורות נשמרו' : 'התזכורות כבויות'); root.App.render(); },
       ics: () => { const t = document.getElementById('ics-t').value || '07:00', a = +document.getElementById('ics-a').value || 0; if (!(root.Plans && root.Plans.active())) return root.App.exportICS(t, a);
         root.App.loadChunk('extra.js').then(() => root.SyncTools.exportPlanICS(t, a), () => root.UI.toast('נדרש חיבור לאינטרנט בפעם הראשונה')); }, /* M11.4: an active personal plan exports ITS days */
       export: () => root.App.exportBackup(),

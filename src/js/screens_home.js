@@ -41,6 +41,7 @@ Screens.home = function () {
 
   const ap = root.Plans.active();
   if (!ap && !C.hasBasics(p)) html.push(`<section class="card hero setup-cta"><span class="eyebrow">התחלה</span><h2>בונים תוכנית אישית</h2><p class="small muted">6 שלבים קצרים: פרטים, מטרה, ציוד וזמינות, מסלול, תצוגה מקדימה ואישור. אפשר לעצור ולחזור.</p><a class="btn primary" href="#/setup/1">${icon('route')} להתחלה</a><a class="btn ghost" href="#/workouts">או: תוכנית 30 היום הקיימת</a></section>`);
+  { const due = C.remindersDue(); if (due.length) html.push(`<section class="card" data-reminders><h3>${icon('timer')} תזכורות</h3><div class="list">${due.slice(0, 3).map(x => `<div class="li" data-rem="${x.k}"><div class="grow"><div class="t">${esc(x.he)}</div></div>${x.water ? `<button class="btn sm" data-act="water" data-ml="${x.water}">${esc(x.act)}</button>` : `<a class="btn sm" href="${x.href}">${esc(x.act)}</a>`}<button class="btn sm ghost" data-act="remOff" data-k="${x.k}">לא היום</button></div>`).join('')}</div><p class="tiny faint">לפי מה שנרשם היום. הגדרות ושעות שקט: <a href="#/settings">הגדרות ← תזכורות</a>.</p></section>`); } /* SLL-21 */
   if (ap) html.push(Screens.syncBanner(ap, { compact: true }), Screens.coachCard(ap), Screens.planStatsCard(ap), Screens.nowCard(today, { secondaryStart: true }), Screens.signatureLinks());
   if (!ap && C.nutritionOnly()) { /* M10: nutrition-only mode — no workout cards, no workout task */
     const pr = C.dailyProgress(today);
@@ -130,6 +131,7 @@ Screens.home = function () {
       eat: el => Screens.toggleEat(today, el.dataset.slot),
       extraOn: () => { C.setExtraOn(today, true); root.UI.toast('התוספת נוספה לתפריט והסיכום עודכן'); root.App.render(); },
       water: el => { C.addWater(today, +el.dataset.ml); root.App.render(); },
+      remOff: el => { C.remindOff(el.dataset.k, today); root.App.render(); },
       saveSteps: () => { const raw = document.getElementById('h-steps').value, v = +raw; if (raw === '' || !(v >= 0)) return; if (root.Activity.setUserSteps(today, v)) root.UI.toast('הצעדים נשמרו (הוזן ידנית)'); root.App.render(); },
       saveWeight: () => { const u = p.units, v = parseFloat(document.getElementById('h-w').value); if (!(v > 0)) { root.UI.toast('הזינו משקל'); return; } const kg = root.UI.U.wIn(v, u.w); if (!(kg > 30 && kg < 300)) { root.UI.toast('משקל לא סביר'); return; }
         const tt = S.load('tracking'), prev = tt.measures.find(m => m.date === today); tt.measures = tt.measures.filter(m => m.date !== today); tt.measures.push(Object.assign({ id: 'm' + Date.now().toString(36), date: today, waist: null, note: '' }, prev || {}, { weight: kg })); S.save('tracking'); root.UI.toast('השקילה נשמרה'); root.App.render(); },

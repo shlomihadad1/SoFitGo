@@ -233,6 +233,34 @@ C.latestWeight = () => { const m = C.measures().filter(x => x.weight); return m.
    + activity level (פעיל +0.25 L, פעיל מאוד +0.5 L) + today's workout (~0.5 L per hour, min 0.25 L). No weather adjustment
    (no reliable weather source). Without a weight: general estimate 2 L (women/unknown) or 2.5 L (men) of total fluids.
    Rounded to 0.25 L and kept within 1.5–4 L. A past day keeps the target that was in force when water was logged. */
+/* SLL-21 · In-app reminders with quiet hours. Off by default. Shown only while the app is open (a web app cannot notify when it
+   is closed without a push server; the calendar export in Settings covers that). A reminder is DUE only when the logged data says
+   so — never on a timer alone:
+     workout — today has a training session that is not done, after the chosen time
+     meals   — planned meals of today are not marked yet, after the chosen time
+     water   — today's water is clearly behind the day's pace (share of the waking window, from the end of quiet hours to their
+               start), at least 2 hours after waking
+     weigh   — the chosen weekday, after the chosen time, and no weight entered today
+   Nothing is shown during quiet hours (they may cross midnight). "לא היום" hides that reminder for the rest of the day. Pure
+   function of (settings, logged data, clock) — deterministic for tests; it never writes. */
+C.REM_DEF = () => ({ on: false, workout: { on: true, at: '18:00' }, meals: { on: true, at: '20:30' }, water: { on: true }, weigh: { on: false, dow: 5, at: '08:00' }, quiet: { from: '22:00', to: '07:00' } });
+C.remSettings = () => { const r = C.profile().reminders || {}, d = C.REM_DEF(); return { on: !!r.on, workout: Object.assign(d.workout, r.workout), meals: Object.assign(d.meals, r.meals), water: Object.assign(d.water, r.water), weigh: Object.assign(d.weigh, r.weigh), quiet: Object.assign(d.quiet, r.quiet) }; };
+const hmM = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '')); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
+C.inQuiet = (now, q) => { const t = now.getHours() * 60 + now.getMinutes(), a = hmM(q.from), b = hmM(q.to); return a === b ? false : a < b ? (t >= a && t < b) : (t >= a || t < b); };
+C.remindersDue = now => {
+  now = now || new Date(); const r = C.remSettings(); if (!r.on || C.inQuiet(now, r.quiet)) return [];
+  const date = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'), t = now.getHours() * 60 + now.getMinutes();
+  const pr = C.dailyProgress(date), tasks = pr.tasks || [], dl = C.daily(date), off = dl.remOff || {}, out = [];
+  if (r.workout.on && t >= hmM(r.workout.at)) { const w = tasks.find(x => x.k === 'workout'); if (w && w.v < 1) { const ap = root.Plans && root.Plans.active(), td = ap ? root.Plans.todayDay(ap) : null;
+    out.push({ k: 'workout', he: 'האימון של היום עוד לא בוצע', href: ap ? (td && td.n ? '#/pday/' + td.n : '#/plan') : '#/day/' + C.clampDay(C.todayN()), act: 'לאימון' }); } }
+  if (r.meals.on && t >= hmM(r.meals.at)) { const n = tasks.filter(x => C.DAY.includes(x.k) && x.v < 1).length; if (n) out.push({ k: 'meals', he: n === 1 ? 'ארוחה מתוכננת אחת עוד לא סומנה ביומן' : `${n} ארוחות מתוכננות עוד לא סומנו ביומן`, href: '#/nutrition', act: 'ליומן' }); }
+  if (r.water.on) { const wake = hmM(r.quiet.to), sleep = hmM(r.quiet.from), span = ((sleep - wake + 1440) % 1440) || 1440, el = ((t - wake + 1440) % 1440);
+    const g = C.waterGoalOn(date).ml, have = dl.water || 0, pace = Math.min(1, el / span);
+    if (el >= 120 && el <= span && have < g * pace - 250) out.push({ k: 'water', he: `מים: ${C.fmtL(have)} מתוך ${C.fmtL(g)} ליטר — מאחורי הקצב של היום`, water: 250, act: '+0.25 ל׳' }); }
+  if (r.weigh.on && now.getDay() === +r.weigh.dow && t >= hmM(r.weigh.at) && !(S().load('tracking').measures || []).some(m => m.date === date && m.weight > 0)) out.push({ k: 'weigh', he: 'יום שקילה שבחרת — עוד לא נרשם משקל היום', href: '#/progress', act: 'לרישום' });
+  return out.filter(x => !off[x.k]);
+};
+C.remindOff = (k, date) => { date = date || S().today(); const off = Object.assign({}, C.daily(date).remOff || {}, { [k]: true }); C.setDaily(date, { remOff: off }); };
 C.fmtL = ml => String(Math.round((+ml || 0) / 10) / 100);
 C.workoutMinutesOn = date => { try { const pl = root.MealPlan && root.Plans && root.MealPlan.planFor(date); if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; return pd && root.Plans.isTraining(pd) && pd.status !== 'skipped' ? Math.round(pd.minutes || 45) : 0; }
   const n = C.programDay(date); if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) return Math.round(L().estimateMinutes(C.dayDef(n), 'std') || 45); } catch (e) { } return 0; };
