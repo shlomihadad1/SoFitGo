@@ -87,7 +87,7 @@ const okAtStart = storageOK, lastSaved = {};
    Part 2: recordEntry() also takes entries the APP generated (src: 'app', with a reason), e.g. Core.trackAuto() when the
    automatic calorie/protein targets change because the weight or goal changed. Entries without src are the user's. */
 const CHANGE_FIELDS = ['aims.primary', 'aims.secondary', 'experience', 'availability.days', 'availability.sessions', 'availability.prefMin', 'availability.maxMin',
-  'environment.place', 'environment.equipment', 'exercisePrefs.exclude', 'exercisePrefs.noJump', 'goals.steps', 'goals.water', 'goals.sleep', 'targetWeight',
+  'environment.place', 'environment.equipment', 'places', 'exercisePrefs.exclude', 'exercisePrefs.noJump', 'goals.steps', 'goals.water', 'goals.sleep', 'targetWeight',
   'prefs.chicken', 'prefs.egg', 'prefs.dairy', 'prefs.veg', 'prefs.exclude', 'prefs.flex', 'prefs.maxPrep', 'prefs.budget', 'restrictionKinds', 'mode', 'units.w',
   'display.size', 'display.motion', 'display.sound', 'display.wake', 'display.lowData', 'mediaPrefs.autoplay', 'targets.kcal', 'targets.protein', 'targets.carbs', 'targets.fat', 'goals.waterMode',
   'shopDay', 'reminders.on', 'reminders.workout', 'reminders.meals', 'reminders.water', 'reminders.weigh', 'reminders.quiet'];

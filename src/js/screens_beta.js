@@ -89,6 +89,7 @@ const PLAN_SRC = { adapt: 'הצעת האפליקציה, אישרת', 'adapt-reve
 const DAY_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 function chVal(path, v) {
   if (path === 'display.lowData' && v == null) return 'לפי הדפדפן';
+  if (path === 'places' && v && typeof v === 'object') return Object.keys(v).map(k => ({ home: 'בית', gym: 'חדר כושר', work: 'עבודה', hotel: 'מלון / נסיעה' }[k] || k) + ': ' + ((v[k].equipment || []).length || 'בלי') + ' פריטי ציוד').join(' · ') || '—';
   if (path.startsWith('reminders.') && v && typeof v === 'object') return path === 'reminders.quiet' ? `${v.from}–${v.to}` : (v.on ? 'פעיל' : 'כבוי') + (v.at ? ' · ' + v.at : '') + (v.dow != null ? ' · יום ' + ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'][v.dow] : '');
   if (v == null || (Array.isArray(v) && !v.length) || v === '') return '—';
   if (typeof v === 'boolean') return v ? 'כן' : 'לא';
@@ -180,17 +181,33 @@ function presetDiff(k) { const pr = PRESETS.find(x => x.k === k), prof = S.load(
 function presetApply(k) { const d = presetDiff(k); if (!d.length) return { n: 0 }; const before = JSON.stringify(S.load('profile')), prof = S.load('profile');
   d.forEach(x => pSet(prof, x.path, x.to)); S.save('profile');
   return { n: d.length, undo: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); } }; }
-CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)';
+CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)'; CH_HE.places = 'ציוד לפי מקום';
 Object.assign(CH_HE, { shopDay: 'יום קניות קבוע', 'reminders.on': 'תזכורות בתוך האפליקציה', 'reminders.workout': 'תזכורת אימון', 'reminders.meals': 'תזכורת ארוחות', 'reminders.water': 'תזכורת מים', 'reminders.weigh': 'תזכורת שקילה', 'reminders.quiet': 'שעות שקט' });
+/* SLL-17 · Equipment Passport: the equipment you have, saved per place (profile.places = { home|gym|work|hotel: { equipment, place } }).
+   "שמירת הציוד הנוכחי כ…" stores the current profile equipment under a place; "מעבר ל…" shows current → new and applies that place's
+   equipment to the profile (one undo). The plan is NOT rebuilt here — the existing preview-and-approve update on the plan screen does
+   that, exactly as for presets. A place that was never saved cannot be switched to (nothing is assumed about what it has). */
+const PLACES = [['home', 'בית'], ['gym', 'חדר כושר'], ['work', 'עבודה'], ['hotel', 'מלון / נסיעה']];
+const eqName = k => ((root.CATALOG && root.CATALOG.EQUIPMENT[k]) || {}).he || k;
+function passportCard() { const pr = S.load('profile'), pl = pr.places || {}, cur = (pr.environment || {}).equipment || [], same = a => JSON.stringify((a || []).slice().sort()) === JSON.stringify(cur.slice().sort());
+  return `<section class="card" data-passport><h3>הציוד לפי מקום</h3><p class="small muted">שומרים את הציוד שיש בכל מקום, ומחליפים בלחיצה. הציוד הנוכחי בפרופיל: ${cur.length ? cur.map(k => esc(eqName(k))).join(', ') : 'בלי ציוד'}.</p>
+    <div class="list">${PLACES.map(([k, he]) => { const x = pl[k]; return `<div class="li" data-place="${k}"><div class="grow"><div class="t">${he}${x && same(x.equipment) ? ' <span class="pill good">נוכחי</span>' : ''}</div><div class="s">${x ? (x.equipment.length ? x.equipment.map(e => esc(eqName(e))).join(', ') : 'בלי ציוד') : 'עוד לא נשמר'}</div></div>
+      <button class="btn sm ghost" data-act="plSave" data-k="${k}">${x ? 'עדכון מהנוכחי' : 'שמירת הנוכחי'}</button>${x && !same(x.equipment) ? `<button class="btn sm" data-act="plGo" data-k="${k}">מעבר</button>` : ''}</div>`; }).join('')}</div>
+    <p class="tiny faint">המעבר משנה רק את הציוד בפרופיל. התוכנית מתעדכנת רק אחרי שתאשרו במסך התוכנית.</p></section>`; }
 Screens.presets = function () {
   const ap = root.Plans && root.Plans.active(), planDiff = ap && root.Plans.profileDiff ? (root.Plans.profileDiff(ap.id) || []) : [];
   const menuPending = !!(ap && root.MealPlan && root.MealPlan.pending(ap));
   return { title: 'ערכות העדפות', back: '#/settings', html: `
     <section class="card"><p class="small">קיצור לכמה הגדרות יחד, לפי המצב שלך. רואים מה ישתנה לפני ההחלה, ואפשר לבטל מיד. הציוד שיש לך לא משתנה.</p></section>
     ${(planDiff.length || menuPending) ? `<div class="banner info small" data-presets-plan>${icon('info')}<div>${planDiff.length ? 'הפרופיל שונה מהתוכנית הפעילה. התוכנית לא מתעדכנת לבד — <a href="#/plan">במסך התוכנית</a> אפשר לראות מה ישתנה ולאשר.' : ''}${menuPending ? ' יש עדכון תפריט שמחכה לאישור (בתזונה או ב<a href="#/reset">איפוס השבועי</a>).' : ''}</div></div>` : ''}
+    ${passportCard()}
     ${PRESETS.map(pr => { const d = presetDiff(pr.k); return `<section class="card" data-preset="${pr.k}"><div class="card-h"><h3>${esc(pr.he)}</h3>${d.length ? `<button class="btn sm primary" data-act="presetGo" data-k="${pr.k}">החלה</button>` : '<span class="pill" data-preset-same>כבר מוגדר כך</span>'}</div>
       <p class="small muted">${esc(pr.s)}</p>${d.length ? `<ul class="bul small" data-preset-diff>${d.map(x => `<li data-preset-row="${esc(x.path)}">${esc(CH_HE[x.path] || x.path)}: ${esc(chVal(x.path, x.from))} ← ${esc(chVal(x.path, x.to))}</li>`).join('')}</ul>` : ''}${pr.link ? `<p class="tiny"><a href="${pr.link[0]}">${esc(pr.link[1])}</a></p>` : ''}</section>`; }).join('')}`,
-    handlers: { presetGo: el => { const pr = PRESETS.find(x => x.k === el.dataset.k), r = presetApply(el.dataset.k); root.App.render();
+    handlers: { plSave: el => { const pr = S.load('profile'); pr.places = Object.assign({}, pr.places || {}, { [el.dataset.k]: { equipment: ((pr.environment || {}).equipment || []).slice(), place: (pr.environment || {}).place || null, at: S.today() } }); S.save('profile'); root.App.render(); root.UI.toast('נשמר'); },
+      plGo: el => { const pr = S.load('profile'), x = (pr.places || {})[el.dataset.k]; if (!x) return; const before = JSON.stringify(pr), from = ((pr.environment || {}).equipment || []).map(eqName).join(', ') || 'בלי ציוד';
+        pr.environment = Object.assign({}, pr.environment || {}, { equipment: x.equipment.slice() }); S.save('profile'); root.App.render();
+        root.UI.toast(`הציוד עודכן (${from} ← ${x.equipment.map(eqName).join(', ') || 'בלי ציוד'})`, 0, { label: 'ביטול', fn: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); root.App.render(); } }); },
+      presetGo: el => { const pr = PRESETS.find(x => x.k === el.dataset.k), r = presetApply(el.dataset.k); root.App.render();
       if (r.n) root.UI.toast(`"${pr.he}": ${r.n === 1 ? 'הגדרה אחת עודכנה' : r.n + ' הגדרות עודכנו'}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } } };
 };
 Screens.presets.list = PRESETS; Screens.presets.diff = presetDiff; Screens.presets.apply = presetApply;
