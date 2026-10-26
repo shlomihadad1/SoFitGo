@@ -46,7 +46,7 @@ const icon = (n, cls) => `<svg class="${cls || ''}" viewBox="0 0 24 24" fill="no
 /* quality pass: a destructive control that has been on screen for less than 400 ms ignores taps. A double tap on "הוספה" used to
    land its second tap on the NEW item's "מחיקה" (same position after the redraw) and delete what was just added; nobody means to
    delete something they have not seen yet. Explicit list — other controls (steppers, +0.25 L) stay fully responsive. */
-const DESTRUCTIVE = new Set(['cdel', 'uneat', 'tripEnd', /* only actions that REMOVE data; undo-type actions (unskip, unexclude…) restore, so they stay instant */ 'rmcus', 'resetIng', 'resetGo', 'delete', 'delM', 'delLog', 'delEntry', 'del', 'clear', 'chClear', 'cancel', 'wipeForeign', 'uoff']);
+const DESTRUCTIVE = new Set(['cdel', 'uneat', 'loDel', 'tripEnd', /* only actions that REMOVE data; undo-type actions (unskip, unexclude…) restore, so they stay instant */ 'rmcus', 'resetIng', 'resetGo', 'delete', 'delM', 'delLog', 'delEntry', 'del', 'clear', 'chClear', 'cancel', 'wipeForeign', 'uoff']);
 const FRESH_MS = 400; /* a double tap's second tap arrives within ~300 ms */
 function bind(rootEl, handlers) {
   rootEl.querySelectorAll('[data-act]').forEach(el => {

@@ -1,0 +1,51 @@
+/* SLL-14 · Smart Leftovers — Playwright Chromium, iPhone 13 emulation (NOT Safari). A cooked leftover is shown with its safe-until
+   date (cooked + 3 days); dishes that use it come first; an expired leftover is flagged and never suggested; restrictions apply as
+   in the menu; removing is explicit with exact undo. Usage: node tools/e2e_leftovers.js [URL] */
+const { chromium, devices } = require('playwright'); const fs = require('fs');
+const URL0 = process.argv[2] || 'http://localhost:8096/';
+const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m: m + (i !== undefined && !c ? ' → ' + JSON.stringify(i).slice(0, 300) : '') });
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ ...devices['iPhone 13'], locale: 'he-IL', serviceWorkers: 'block' }); const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const go = async h => { await p.evaluate(x => { location.hash = x; }, h); await p.waitForTimeout(800); };
+  await p.goto(URL0); await p.waitForTimeout(700); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(700);
+  await p.evaluate(() => { const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 172, weight: 78, startWeight: 78, sex: 'f', experience: 'beginner', onboarded: true }); Store.save('profile'); });
+  const rice = await p.evaluate(() => Object.keys(NUTRI.FOODS).find(k => /אורז/.test(NUTRI.FOODS[k].he) && NUTRI.FOODS[k].st === 'dry' && NUTRI.RECIPES.filter(r => !r.est && r.ing.some(i => i.f === k)).length >= 3));
+  G = 'add and suggest';
+  ok(!!rice, 'test setup: a dry grain used in ≥3 recipes', rice);
+  await go('#/fridge'); ok(await p.locator('[data-leftovers]').count() === 1, 'the fridge screen has "שאריות מבושלות"');
+  await p.locator('#lo-f').selectOption(rice); await p.locator('#lo-d').selectOption('1'); await p.locator('[data-act=loAdd]').click(); await p.waitForTimeout(600);
+  const lo = await p.evaluate(() => Store.load('nutrition').leftovers);
+  ok(lo.length === 1 && lo[0].f === rice && lo[0].cooked === await p.evaluate(() => Store.addDays(Store.today(), -1)), 'stored with the day it was cooked (yesterday)', lo);
+  const row = await p.locator('[data-lo]').first().textContent();
+  const until = await p.evaluate(() => Store.fmtShort(Store.addDays(Store.today(), 2)));
+  ok(new RegExp('בטוח עד ' + until.replace('/', '\\/')).test(row), 'shown with "בטוח עד" = cooking day + 3', { row, until });
+  const sug = await p.locator('[data-lo-recipe]').evaluateAll(a => a.map(x => x.dataset.loRecipe));
+  const uses = await p.evaluate(([ids, f]) => ids.every(id => Logic.recipe(id).ing.some(i => i.f === f) && Core.conflicts(Logic.recipe(id), null).length === 0), [sug, rice]);
+  ok(sug.length >= 1 && uses, 'dishes with the leftover are suggested — every one uses it and fits the restrictions', sug);
+  G = 'restrictions apply';
+  const blocked = await p.evaluate(f => { const r = NUTRI.RECIPES.find(x => !x.est && x.ing.some(i => i.f === f)); const other = r.ing.map(i => i.f).find(x => x !== f && !['oil', 'ghee', 'olive_oil'].includes(x)); const pr = Store.load('profile'); pr.prefs = Core.normPrefs(Object.assign({}, pr.prefs, { exclude: [other] })); Store.save('profile'); return { r: r.id, other }; }, rice);
+  await go('#/nutrition'); await go('#/fridge');
+  const sug2 = await p.locator('[data-lo-recipe]').evaluateAll(a => a.map(x => x.dataset.loRecipe));
+  ok(!sug2.includes(blocked.r) && await p.evaluate(ids => ids.every(id => Core.conflicts(Logic.recipe(id), null).length === 0), sug2), 'after excluding a food, dishes with it are no longer suggested', { blocked, sug2 });
+  await p.evaluate(() => { const pr = Store.load('profile'); pr.prefs = Core.normPrefs(Object.assign({}, pr.prefs, { exclude: [] })); Store.save('profile'); });
+  G = 'expired leftovers';
+  await p.evaluate(f => { const nu = Store.load('nutrition'); nu.leftovers = [{ id: 'old', f, cooked: Store.addDays(Store.today(), -4) }]; Store.save('nutrition'); }, rice);
+  await go('#/nutrition'); await go('#/fridge');
+  ok(/לא להשתמש/.test(await p.locator('[data-lo=old]').textContent()) && await p.locator('[data-lo-sug]').count() === 0, '4 days after cooking: flagged "לא להשתמש" and never suggested');
+  await p.evaluate(f => { const nu = Store.load('nutrition'); nu.leftovers.push({ id: 'd3', f, cooked: Store.addDays(Store.today(), -3) }); Store.save('nutrition'); }, rice);
+  await go('#/nutrition'); await go('#/fridge'); ok(await p.locator('[data-lo-sug]').count() === 1, 'exactly 3 days after cooking: still usable (boundary)');
+  G = 'remove';
+  await p.waitForTimeout(500); const before = await p.evaluate(() => localStorage.getItem('fit30.nutrition'));
+  await p.locator('[data-act=loDel][data-id=old]').click(); await p.waitForTimeout(500);
+  ok(await p.evaluate(() => Store.load('nutrition').leftovers.map(x => x.id).join()) === 'd3', 'removing one removes only it');
+  await p.locator('.toast button').first().click(); await p.waitForTimeout(400);
+  ok(await p.evaluate(() => localStorage.getItem('fit30.nutrition')) === before, '"ביטול" restores exactly');
+  await go('#/shopping/14'); ok(await p.locator('[data-mealprep]').count() === 1 && await p.locator('[data-mealprep] [data-prep-leftovers]').count() === 1, 'the meal-prep section links to leftovers');
+  ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
+  await b.close();
+  const pass = res.filter(r => r.ok).length, fail = res.length - pass;
+  res.forEach(r => console.log((r.ok ? 'PASS' : 'FAIL') + ' [' + r.g + '] ' + r.m));
+  fs.mkdirSync('dist', { recursive: true }); fs.writeFileSync('dist/e2e_leftovers.json', JSON.stringify(res, null, 1));
+  console.log(`leftovers e2e: pass ${pass} fail ${fail}`); process.exit(fail ? 1 : 0);
+})().catch(e => { console.log('leftovers e2e crashed in [' + G + ']: ' + (e.stack || e.message).slice(0, 600)); process.exit(1); });
