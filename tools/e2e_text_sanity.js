@@ -5,7 +5,7 @@ const { chromium, devices } = require('playwright'); const fs = require('fs');
 const URL0 = process.argv[2] || 'http://localhost:8096/';
 const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m: m + (i !== undefined && !c ? ' → ' + JSON.stringify(i).slice(0, 500) : '') });
 const ROUTES = ['#/', '#/calendar', '#/workouts', '#/plan', '#/nutrition', '#/recipes', '#/targets', '#/shopping', '#/progress', '#/review', '#/records', '#/explain', '#/settings', '#/profile', '#/programs', '#/media', '#/help',
-  '#/planb', '#/travel', '#/changes', '#/reset', '#/presets', '#/activity', '#/privacy', '#/fridge', '#/feedback', '#/install'];
+  '#/planb', '#/travel', '#/changes', '#/reset', '#/presets', '#/activity', '#/privacy', '#/fridge', '#/feedback', '#/install', '#/today'];
 (async () => {
   const b = await chromium.launch();
   const states = {

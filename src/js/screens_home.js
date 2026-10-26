@@ -11,7 +11,7 @@ Screens.versionSeg = (d, sel, act) => {
   if (!L.hasVersions(d)) return '';
   return `<div class="seg" role="group" aria-label="משך האימון">${['min', 'short', 'std', 'long'].map(v => `<button data-act="${act}" data-v="${v}" aria-pressed="${sel === v}">${L.VERSIONS[v]}<small>~${L.estimateMinutes(d, v)} דק׳ (הערכה)</small></button>`).join('')}</div>`;
 };
-Screens.selectedVersion = { v: 'std' };
+Screens.selectedVersion = { _v: null, get v() { return this._v || C.daily(S.today()).dayVer || 'std'; }, set v(x) { this._v = x; } }; /* SLL-13: falls back to the version chosen for today in "היום שלי" */
 
 /* M10 · first launch: a visible welcome with הרשמה / התחברות (also when this build has no account server — the account screen
    then says so plainly; nothing is faked). Hidden after "להמשיך בלי חשבון", once signed in, or once a profile exists. */
@@ -203,6 +203,7 @@ Screens.nowCard = function (date, opts) {
   if (opts && opts.secondaryStart && m.next && m.next.k === 'workout') m.next.btn = m.next.btn.replace('class="btn primary"', 'class="btn secondary"');
   return `<section class="card now" data-now><div class="row now-h">${coach ? `<a href="#/coach" class="now-coach" data-coach-link aria-label="${esc(coach.name)} — מסך המאמנת"><img class="coach-av" src="${esc(coach.avatar)}" alt="" width="48" height="48" loading="lazy"></a>` : ''}<div class="stack tight grow"><span class="eyebrow" data-coach-label>${coach ? `<a href="#/coach" class="now-name">${esc(coach.name)}</a> — המאמנת הדיגיטלית` : 'המאמן הדיגיטלי'}</span><b class="now-q">${m.next ? 'הצעד הבא' : 'כל מה שתוכנן להיום בוצע ✓'}</b></div></div>
     ${m.next ? `<div class="now-next" data-now-next="${m.next.k}"><span>${esc(m.next.he)}</span>${m.next.btn}</div>` : '<p class="small muted">אפשר לנוח. מחר ממשיכים מאותה נקודה.</p>'}
+    ${(() => { const tw = (C.dailyProgress(date).tasks || []).find(x => x.k === 'workout'), ap0 = C.daily(date).autopilot || {}; return tw && tw.v < 1 && !ap0.rejected ? `<p class="small" data-today-link><a href="#/today">${ap0.level ? 'היום שלי: ' + ({ min: 'מינימום', bal: 'מאוזן', full: 'מלא' })[ap0.level] : 'הצעה ליום שלי — מינימום / מאוזן / מלא'}</a></p>` : ''; })()}
     ${m.small ? `<p class="small muted" data-now-small>${esc(m.small.he)}${m.small.href ? ` <a href="${m.small.href}">${m.small.link}</a>` : ''}</p>` : ''}
     ${(() => { const sc = Screens.nowShortcuts(date); return `<nav class="chips now-sc" aria-label="קיצורי דרך" data-now-shortcuts>${sc.map(c => c.html).join('')}</nav><details class="more tiny" data-sc-why><summary>למה הקיצורים האלה?</summary><ul class="tiny muted">${sc.map(c => `<li>${esc(c.html.replace(/<[^>]+>/g, ''))}: ${esc(c.why)}</li>`).join('')}</ul><p class="tiny muted">נבחרים לפי מה שכבר רשום במכשיר והשעה המקומית. שום קיצור לא משנה נתונים בלי לחיצה.</p></details>`; })()}
     <div class="chips now-done" aria-label="מה כבר בוצע היום">${m.done.map(d => `<span class="chip" data-done="${d.k}" aria-pressed="${d.ok}">${d.ok ? '✓ ' : d.part ? '◐ ' : ''}${esc(d.he)}</span>`).join('')}</div>

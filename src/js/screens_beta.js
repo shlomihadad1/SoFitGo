@@ -162,6 +162,43 @@ Screens.presets = function () {
       if (r.n) root.UI.toast(`"${pr.he}": ${r.n === 1 ? 'הגדרה אחת עודכנה' : r.n + ' הגדרות עודכנו'}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } } };
 };
 Screens.presets.list = PRESETS; Screens.presets.diff = presetDiff; Screens.presets.apply = presetApply;
+/* SLL-13 · #/today — One-Day Autopilot. Three proposals for TODAY built only from what is already planned:
+     מינימום → the workout in the "min" version (SLL-02) · מאוזן → the regular version · מלא → the long version (when the day has one)
+   plus, identical in all three and never changed here, today's planned meals, the water target and the step target.
+   Choosing a level changes ONLY today's workout version — a personal plan through Plans.setVersion (the day's override), the 30-day
+   program through today's stored choice (tracking.daily.dayVer, used by the home start button) — and can be undone. "לא היום"
+   hides the proposal for today. Test / recovery days keep their workout as it is. */
+const AP_LV = { min: { he: 'מינימום', v: 'min', s: 'כמה דקות שומרות על הרגל. נרשם כ"בוצע חלקית".' }, bal: { he: 'מאוזן', v: 'std', s: 'האימון כפי שתוכנן.' }, full: { he: 'מלא', v: 'long', s: 'יותר זמן ונפח, כשיש כוח וזמן.' } };
+function apModel(date) {
+  date = date || S.today(); const ap = root.Plans && root.Plans.active(), out = { date, workout: null, meals: [], kcal: 0, water: C.waterGoalOn(date).ml, steps: (C.profile().goals || {}).steps || null };
+  if (ap) { const d = (root.Plans.days(ap) || []).find(x => (x.movedTo || x.date) === date && root.Plans.isTraining(x) && x.status !== 'skipped' && !x.log);
+    if (d) { const fixed = ['assess', 'active'].includes(d.type), base = Object.assign({}, ap, { overrides: Object.assign({}, ap.overrides, { [d.n]: Object.assign({}, ap.overrides[d.n] || {}, { version: undefined }) }) }), raw = root.Plans.days(base).find(z => z.n === d.n);
+      out.workout = { kind: 'plan', id: ap.id, n: d.n, title: d.title || ('יום ' + d.n), fixed, cur: d.version || 'std', min: Object.fromEntries(Object.entries(AP_LV).map(([k, L0]) => [k, fixed ? Math.round(raw.minutes || 0) : Math.round(root.Planner.versioned(raw, L0.v).minutes || 0)])) }; } }
+  else if (!C.nutritionOnly()) { const n = C.programDay(date); if (n >= 1 && n <= 30 && C.isTraining(n) && C.status(n) !== 'done') { const d = C.dayDef(n), hv = root.Logic.hasVersions(d);
+      out.workout = { kind: 'prog', n, title: d.title, fixed: !hv, cur: C.daily(date).dayVer || 'std', min: Object.fromEntries(Object.entries(AP_LV).map(([k, L0]) => [k, root.Logic.estimateMinutes(d, hv ? L0.v : 'std')])) }; } }
+  const pl = C.plan(date); C.DAY.forEach(k => { const s = pl[k]; if (s && s.rid && !s.off && !s.missing) { const r = root.Logic.recipe(s.rid); if (r) { const m = root.Logic.recipeMacros(r, s.scale, s.ov); out.meals.push({ k, he: r.he, kcal: Math.round(m.k), eaten: !!C.slotEntry(date, k) }); out.kcal += Math.round(m.k); } } });
+  return out;
+}
+function apApply(level, date) {
+  date = date || S.today(); const m = apModel(date), w = m.workout, before = { daily: JSON.stringify(C.daily(date)), plans: JSON.stringify(S.load('plans')) };
+  if (w && !w.fixed) { if (w.kind === 'plan') root.Plans.setVersion(w.id, w.n, AP_LV[level].v); else C.setDaily(date, { dayVer: AP_LV[level].v }); }
+  C.setDaily(date, { autopilot: { level, at: new Date().toISOString() } }); if (root.Screens.selectedVersion) root.Screens.selectedVersion._v = null;
+  return { undo: () => { const t = S.load('tracking'); t.daily[date] = JSON.parse(before.daily); S.save('tracking'); if (w && w.kind === 'plan') { const cur = S.load('plans'); Object.keys(cur).forEach(k => delete cur[k]); Object.assign(cur, JSON.parse(before.plans)); S.save('plans'); } if (root.Screens.selectedVersion) root.Screens.selectedVersion._v = null; } };
+}
+Screens.today = function () {
+  const m = apModel(), w = m.workout, chosen = (C.daily(m.date).autopilot || {}).level;
+  const dayHref = w ? (w.kind === 'plan' ? '#/pday/' + w.n : '#/day/' + w.n) : null;
+  return { title: 'היום שלי', back: '#/', html: `
+    <section class="card"><p class="small">שלוש הצעות ליום, מתוך מה שכבר מתוכנן. בוחרים אחת — היא משנה רק את גרסת האימון של היום, ואפשר לבטל. התפריט, המים והצעדים לא משתנים כאן.</p></section>
+    ${w ? Object.entries(AP_LV).map(([k, L0]) => `<section class="card" data-ap="${k}"${chosen === k ? ' data-ap-chosen' : ''}><div class="card-h"><h3>${esc(L0.he)}${chosen === k ? ' <span class="pill good">נבחר</span>' : ''}</h3>${chosen === k ? '' : `<button class="btn sm primary" data-act="apGo" data-l="${k}">לבחור</button>`}</div>
+      <p class="small"><b>אימון:</b> ${esc(w.title)} — ${w.fixed ? `כפי שתוכנן (~${w.min.bal} דק׳; לימי מבחן והתאוששות אין גרסאות)` : `~${w.min[k]} דק׳`}</p><p class="tiny muted">${esc(L0.s)}</p></section>`).join('')
+      : '<div class="empty" data-ap-noworkout>אין היום אימון פתוח — ההצעה כוללת רק את התפריט והיעדים.</div>'}
+    <section class="card" data-ap-same><h3>זהה בכל ההצעות</h3><ul class="bul small"><li>ארוחות מתוכננות: ${m.meals.length ? m.meals.map(x => esc(x.he) + (x.eaten ? ' ✓' : '')).join(' · ') + ` (כ־${m.kcal} קק״ל)` : 'אין'} ${root.UI.srcTag('est')}</li><li>מים: ${C.fmtL(m.water)} ליטר</li>${m.steps ? `<li>צעדים: ${Number(m.steps).toLocaleString('he-IL')}</li>` : ''}</ul></section>
+    <div class="btns">${dayHref ? `<a class="btn" href="${dayHref}">לאימון של היום</a>` : ''}<button class="btn ghost" data-act="apNo">לא היום</button></div>`,
+    handlers: { apGo: el => { try { const r = apApply(el.dataset.l); root.App.render(); root.UI.toast(`נבחר: ${AP_LV[el.dataset.l].he}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } catch (e) { root.UI.toast(e.message); } },
+      apNo: () => { C.setDaily(S.today(), { autopilot: { rejected: true, at: new Date().toISOString() } }); location.hash = '#/'; } } };
+};
+Screens.today.model = apModel; Screens.today.apply = apApply;
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
   let standalone = false; try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (x) { }

@@ -47,7 +47,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-10 | Life Score | missing | MoveScore (steps only) | define consistency/strength/endurance/mobility/habit metrics, shown transparently | P3 |
 | SLL-11 | Ripple Effect | missing | no-compensation rules exist in the menu engine (no punitive extra exercise) | constructive next-step suggestions UI | P3 |
 | SLL-12 | Friction Radar | verified-complete | Tracking screen → "מה מקשה?": repeated obstacles found in what was logged, ONE suggestion at a time with its numbers and a link to the existing setting; nothing changes automatically; "לא רלוונטי" hides it for 30 days (this device). Rules with minimum data: a weekday with ≥2 missed sessions that are ≥50% of its sessions in 28 days (→ plan days); a planned meal unmarked on ≥8 of the logged days in 14 (→ meals per day); water under half the goal on ≥5 of 7 logged days while the water reminder is off (→ reminders) (`Core.friction`; `e2e_friction` 13, fixed clock, weekday rule checked against an independent count) | more obstacle types need more logged signals (e.g. reasons for skipping are not asked) | P3 |
-| SLL-13 | One-Day Autopilot | partial | NOW card + day plan + menu + water target | one "propose my day" with minimum / balanced / full, editable or rejectable | P2 |
+| SLL-13 | One-Day Autopilot | verified-complete | `#/today` "היום שלי" (link on the NOW card while today's workout is open): three proposals built only from what is planned — מינימום (SLL-02 "min") / מאוזן (regular) / מלא (long), with real minutes; today's planned meals, water and step targets shown as identical in all three and never changed. Choosing one changes only today's workout version (30-day program: today's stored choice used by the start button; personal plan: the day's version override); exact undo; "לא היום" hides it for today; test / recovery days keep their workout (`Screens.today`; `e2e_autopilot` 16) | — | P2 |
 | SLL-14 | Smart Leftovers | partial | meal-prep tags (46 recipes) | leftover reuse suggestions | P2 |
 | SLL-15 | Ingredient Substitution Graph | partial | recipe `subs`, allergy-safe swaps in the menu engine | function / flavour / texture graph | P2 |
 | SLL-16 | Budget Mode | partial | relative cost 1–3, 87 budget-tagged recipes; no prices (none invented) | budget-bounded plan and list | P2 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 17 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33 added 26.10.2026);
-- 15 partial;
+- 18 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13 added 26.10.2026);
+- 14 partial;
 - 6 missing;
 - 5 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 17 verified-complete, 15 partial, 6 missing, 5 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 18 verified-complete, 14 partial, 6 missing, 5 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

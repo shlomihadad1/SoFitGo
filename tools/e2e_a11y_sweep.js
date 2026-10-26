@@ -27,7 +27,7 @@ const audit = () => { const out = [], vis = el => { const r = el.getBoundingClie
     ok(meta.lang === lang && meta.dir === dir, `<html lang="${lang}" dir="${dir}">`, meta);
     const ex = await p.evaluate(() => EXERCISES[0].id), rc = await p.evaluate(() => NUTRI.RECIPES[0].id), n = await p.evaluate(() => Plans.days(Plans.active()).find(x => Plans.isTraining(x)).n);
     const routes = ['#/', '#/calendar', '#/workouts', '#/plan', '#/pday/' + n, '#/ex/' + ex, '#/nutrition', '#/recipes', '#/recipe/' + rc, '#/targets', '#/shopping', '#/progress', '#/review', '#/settings', '#/profile', '#/media', '#/help',
-      '#/planb', '#/travel', '#/changes', '#/reset', '#/presets', '#/activity', '#/privacy', '#/fridge'];
+      '#/planb', '#/travel', '#/changes', '#/reset', '#/presets', '#/activity', '#/privacy', '#/fridge', '#/today'];
     const bad = {};
     for (const r of routes) { await p.evaluate(x => { location.hash = x; }, r); await p.waitForTimeout(650); const o = await p.evaluate(audit); if (o.length) bad[r] = o.slice(0, 4); }
     if (process.env.FULL) console.log(JSON.stringify(bad, null, 1));
