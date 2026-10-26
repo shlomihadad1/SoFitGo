@@ -319,6 +319,53 @@ Screens.experiments = function () {
         e.current = el.dataset.d === 'again' ? Object.assign({}, e.current, { id: 'x' + Date.now().toString(36), start: S.today() }) : null; S.save('profile'); root.App.render(); } } };
 };
 Screens.experiments.eval = expEval;
+/* moved from core.js on 26.10.2026 to keep the first load under its budget (820 KB): only the tracking screen uses these */
+/* SLL-12 · Friction Radar: repeated obstacles found in what was logged, ONE suggestion at a time, each with its numbers and a
+   link to the existing setting; nothing changes automatically. Each rule needs a minimum amount of data:
+     weekday — last 28 days of the active plan: a weekday with ≥2 missed sessions that are ≥50% of that weekday's past sessions
+     slot    — last 14 days, counting only days with at least one marked meal: a planned meal left unmarked on ≥8 of them
+     water   — last 7 days with water logged: under half the day's goal on ≥5 of them, while the water reminder is off
+   "לא רלוונטי" hides that suggestion for 30 days (meta.frictionOff, this device only). Deterministic for a given log and date. */
+C.friction = date => {
+  date = date || S.today(); const out = [], off = (S.load('meta').frictionOff) || {}, fresh = k => !(off[k] && S.diffDays(off[k], date) < 30);
+  const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const ap = root.Plans && root.Plans.active();
+  if (ap) { const by = {}; root.Plans.days(ap).filter(d => root.Plans.isTraining(d) && d.date < date && d.date >= S.addDays(date, -28) && d.status !== 'skipped').forEach(d => { const w = new Date(d.date + 'T12:00:00').getDay(); const o = by[w] = by[w] || { n: 0, miss: 0 }; o.n++; if (d.status === 'missed') o.miss++; });
+    const w = Object.keys(by).filter(k => by[k].miss >= 2 && by[k].miss / by[k].n >= 0.5).sort((a, b) => by[b].miss - by[a].miss)[0];
+    if (w != null) out.push({ k: 'weekday:' + w, he: `בימי ${DOW[w]} פספסת ${by[w].miss} מתוך ${by[w].n} אימונים בארבעת השבועות האחרונים.`, sug: 'אולי יום אחר מתאים יותר לאימון הזה? אפשר לשנות את ימי האימון בתוכנית.', href: '#/plan', act: 'לשינוי הימים' }); }
+  { const days = []; for (let i = 1; i <= 14; i++) days.push(S.addDays(date, -i)); const logged = days.filter(d => C.entries(d).length);
+    if (logged.length >= 8) { const miss = {}; logged.forEach(d => { const pl = C.plan(d); C.DAY.forEach(k => { if (pl[k] && pl[k].rid && !pl[k].off && !C.slotEntry(d, k)) miss[k] = (miss[k] || 0) + 1; }); });
+      const k = Object.keys(miss).filter(x => miss[x] >= 8).sort((a, b) => miss[b] - miss[a])[0];
+      if (k) out.push({ k: 'slot:' + k, he: `את ה${C.slotNames[k]} לא סימנת ב־${miss[k]} מתוך ${logged.length} הימים שבהם רשמת ארוחות.`, sug: 'אם היא לא מתאימה ליום שלך, אפשר לבחור פחות ארוחות ביום — התפריט יתעדכן רק באישור.', href: '#/settings', act: 'להגדרת הארוחות' }); } }
+  { const days = []; for (let i = 1; i <= 7; i++) days.push(S.addDays(date, -i)); const w = days.filter(d => (C.daily(d).water || 0) > 0); const r = C.remSettings();
+    if (w.length >= 5 && !(r.on && r.water.on)) { const low = w.filter(d => C.daily(d).water < C.waterGoalOn(d).ml / 2).length;
+      if (low >= 5) out.push({ k: 'water', he: `ב־${low} מתוך ${w.length} הימים האחרונים ששתית פחות מחצי מיעד המים.`, sug: 'תזכורת מים בתוך האפליקציה מופיעה רק כשמאחורי הקצב, ואפשר לכבות אותה בכל רגע.', href: '#/settings', act: 'להפעלת תזכורת' }); } }
+  return out.filter(x => fresh(x.k));
+};
+C.frictionOff = (k, date) => { const m = S.load('meta'); m.frictionOff = Object.assign({}, m.frictionOff || {}, { [k]: date || S.today() }); S.save('meta'); };
+/* SLL-10 · Life Score — transparent, from the last 7 COMPLETED days (today excluded: it is not over). Each component is 0–100 with its
+   formula and the number of days it rests on; a component without data is "אין נתון" and is left OUT of the average (never counted as
+   0). Score = plain average of the available components. Not medical, not a comparison with anyone.
+     workouts — planned sessions: done = 1, partial = ½ (incl. minimum), missed = 0; rest days ignored
+     meals    — days with at least one meal marked in the journal, of 7
+     water    — of the days with water logged: days that reached that day's goal
+     sleep    — of the days with sleep logged: days with sleep ≥ the sleep goal
+     steps    — only with a step target: days that reached it, of the days with steps */
+C.lifeScore = date => {
+  date = date || S.today(); const days = []; for (let i = 1; i <= 7; i++) days.push(S.addDays(date, -i));
+  const g = C.profile().goals || {}, comps = [], pct = (a, b) => b ? Math.round(a / b * 100) : null;
+  { let pl = 0, got = 0; days.forEach(d => { const w = (C.dailyProgress(d).tasks || []).find(x => x.k === 'workout'); if (w) { pl++; got += w.v >= 1 ? 1 : w.v > 0 ? 0.5 : 0; } });
+    comps.push({ k: 'workouts', he: 'אימונים', v: pct(got, pl), n: pl, how: `בוצע = 1, חלקי = ½; ${got} מתוך ${pl} אימונים מתוכננים` }); }
+  { const n = days.filter(d => C.entries(d).length).length; comps.push({ k: 'meals', he: 'רישום ארוחות', v: pct(n, 7), n: 7, how: `${n} מתוך 7 ימים עם ארוחה מסומנת` }); }
+  { const wd = days.filter(d => (C.daily(d).water || 0) > 0), ok = wd.filter(d => C.daily(d).water >= C.waterGoalOn(d).ml).length; comps.push({ k: 'water', he: 'מים', v: pct(ok, wd.length), n: wd.length, how: wd.length ? `${ok} מתוך ${wd.length} ימים עם רישום הגיעו ליעד` : 'לא נרשמו מים' }); }
+  { const sd = days.filter(d => C.daily(d).sleep > 0), goal = g.sleep || 7.5, ok = sd.filter(d => C.daily(d).sleep >= goal).length; comps.push({ k: 'sleep', he: 'שינה', v: pct(ok, sd.length), n: sd.length, how: sd.length ? `${ok} מתוך ${sd.length} לילות עם רישום — ${goal} שעות ומעלה` : 'לא נרשמה שינה' }); }
+  { const A = root.Activity; if (A) { const td = days.filter(d => A.targetOn(d) && A.day(d).value != null), ok = td.filter(d => A.day(d).value >= A.targetOn(d)).length; if (days.some(d => A.targetOn(d))) comps.push({ k: 'steps', he: 'צעדים', v: pct(ok, td.length), n: td.length, how: td.length ? `${ok} מתוך ${td.length} ימים הגיעו ליעד` : 'לא נרשמו צעדים' }); } }
+  const have = comps.filter(c => c.v != null); return { from: days[6], to: days[0], comps, score: have.length ? Math.round(have.reduce((a, c) => a + c.v, 0) / have.length) : null, used: have.length };
+};
+Screens.lifeCard = function () { const ls = C.lifeScore(); return (`<section class="card" data-life><div class="card-h"><h2>Life Score — 7 הימים האחרונים</h2>${root.UI.srcTag('calc')}</div>${ls.score != null ? `<div class="row" style="align-items:baseline;gap:10px"><span class="num" style="font-size:2em;font-weight:700" data-life-score>${ls.score}</span><span class="small muted">ממוצע של ${ls.used} ${ls.used === 1 ? 'רכיב' : 'רכיבים'} עם נתונים</span></div>` : '<p class="small muted" data-life-none>עוד אין מספיק נתונים לשבוע האחרון.</p>'}
+    <div class="list">${ls.comps.map(c => `<div class="li" data-life-c="${c.k}"><div class="grow"><div class="t">${esc(c.he)}</div><div class="s">${esc(c.how)}</div></div><b class="num">${c.v != null ? c.v : UI.srcTag('none')}</b></div>`).join('')}</div>
+    <p class="small"><a href="#/patterns" data-patterns-link>דפוסים אישיים</a> · <a href="#/experiments" data-experiments-link>ניסויים אישיים</a></p><p class="tiny faint">${esc(S.fmtShort(ls.from))}–${esc(S.fmtShort(ls.to))} (היום לא נכלל — הוא עוד לא נגמר). רכיב בלי נתונים לא נספר כאפס. זה סיכום של הרגלים, לא מדד רפואי ולא השוואה לאחרים.</p></section>`); };
+Screens.frictionCard = function () { const fr = C.friction(); if (!fr.length) return ''; const x = fr[0]; return (`<section class="card" data-friction="${esc(x.k)}"><h3>מה מקשה? <span class="tiny muted">(${fr.length === 1 ? 'הצעה אחת' : '1 מתוך ' + fr.length})</span></h3><p class="small" data-friction-why><b>למה:</b> ${esc(x.he)}</p><p class="small">${esc(x.sug)}</p><div class="btns"><a class="btn sm" href="${x.href}">${esc(x.act)}</a><button class="btn sm ghost" data-act="frOff" data-k="${esc(x.k)}">לא רלוונטי</button></div><p class="tiny faint">לפי מה שנרשם בלבד. שום דבר לא משתנה בלי שתבחרו.</p></section>`); };
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
   let standalone = false; try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (x) { }

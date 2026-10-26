@@ -10,6 +10,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   await p.clock.install({ time: new Date('2026-10-26T10:00:00') });
   const go = async h => { await p.evaluate(x => { location.hash = x; }, h); await p.waitForTimeout(800); };
   await p.goto(URL0); await p.waitForTimeout(700); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(700);
+  await p.evaluate(() => App.loadChunk('extra.js')); /* friction / life score live in the on-demand chunk (first-load budget) */
   await p.evaluate(() => { const pr = Store.load('profile'); Object.assign(pr, { age: 34, height: 172, weight: 78, startWeight: 78, sex: 'f', experience: 'beginner', onboarded: true, startDate: Store.addDays(Store.today(), -10) }); pr.goals.sleep = 7; Store.save('profile'); });
   G = 'no data';
   let ls = await p.evaluate(() => Core.lifeScore());
