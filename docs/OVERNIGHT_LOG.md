@@ -50,12 +50,15 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 7c | SLL-32 meal prep (from the backlog review) | done → verified-complete. **Food-safety defect fixed:** a batch could cover meals up to 14 days after cooking, although the same screen says cooked food keeps 3–4 days. Batches and repeated dishes are now split into sessions of at most 3 days | (see git log) | stageG_test 52 (+5), e2e_grocery 45, stageG e2e, reset: all pass |
 | 7d | SLL-20 Progress Story (from the backlog review) | done → verified-complete | (see git log) | e2e_story 7, stageG unit+e2e, a11y_sweep, text_sanity, reset, provenance: all pass |
 | 7e | SLL-12 Friction Radar (was missing) | done → verified-complete | (see git log) | e2e_friction 13 (one weak assertion in my draft replaced), text_sanity, a11y_sweep, m10_ux, stageA: all pass |
-| 7 | Quality pass + final regression + report | | | |
+| 7f | e2e_food_global intermittent failure | root cause reproduced with a frozen clock: stored ISO timestamps "…:28.6xxZ" matched the plain coordinate check. The original check is kept; it now runs with timestamps removed, plus controls and a frozen-clock regression group. An earlier fix that night was weaker and was replaced | 20791ed, 2c9f577 | 3/3 alone (32), full regression 82/82 |
+| 7 | Final regression + release report | done: `docs/RELEASE_REPORT_2026-10-26.md` | (report commit) | 82/82 on 2c9f577 |
 
 ## Full regression checkpoints
 | Commit | Build | Result |
 |---|---|---|
 | 4b2bbfa (after SLL-42/28/35/25/40/21) | a9a81b64f7 | `bash tools/run_all.sh`: **76/76 suites exit 0**, artcheck 2/2, 27,277 checks passed, 0 failed |
+| 2400a81 (after SLL-24, quality pass, SLL-32/20/12) | a1c98ddc1a | 81/82 — `e2e_food_global` failed once (test defect, see below) |
+| **2c9f577 (final code)** | **a1c98ddc1a** | **82/82 suites exit 0, artcheck 2/2, 27,341 checks passed, 0 failed** (same commit and build at the start and end of the run) |
 
 ## Decisions taken without the owner (safe defaults, reversible)
 (each entry: what, why, how to change)
