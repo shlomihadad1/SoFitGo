@@ -284,6 +284,25 @@ C.friction = date => {
   return out.filter(x => fresh(x.k));
 };
 C.frictionOff = (k, date) => { const m = S().load('meta'); m.frictionOff = Object.assign({}, m.frictionOff || {}, { [k]: date || S().today() }); S().save('meta'); };
+/* SLL-10 · Life Score — transparent, from the last 7 COMPLETED days (today excluded: it is not over). Each component is 0–100 with its
+   formula and the number of days it rests on; a component without data is "אין נתון" and is left OUT of the average (never counted as
+   0). Score = plain average of the available components. Not medical, not a comparison with anyone.
+     workouts — planned sessions: done = 1, partial = ½ (incl. minimum), missed = 0; rest days ignored
+     meals    — days with at least one meal marked in the journal, of 7
+     water    — of the days with water logged: days that reached that day's goal
+     sleep    — of the days with sleep logged: days with sleep ≥ the sleep goal
+     steps    — only with a step target: days that reached it, of the days with steps */
+C.lifeScore = date => {
+  date = date || S().today(); const days = []; for (let i = 1; i <= 7; i++) days.push(S().addDays(date, -i));
+  const g = C.profile().goals || {}, comps = [], pct = (a, b) => b ? Math.round(a / b * 100) : null;
+  { let pl = 0, got = 0; days.forEach(d => { const w = (C.dailyProgress(d).tasks || []).find(x => x.k === 'workout'); if (w) { pl++; got += w.v >= 1 ? 1 : w.v > 0 ? 0.5 : 0; } });
+    comps.push({ k: 'workouts', he: 'אימונים', v: pct(got, pl), n: pl, how: `בוצע = 1, חלקי = ½; ${got} מתוך ${pl} אימונים מתוכננים` }); }
+  { const n = days.filter(d => C.entries(d).length).length; comps.push({ k: 'meals', he: 'רישום ארוחות', v: pct(n, 7), n: 7, how: `${n} מתוך 7 ימים עם ארוחה מסומנת` }); }
+  { const wd = days.filter(d => (C.daily(d).water || 0) > 0), ok = wd.filter(d => C.daily(d).water >= C.waterGoalOn(d).ml).length; comps.push({ k: 'water', he: 'מים', v: pct(ok, wd.length), n: wd.length, how: wd.length ? `${ok} מתוך ${wd.length} ימים עם רישום הגיעו ליעד` : 'לא נרשמו מים' }); }
+  { const sd = days.filter(d => C.daily(d).sleep > 0), goal = g.sleep || 7.5, ok = sd.filter(d => C.daily(d).sleep >= goal).length; comps.push({ k: 'sleep', he: 'שינה', v: pct(ok, sd.length), n: sd.length, how: sd.length ? `${ok} מתוך ${sd.length} לילות עם רישום — ${goal} שעות ומעלה` : 'לא נרשמה שינה' }); }
+  { const A = root.Activity; if (A) { const td = days.filter(d => A.targetOn(d) && A.day(d).value != null), ok = td.filter(d => A.day(d).value >= A.targetOn(d)).length; if (days.some(d => A.targetOn(d))) comps.push({ k: 'steps', he: 'צעדים', v: pct(ok, td.length), n: td.length, how: td.length ? `${ok} מתוך ${td.length} ימים הגיעו ליעד` : 'לא נרשמו צעדים' }); } }
+  const have = comps.filter(c => c.v != null); return { from: days[6], to: days[0], comps, score: have.length ? Math.round(have.reduce((a, c) => a + c.v, 0) / have.length) : null, used: have.length };
+};
 C.fmtL = ml => String(Math.round((+ml || 0) / 10) / 100);
 C.workoutMinutesOn = date => { try { const pl = root.MealPlan && root.Plans && root.MealPlan.planFor(date); if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; return pd && root.Plans.isTraining(pd) && pd.status !== 'skipped' ? Math.round(pd.minutes || 45) : 0; }
   const n = C.programDay(date); if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) return Math.round(L().estimateMinutes(C.dayDef(n), 'std') || 45); } catch (e) { } return 0; };

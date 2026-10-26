@@ -302,7 +302,7 @@ table.tbl td.n { font-family: var(--font-display); font-variant-numeric: tabular
 .banner > svg { margin-top: 1px; color: currentColor; }
 .pill svg { width: 14px; height: 14px; }
 /* SLL-28 provenance labels: tappable, one look per kind (text always carries the meaning; colour is only a hint) */
-.src-hit { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; margin-block: -10px; vertical-align: middle; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.src-hit { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-block: -12px; /* 44 px (Apple HIG): 40 could render as 39.98 px at some widths */ vertical-align: middle; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .src-hit:focus-visible { outline: none; } .src-hit:focus-visible > .src-tag { outline: 2px solid var(--accent); outline-offset: 2px; } .src-tag { border: 1px dashed transparent; }
 .src-tag.src-user, .src-tag.src-measured { background: var(--good-soft); color: var(--good); } .src-tag.src-calc { background: var(--accent-soft); color: var(--accent); } .src-tag.src-est { border-color: currentColor; } .src-tag.src-none { opacity: .8; }
 .lvl button { display: flex; flex-direction: column; justify-content: flex-start; }
