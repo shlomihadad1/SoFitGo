@@ -152,7 +152,8 @@ function dishArt(r) {
      none     — no data; nothing is invented */
 const TR = (k) => (root.I18N ? root.I18N.t(k) : k);
 const SRC = {}; ['user', 'measured', 'calc', 'est', 'rec', 'none'].forEach(k => { Object.defineProperty(SRC, k, { enumerable: true, get: () => [TR('src.' + k), TR('src.' + k + '.why')] }); }); /* labels follow the language (i18n keys src.*) */
-function srcTag(kind, text, attrs) { const s = SRC[kind] || SRC.none; return `<span class="pill src-tag src-${SRC[kind] ? kind : 'none'}" role="button" tabindex="0" data-src="${SRC[kind] ? kind : 'none'}"${attrs ? ' ' + attrs : ''} aria-label="${esc((text || s[0]) + ' — ' + TR('src.aria'))}">${esc(text || s[0])}</span>`; }
+function srcTag(kind, text, attrs) { const k = SRC[kind] ? kind : 'none', s = SRC[k]; /* the outer span is the ≥40×40 tap target (transparent); the inner one is the visible label */
+  return `<span class="src-hit" role="button" tabindex="0" data-src="${k}" aria-label="${esc((text || s[0]) + ' — ' + TR('src.aria'))}"${attrs ? ' ' + attrs : ''}><span class="pill src-tag src-${k}">${esc(text || s[0])}</span></span>`; }
 function srcExplain(kind) { const s = SRC[kind] || SRC.none;
   sheet(TR('src.title'), `<p data-src-explain="${SRC[kind] ? kind : 'none'}"><b>${esc(s[0])}</b> — ${esc(s[1])}</p><h4>${esc(TR('src.all'))}</h4><div class="list">${Object.keys(SRC).map(k => `<div class="li"><div class="grow"><div class="t">${esc(SRC[k][0])}</div><div class="s">${esc(SRC[k][1])}</div></div></div>`).join('')}</div>`); }
 try { document.addEventListener('click', e => { const t = e.target && e.target.closest && e.target.closest('[data-src][role=button]'); if (!t) return; e.preventDefault(); e.stopPropagation(); srcExplain(t.dataset.src); }, true);

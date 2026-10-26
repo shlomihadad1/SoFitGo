@@ -69,7 +69,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-32 | Meal Prep Planner | partial | meal-prep tags; shopping-list prep section | batch plan with shared ingredients | P2 |
 | SLL-33 | Contextual Shortcuts | partial (all documented rules done except one) | chips by state + local clock: log a meal after a logged workout; evening water below target; tomorrow's workout; then the fixed Plan B / fridge / steps / travel in their original order; max 4; "למה הקיצורים האלה?"; no data change without a tap; 23:59/00:00 boundary; fresh install (`Screens.nowShortcuts`; `e2e_now`) | "shopping day" rule needs a shopping-day setting (owner decision); "I have five minutes" waits for Minimum Mode content (SLL-02) | P1 |
 | SLL-34 | Explain My Plan | verified-complete | explanation mode (`stageG_test`, `e2e_m12_gate`) | — | P2 |
-| SLL-35 | Low-Data Mode | partial | media load on demand; videos not cached | explicit low-data setting | P3 |
+| SLL-35 | Low-Data Mode | verified-complete | Setting "חיסכון בנתונים" in Settings → Display; it follows the browser's Save-Data request automatically unless you turn it on or off, and Settings says when it is on automatically. While on, no photo, thumbnail or video poster is downloaded (network checked): photos show "טעינת תמונה" and download only their small size on tap; thumbnails inside links show their illustration; videos start with preload=metadata. All text, plans and data work the same; the choice is recorded in the change log (`Media.lowData`; `e2e_lowdata` 17) | — (fonts and the app shell are cached once; account sync payloads are small JSON) | P3 |
 | SLL-36 | Consent-Based Wearables | blocked | — | native app (HealthKit / Health Connect) | P3 |
 | SLL-37 | Coach Tone Selector | missing | — | tone setting applied to coach texts | P3 |
 | SLL-38 | Micro-Learning Cards | missing | — | sourced content (needs review) | P3 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 8 verified-complete (SLL-08, SLL-42, SLL-28 added 26.10.2026);
-- 21 partial;
+- 9 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35 added 26.10.2026);
+- 20 partial;
 - 8 missing;
 - 6 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 8 verified-complete, 21 partial, 8 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 9 verified-complete, 20 partial, 8 missing, 6 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

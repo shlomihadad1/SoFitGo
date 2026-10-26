@@ -17,7 +17,7 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   ok(JSON.stringify(Object.keys(voc)) === JSON.stringify(['user', 'measured', 'calc', 'est', 'rec', 'none']) && Object.values(voc).every(Boolean), 'six kinds, each with a Hebrew label and an explanation', voc);
   const words = Object.values(voc);
   for (const h of ['#/', '#/nutrition', '#/targets', '#/settings', '#/activity']) {
-    await go(h); const bare = await p.evaluate(ws => [...document.querySelectorAll('.pill')].filter(x => ws.includes(x.textContent.trim()) && !x.hasAttribute('data-src')).map(x => x.outerHTML.slice(0, 120)), words);
+    await go(h); const bare = await p.evaluate(ws => [...document.querySelectorAll('.pill')].filter(x => ws.includes(x.textContent.trim()) && !x.closest('[data-src][role=button]')).map(x => x.outerHTML.slice(0, 120)), words);
     ok(bare.length === 0, `${h}: no label uses a provenance word without the shared tag`, bare);
   }
 
@@ -50,6 +50,9 @@ const res = []; let G = ''; const ok = (c, m, i) => res.push({ g: G, ok: !!c, m:
   await p.locator('[data-steps-kind]').click(); await p.waitForTimeout(300); await p.locator('.sheet [data-x]').first().click(); await p.waitForTimeout(300);
   ok(await p.evaluate(() => JSON.stringify(Object.fromEntries(Object.keys(localStorage).filter(k => k.startsWith('fit30.')).map(k => [k, localStorage.getItem(k)])))) === st0, 'explaining writes nothing');
 
+  G = 'touch target';
+  { await go('#/'); const sz = await p.locator('[data-steps-kind]').evaluate(x => { const r = x.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+    ok(sz[0] >= 40 && sz[1] >= 40, 'each label is at least 40×40 px to tap, while the visible label stays small', sz); }
   G = 'English (LTR developer preview)';
   { const pe = await ctx.newPage(); pe.on('pageerror', e => errs.push(e.message)); await pe.goto(URL0 + '?lang=en'); await pe.waitForTimeout(900);
     const en = await pe.evaluate(() => ({ dir: document.documentElement.dir, est: UI.SRC.est[0], user: UI.SRC.user[0], tag: UI.srcTag('calc') }));

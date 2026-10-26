@@ -302,7 +302,8 @@ table.tbl td.n { font-family: var(--font-display); font-variant-numeric: tabular
 .banner > svg { margin-top: 1px; color: currentColor; }
 .pill svg { width: 14px; height: 14px; }
 /* SLL-28 provenance labels: tappable, one look per kind (text always carries the meaning; colour is only a hint) */
-.src-tag { cursor: pointer; border: 1px dashed transparent; } .src-tag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.src-hit { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; margin-block: -10px; vertical-align: middle; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.src-hit:focus-visible { outline: none; } .src-hit:focus-visible > .src-tag { outline: 2px solid var(--accent); outline-offset: 2px; } .src-tag { border: 1px dashed transparent; }
 .src-tag.src-user, .src-tag.src-measured { background: var(--good-soft); color: var(--good); } .src-tag.src-calc { background: var(--accent-soft); color: var(--accent); } .src-tag.src-est { border-color: currentColor; } .src-tag.src-none { opacity: .8; }
 .lvl button { display: flex; flex-direction: column; justify-content: flex-start; }
 .demo { flex: none; }
@@ -316,6 +317,8 @@ table.tbl td.n { font-family: var(--font-display); font-variant-numeric: tabular
 .mimg[data-mstate="loading"]::before { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.05) 50%, transparent 80%) var(--surface-2); background-size: 200% 100%; animation: mshimmer 1.2s linear infinite; }
 .mimg > .mfb { display: none; position: absolute; inset: 0; }
 .mimg[data-mstate="error"] > img { display: none; }
+/* SLL-35 data-saving: the illustration stays visible, the load button sits on top */
+.mimg[data-mstate="lowdata"] > .mfb { display: block; } .mimg[data-mstate="lowdata"] > .mlow { position: absolute; inset-inline-start: 8px; bottom: 8px; z-index: 1; }
 .mimg[data-mstate="error"] > .mfb, .mimg[data-mstate="missing"] > .mfb { display: block; }
 .mimg[data-mstate="missing"] { border-style: dashed; }
 .mimg .mfb .dish-art, .mimg .mfb .thumb { width: 100%; height: 100%; border: 0; border-radius: 0; aspect-ratio: auto; }

@@ -40,7 +40,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 0 | Secure existing work | done: 7 commits scanned for secrets (none); bundle `sofitgo-local-891fc3b.bundle` restored into a fresh clone with the identical tree `1a7660a2b429`, and sent to the owner | — | — |
 | 1 | SLL-42 part 2: app-generated changes | done → SLL-42 verified-complete | (see git log) | e2e_changelog 28; stageA/B/F/H1, e2e_stageB/F/H1, savefail, m11_sync, m9_identity, now: all pass |
 | 2 | SLL-28: data provenance labels | done → verified-complete | (see git log) | e2e_provenance 19; activity_test, e2e_activity, m12_gate, m10_ux, m8, m11_sync, now, e2e, stageH1, m11_meals, beta, rc1, shell, i18n, recipe_gate, food_global, content, menu_structure: all pass |
-| 3 | SLL-35: data-saving mode | | | |
+| 3 | SLL-35: data-saving mode | done → verified-complete; **bug found and fixed:** the SLL-28 labels were smaller than the 40×40 px minimum touch target (caught by e2e_rc1_layout on all 7 sizes); now a transparent ≥40×40 tap area around a small visible label | (see git log) | e2e_lowdata 17, e2e_provenance 20, e2e_rc1_layout 17, content, m10_ux, shell, beta, changelog, stageA, activity, m12_gate, e2e, m8, stageH1, build_check: all pass |
 | 4 | SLL-25: weekly reset | | | |
 | 5 | SLL-40: preference presets | | | |
 | 6 | SLL-21: in-app reminders, quiet hours | | | |
@@ -51,6 +51,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 - **SLL-42, what counts as an app change:** only the automatic calorie/protein targets. The automatic water target follows each day's workout, so logging it would produce daily noise rather than real changes. To change this: add a path to `Core.trackAuto`.
 - **SLL-42, merge window:** 2 minutes, the same for user and app entries. To change it: `CHANGE_MERGE_MS` in store.js.
 - **SLL-28, label wording:** the gate's "לפי ההגדרות שלך" became the shared "לפי הנתונים שלך" (same meaning, one word everywhere). Workout-duration sentences keep "(הערכה)" as text, because a tappable label inside the version buttons would nest one interactive element in another.
+- **SLL-35:** "follow the browser" is stored as `display.lowData = null`. Changing another display setting keeps it that way; only the switch itself sets true/false. Thumbnails inside links get no load button, because a button inside a link is invalid and the link opens the exercise anyway.
 - **Testing per feature:** focused suites after each change, local commit as a recovery point, then the full regression on the final tree (it takes ~45 min, so not after every feature). Each commit message says which tests ran.
 
 ## BLOCKED (needs the owner)

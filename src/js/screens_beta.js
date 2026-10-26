@@ -49,13 +49,14 @@ const CH_HE = { 'aims.primary': 'מטרה עיקרית', 'aims.secondary': 'מט
   'exercisePrefs.exclude': 'תרגילים מוחרגים', 'exercisePrefs.noJump': 'בלי קפיצות', 'goals.steps': 'יעד צעדים', 'goals.water': 'יעד מים (מ״ל)', 'goals.sleep': 'יעד שינה (שעות)',
   targetWeight: 'משקל יעד (ק״ג)', 'prefs.chicken': 'עוף בתפריט', 'prefs.egg': 'ביצים בתפריט', 'prefs.dairy': 'מוצרי חלב בתפריט', 'prefs.veg': 'צמחוני', 'prefs.exclude': 'מזונות מוחרגים',
   'prefs.flex': 'ארוחה גמישה', restrictionKinds: 'סוג ההגבלה (אלרגיה / רגישות / העדפה)', mode: 'מצב שימוש', 'units.w': 'יחידת משקל', 'display.size': 'גודל טקסט',
-  'display.motion': 'אנימציות', 'display.sound': 'צלילים', 'display.wake': 'מסך דולק באימון', 'mediaPrefs.autoplay': 'ניגון אוטומטי של סרטונים',
+  'display.motion': 'אנימציות', 'display.sound': 'צלילים', 'display.wake': 'מסך דולק באימון', 'display.lowData': 'חיסכון בנתונים', 'mediaPrefs.autoplay': 'ניגון אוטומטי של סרטונים',
   'targets.kcal': 'יעד קלוריות ידני', 'targets.protein': 'יעד חלבון ידני (ג׳)', 'targets.carbs': 'יעד פחמימות ידני (ג׳)', 'targets.fat': 'יעד שומן ידני (ג׳)', 'goals.waterMode': 'אופן קביעת יעד המים',
   'auto.kcal': 'יעד קלוריות אוטומטי', 'auto.protein': 'יעד חלבון אוטומטי (ג׳)' };
 /* plan change types (Plans / Adapt / meal planner / travel) → who initiated it */
 const PLAN_SRC = { adapt: 'הצעת האפליקציה, אישרת', 'adapt-revert': 'ביטלת התאמה של האפליקציה', nutrition: 'עדכון תפריט אחרי שינוי יעדים', travel: 'מצב נסיעה', 'travel-revert': 'מצב נסיעה בוטל' };
 const DAY_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 function chVal(path, v) {
+  if (path === 'display.lowData' && v == null) return 'לפי הדפדפן';
   if (v == null || (Array.isArray(v) && !v.length) || v === '') return '—';
   if (typeof v === 'boolean') return v ? 'כן' : 'לא';
   const F = (root.NUTRI && root.NUTRI.FOODS) || {}, EQ = (root.CATALOG && root.CATALOG.EQUIPMENT) || {}, G = (root.PROGRAMS && root.PROGRAMS.GOALS) || {}, LV = (root.Planner && root.Planner.LEVEL_HE) || {};

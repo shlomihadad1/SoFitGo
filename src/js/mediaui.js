@@ -19,10 +19,22 @@
   const rcSteps = id => on() && M().rc[id] ? M().rc[id].steps : [];
   const credit = cid => M().credits[cid] || null;
 
+  /* SLL-35 · data-saving mode. On when the user turned it on (profile.display.lowData === true), or automatically when the browser
+     asks to save data (navigator.connection.saveData) and the user did not turn it off (lowData === false). While on:
+     - photos are not downloaded; each shows "טעינת תמונה" and loads only its SMALL size on tap (no larger srcset); thumbnails inside
+       a link (opts.inLink) show their illustration only, since a button inside a link is not allowed;
+     - video posters are not downloaded (the play button still works; a video loads only after the user taps play, as always);
+     - videos start with preload="metadata" instead of "auto".
+     Nothing else changes: all text, plans and data work the same. lowData() returns 'on' | 'auto' | null. */
+  function lowData() { try { const d = (root.Store && root.Store.load('profile').display) || {}; if (d.lowData === true) return 'on'; if (d.lowData === false) return null;
+    return root.navigator && root.navigator.connection && root.navigator.connection.saveData ? 'auto' : null; } catch (e) { return null; } }
   /* responsive lazy image with built-in fallback */
   function image(p, alt, opts) {
     opts = opts || {}; const ar = opts.aspect || (p ? `${p.w}/${p.h}` : '4/3');
     if (!p) return `<div class="mimg ${opts.cls || ''}" data-mstate="missing" style="aspect-ratio:${ar}">${opts.fallback || ''}</div>`;
+    if (lowData() && !opts.eager) {
+      if (opts.inLink || /\bmp-poster\b/.test(opts.cls || '')) return /* inside a link (list thumbnails) or a video player: no button inside an interactive element; the illustration stays */ `<div class="mimg ${opts.cls}" data-mstate="lowdata" style="aspect-ratio:${ar}"><div class="mfb">${opts.fallback || ''}</div></div>`;
+      return `<div class="mimg ${opts.cls || ''}" data-mstate="lowdata" data-low-s="${esc(BASE + p.s)}" data-low-w="${p.w}" data-low-h="${p.h}" data-low-alt="${esc(alt)}" style="aspect-ratio:${ar}"><button type="button" class="btn sm ghost mlow" data-lowimg-load>${icon('image')} טעינת תמונה</button><div class="mfb">${opts.fallback || ''}</div></div>`; }
     return `<div class="mimg ${opts.cls || ''}" data-mstate="loading" style="aspect-ratio:${ar}"><img src="${BASE + p.s}" srcset="${BASE + p.s} 480w, ${BASE + p.l} 960w" sizes="${opts.sizes || '(max-width: 520px) 100vw, 520px'}" width="${p.w}" height="${p.h}" loading="lazy" decoding="async" alt="${esc(alt)}" onload="this.parentNode.dataset.mstate='ready'" onerror="this.parentNode.dataset.mstate='error'"><div class="mfb">${opts.fallback || ''}</div></div>`;
   }
   /* video player; fallbackHtml is shown (and labelled) if the video cannot play */
@@ -49,7 +61,7 @@
   /* one delegated listener for all players (players are re-rendered with the screen) */
   function ensureVideo(fig) {
     let v = fig.querySelector('video'); if (v) return v;
-    v = document.createElement('video'); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', ''); v.preload = 'auto'; v.loop = prefs.loop;
+    v = document.createElement('video'); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', ''); v.preload = lowData() ? 'metadata' : 'auto'; v.loop = prefs.loop;
     for (const [t, k] of [['video/mp4', 'srcMp4'], ['video/webm', 'srcWebm']]) if (fig.dataset[k]) { const s = document.createElement('source'); s.src = fig.dataset[k]; s.type = t; v.appendChild(s); }
     const set = st => { fig.dataset.mstate = st; };
     const last = v.querySelector('source:last-of-type'); if (last) last.addEventListener('error', () => set('error'));
@@ -83,5 +95,8 @@
     const ex = Object.values(M().ex), rc = Object.values(M().rc);
     return { exercises: ex.length, covers: ex.filter(x => x.poster).length, videos: ex.filter(x => x.video).length, recipes: root.NUTRI ? root.NUTRI.RECIPES.length : rc.length, photos: rc.filter(x => x.photo).length, prep: rc.filter(x => x.prep).length, stepSets: rc.filter(x => x.steps && x.steps.length).length };
   }
-  root.Media = { BASE, image, player, exVideo, exCover, rcPhoto, rcPrep, rcSteps, credit, stats, prefs, enabled: on };
+  try { document.addEventListener('click', e => { const b = e.target && e.target.closest && e.target.closest('[data-lowimg-load]'); if (!b) return; e.preventDefault(); e.stopPropagation();
+    const w = b.closest('[data-mstate=lowdata]'); if (!w) return; w.dataset.mstate = 'loading';
+    w.innerHTML = `<img src="${w.dataset.lowS}" width="${w.dataset.lowW}" height="${w.dataset.lowH}" decoding="async" alt="${esc(w.dataset.lowAlt || '')}" onload="this.parentNode.dataset.mstate='ready'" onerror="this.parentNode.dataset.mstate='error'">`; }, true); } catch (e) { }
+  root.Media = { lowData, BASE, image, player, exVideo, exCover, rcPhoto, rcPrep, rcSteps, credit, stats, prefs, enabled: on };
 })(typeof window !== 'undefined' ? window : globalThis);
