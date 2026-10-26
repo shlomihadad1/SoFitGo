@@ -128,6 +128,38 @@ Screens.reset = function () {
       const r = resetApply(keys); root.App.render(); root.UI.toast(`בוצע: ${r.done.length} ${r.done.length === 1 ? 'פעולה' : 'פעולות'}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } } };
 };
 Screens.reset.items = resetItems; Screens.reset.apply = resetApply;
+/* SLL-40 · #/presets — Preference presets. Each preset sets ONLY existing settings, shows current → new before applying, and
+   one "ביטול" restores the profile exactly. Every changed setting is also recorded in the change log (SLL-42, as the user's own).
+   Equipment you own is never changed by a preset. The workout plan and the menu do NOT change here: if the profile now differs
+   from the active plan, the screen links to the existing "update by profile" flow on the plan screen (preview + approval), and a
+   changed prep-time limit becomes the existing pending menu update. Values are defaults chosen for this release (documented in
+   docs/OVERNIGHT_LOG.md); they are plain settings, so the user can fine-tune any of them afterwards in Settings / Profile. */
+const PRESETS = [
+  { k: 'workday', he: 'יום עבודה', s: 'אימון עד 30 דקות, מנות עד 20 דקות הכנה.', set: { 'availability.maxMin': 30, 'prefs.maxPrep': 20 } },
+  { k: 'weekend', he: 'סוף שבוע', s: 'יותר זמן: אימון עד 45 דקות, בלי הגבלת זמן הכנה.', set: { 'availability.maxMin': 45, 'prefs.maxPrep': null } },
+  { k: 'nocook', he: 'בלי בישול', s: 'מנות מהירות בלבד: עד 15 דקות הכנה ובישול.', set: { 'prefs.maxPrep': 15 } },
+  { k: 'quiet', he: 'שקט (שכנים, ילדים ישנים)', s: 'בלי תרגילי קפיצה.', set: { 'exercisePrefs.noJump': true } },
+  { k: 'hotel', he: 'חדר במלון', s: 'אימון קצר ושקט: עד 30 דקות, בלי קפיצות. לנסיעה של כמה ימים יש גם מצב נסיעה.', set: { 'availability.maxMin': 30, 'exercisePrefs.noJump': true }, link: ['#/travel', 'למצב נסיעה'] }];
+const pGet = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
+const pSet = (o, p, v) => { const ks = p.split('.'), last = ks.pop(); const t = ks.reduce((a, k) => (a[k] = a[k] && typeof a[k] === 'object' ? a[k] : {}), o); t[last] = v; };
+function presetDiff(k) { const pr = PRESETS.find(x => x.k === k), prof = S.load('profile'); if (!pr) return [];
+  return Object.keys(pr.set).map(path => { const from = pGet(prof, path); return { path, from: from === undefined ? null : from, to: pr.set[path] }; }).filter(x => JSON.stringify(x.from) !== JSON.stringify(x.to)); }
+function presetApply(k) { const d = presetDiff(k); if (!d.length) return { n: 0 }; const before = JSON.stringify(S.load('profile')), prof = S.load('profile');
+  d.forEach(x => pSet(prof, x.path, x.to)); S.save('profile');
+  return { n: d.length, undo: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); } }; }
+CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)';
+Screens.presets = function () {
+  const ap = root.Plans && root.Plans.active(), planDiff = ap && root.Plans.profileDiff ? (root.Plans.profileDiff(ap.id) || []) : [];
+  const menuPending = !!(ap && root.MealPlan && root.MealPlan.pending(ap));
+  return { title: 'ערכות העדפות', back: '#/settings', html: `
+    <section class="card"><p class="small">קיצור לכמה הגדרות יחד, לפי המצב שלך. רואים מה ישתנה לפני ההחלה, ואפשר לבטל מיד. הציוד שיש לך לא משתנה.</p></section>
+    ${(planDiff.length || menuPending) ? `<div class="banner info small" data-presets-plan>${icon('info')}<div>${planDiff.length ? 'הפרופיל שונה מהתוכנית הפעילה. התוכנית לא מתעדכנת לבד — <a href="#/plan">במסך התוכנית</a> אפשר לראות מה ישתנה ולאשר.' : ''}${menuPending ? ' יש עדכון תפריט שמחכה לאישור (בתזונה או ב<a href="#/reset">איפוס השבועי</a>).' : ''}</div></div>` : ''}
+    ${PRESETS.map(pr => { const d = presetDiff(pr.k); return `<section class="card" data-preset="${pr.k}"><div class="card-h"><h3>${esc(pr.he)}</h3>${d.length ? `<button class="btn sm primary" data-act="presetGo" data-k="${pr.k}">החלה</button>` : '<span class="pill" data-preset-same>כבר מוגדר כך</span>'}</div>
+      <p class="small muted">${esc(pr.s)}</p>${d.length ? `<ul class="bul small" data-preset-diff>${d.map(x => `<li data-preset-row="${esc(x.path)}">${esc(CH_HE[x.path] || x.path)}: ${esc(chVal(x.path, x.from))} ← ${esc(chVal(x.path, x.to))}</li>`).join('')}</ul>` : ''}${pr.link ? `<p class="tiny"><a href="${pr.link[0]}">${esc(pr.link[1])}</a></p>` : ''}</section>`; }).join('')}`,
+    handlers: { presetGo: el => { const pr = PRESETS.find(x => x.k === el.dataset.k), r = presetApply(el.dataset.k); root.App.render();
+      if (r.n) root.UI.toast(`"${pr.he}": ${r.n === 1 ? 'הגדרה אחת עודכנה' : r.n + ' הגדרות עודכנו'}`, 0, { label: 'ביטול', fn: () => { r.undo(); root.App.render(); } }); } } };
+};
+Screens.presets.list = PRESETS; Screens.presets.diff = presetDiff; Screens.presets.apply = presetApply;
 function techInfo() {
   const e = root.Activity ? root.Activity.env() : { native: false }, vv = root.visualViewport;
   let standalone = false; try { standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (x) { }

@@ -42,7 +42,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 2 | SLL-28: data provenance labels | done → verified-complete | (see git log) | e2e_provenance 19; activity_test, e2e_activity, m12_gate, m10_ux, m8, m11_sync, now, e2e, stageH1, m11_meals, beta, rc1, shell, i18n, recipe_gate, food_global, content, menu_structure: all pass |
 | 3 | SLL-35: data-saving mode | done → verified-complete; **bug found and fixed:** the SLL-28 labels were smaller than the 40×40 px minimum touch target (caught by e2e_rc1_layout on all 7 sizes); now a transparent ≥40×40 tap area around a small visible label | (see git log) | e2e_lowdata 17, e2e_provenance 20, e2e_rc1_layout 17, content, m10_ux, shell, beta, changelog, stageA, activity, m12_gate, e2e, m8, stageH1, build_check: all pass |
 | 4 | SLL-25: weekly reset | done → verified-complete; **bug found and fixed during testing:** undo rewrote the plans store even when the reset had not touched it (it created an empty plans record); undo now restores only the stores that changed | (see git log) | e2e_reset 16, grocery, stageG (+unit), m11_meals, meal_journal, planb_feedback: all pass |
-| 5 | SLL-40: preference presets | | | |
+| 5 | SLL-40: preference presets | done → verified-complete (was missing) | (see git log) | e2e_presets 14, stageB, m9_identity, changelog, m11_meals, m12_gate, beta: all pass |
 | 6 | SLL-21: in-app reminders, quiet hours | | | |
 | 7 | Quality pass + final regression + report | | | |
 
@@ -53,6 +53,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 - **SLL-28, label wording:** the gate's "לפי ההגדרות שלך" became the shared "לפי הנתונים שלך" (same meaning, one word everywhere). Workout-duration sentences keep "(הערכה)" as text, because a tappable label inside the version buttons would nest one interactive element in another.
 - **SLL-35:** "follow the browser" is stored as `display.lowData = null`. Changing another display setting keeps it that way; only the switch itself sets true/false. Thumbnails inside links get no load button, because a button inside a link is invalid and the link opens the exercise anyway.
 - **SLL-25, what the reset covers:** shopping marks (pre-ticked), own bought items (not pre-ticked), and a pending menu update (not pre-ticked). Past workouts are never changed (history rule); missed sessions are a link only. To change the defaults: the `def` flags in `resetItems()`.
+- **SLL-40, preset values:** יום עבודה = workout ≤30 min, prep ≤20 min; סוף שבוע = ≤45 min, no prep limit; בלי בישול = prep ≤15 min; שקט = no jumping; חדר במלון = ≤30 min + no jumping (with a link to travel mode). Presets never touch equipment, the plan or the menu. To change the values: `PRESETS` in screens_beta.js.
 - **Testing per feature:** focused suites after each change, local commit as a recovery point, then the full regression on the final tree (it takes ~45 min, so not after every feature). Each commit message says which tests ran.
 
 ## BLOCKED (needs the owner)
