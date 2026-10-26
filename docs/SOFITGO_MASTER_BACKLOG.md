@@ -50,7 +50,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-13 | One-Day Autopilot | verified-complete | `#/today` "היום שלי" (link on the NOW card while today's workout is open): three proposals built only from what is planned — מינימום (SLL-02 "min") / מאוזן (regular) / מלא (long), with real minutes; today's planned meals, water and step targets shown as identical in all three and never changed. Choosing one changes only today's workout version (30-day program: today's stored choice used by the start button; personal plan: the day's version override); exact undo; "לא היום" hides it for today; test / recovery days keep their workout (`Screens.today`; `e2e_autopilot` 16) | — | P2 |
 | SLL-14 | Smart Leftovers | verified-complete | Fridge screen → "שאריות מבושלות": the user marks a cooked base (protein / grain / legume) and when it was cooked (today / yesterday / two days ago); each shows "בטוח עד" (cooked + 3 days, the same rule as SLL-32) and after that "לא להשתמש" — never suggested. "מנות עם השאריות": dishes that use a live leftover, soonest to expire first, restrictions applied exactly as in the menu; explicit removal with exact undo; linked from the meal-prep section (`e2e_leftovers` 12, incl. the 3-day boundary and an exclusion) | — | P2 |
 | SLL-15 | Ingredient Substitution Graph | partial | recipe `subs`, allergy-safe swaps in the menu engine | function / flavour / texture graph | P2 |
-| SLL-16 | Budget Mode | partial | relative cost 1–3, 87 budget-tagged recipes; no prices (none invented) | budget-bounded plan and list | P2 |
+| SLL-16 | Budget Mode | verified-complete | Relative cost 1–3 on recipes (no prices are invented). **26.10:** "מצב חיסכון" with the nutrition preferences (off by default; recorded in the change log): the menu generator drops expensive dishes while each meal slot keeps ≥3 options (otherwise a note) and prefers cheaper ones in scoring — restrictions and calorie targets unchanged; the shopping list shows the relative cost mix of its dishes. Verified on 14 days of generated menus: no expensive dish, lower average cost, every dish within restrictions, daily calorie gap about as before (`e2e_budget` 8) | — | P2 |
 | SLL-17 | Equipment Passport | partial | equipment list in plan setup; travel swaps | profiles per place; needs exercises for more equipment (content) | P2 |
 | SLL-18 | Quiet & Small-Space Workouts | partial | `noJump` preference, low-impact filter | explicit quiet / small-space mode | P2 |
 | SLL-19 | Workout Builder by Feeling | verified-complete | Workout Builder by goal / time / level / equipment (`e2e_builder`). **26.10:** "לפי ההרגשה" on top of the builder: energy (low / ok / high), desired feel (להירגע → mobility, להזיע → endurance, להתחזק → strength, כללי → general) and place, mapped transparently onto the existing choices and shown before building; low energy = 15 min and one level easier (never raises load); high energy = +15 min, same level; "למלא ולערוך" keeps the full form editable. Bug found by the test and fixed: building from the quick choice re-read the on-screen form and overwrote level / no-jump (`e2e_feel` 8) | — | P2 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 22 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13, SLL-07, SLL-19, SLL-01, SLL-14 added 26.10.2026);
-- 10 partial;
+- 23 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13, SLL-07, SLL-19, SLL-01, SLL-14, SLL-16 added 26.10.2026);
+- 9 partial;
 - 6 missing;
 - 5 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 22 verified-complete, 10 partial, 6 missing, 5 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 23 verified-complete, 9 partial, 6 missing, 5 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

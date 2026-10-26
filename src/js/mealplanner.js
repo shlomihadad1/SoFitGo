@@ -45,6 +45,9 @@
       if (!explicit) { const v2 = out[k].filter(c => c.r.v2 && c.cuOk), nonInd = out[k].filter(c => !ind.has(C().cuisineOf(c.r)));
         out[k] = v2.length >= enough ? v2 : nonInd.length >= enough ? nonInd : out[k]; }
       else if (cset) { const ok = out[k].filter(c => c.cuOk); if (ok.length >= 3) out[k] = ok; else out.notes.push(`אין מספיק מנות מהמטבח שבחרת ל"${C().slotNames[k]}" (${ok.length}) — נוספו גם מנות ממטבחים אחרים, והן מסומנות בתפריט.`); } });
+    /* SLL-16 · Budget mode: relative cost only (1 cheap … 3 expensive; no prices are invented). Expensive dishes leave the pool while each
+       slot keeps ≥3 options; the scoring then prefers cheaper dishes (see score()). Restrictions and targets are untouched. */
+    if (C().normPrefs(params.prefs).budget) SLOTS3.forEach(k => { const cheap = out[k].filter(c => (c.r.cost || 2) <= 2); if (cheap.length >= 3) out[k] = cheap; else out.notes.push(`אין מספיק מנות זולות ל"${C().slotNames[k]}" — נשארו גם מנות יקרות`); });
     if (params.maxPrep) SLOTS3.forEach(k => { const quick = out[k].filter(c => c.min <= params.maxPrep); if (quick.length >= 3) out[k] = quick; else out.notes.push(`אין מספיק מנות ל"${C().slotNames[k]}" שמוכנות תוך ${params.maxPrep} דק׳ — נכללו גם מנות ארוכות יותר.`); });
     return out;
   }
@@ -92,7 +95,7 @@
     const P = pool(params), mains = params.meals === 2 ? ['m1', 'm2'] : ['m1', 'm2', 'm3'], SN = ['snack', 'snack2'], notes = P.notes.slice(); const out = [];
     const PK = k => k === 'm3' ? 'm2' : k === 'snack2' ? 'snack' : k; /* dinner draws on the main-dish pool, the 2nd snack on the snack pool */
     mains.concat('snack').forEach(k => { if (!P[PK(k)].length) notes.push(`אין אף מנה מתאימה ל"${C().slotNames[k]}" עם ההעדפות שנבחרו.`); });
-    const T = params.kcal, Pt = params.protein, all = !C().cuisineSet(params.prefs); /* 'מגוון בינלאומי' = the whole library, both generations, no preference */
+    const T = params.kcal, Pt = params.protein, all = !C().cuisineSet(params.prefs), budget = !!C().normPrefs(params.prefs).budget; /* 'מגוון בינלאומי' = the whole library, both generations, no preference */
     const SHARE = params.meals === 2 ? { m1: 0.38, m2: 0.45, snack: 0.1, snack2: 0.1 } : { m1: 0.25, m2: 0.3, m3: 0.27, snack: 0.1, snack2: 0.1 };
     for (const date of dates) {
       const day = { date, slots: {}, notes: [], gap: null, off: {} };
@@ -104,7 +107,7 @@
         return list; };
       const need = Pt && T ? Pt / T * 100 : 0;
       const score = (k, list) => c => (state.use[c.r.id] || 0) * 10 + Math.max(0, need - c.dens) * 8 + Math.max(0, (T ? T * SHARE[k] : 0) - c.capK) / 100 * 4 + (c.protein && c.protein === state.prevProt && k !== 'm1' && list.length > 3 ? 6 : 0)
-        - (c.fav ? 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (c.legacy && !all ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000;
+        - (c.fav ? 3 : 0) + (budget ? ((c.r.cost || 2) - 1) * 3 : 0) + (c.cuOk === false ? 8 : 0) - (c.cuMain ? 2 : 0) + (c.legacy && !all ? 2 : 0) + (hash(seed + date + k + c.r.id) % 1000) / 1000;
       const take = (k, c) => { used.add(c.r.id); state.use[c.r.id] = (state.use[c.r.id] || 0) + 1; lastOf(k)[c.r.id] = state.i; day.slots[k] = { rid: c.r.id, ov: c.ov }; };
       for (const k of mains) {
         const cand = P[PK(k)].filter(c => !used.has(c.r.id)); if (!cand.length) { day.slots[k] = null; continue; }

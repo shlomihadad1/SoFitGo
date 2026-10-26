@@ -180,7 +180,7 @@ function presetDiff(k) { const pr = PRESETS.find(x => x.k === k), prof = S.load(
 function presetApply(k) { const d = presetDiff(k); if (!d.length) return { n: 0 }; const before = JSON.stringify(S.load('profile')), prof = S.load('profile');
   d.forEach(x => pSet(prof, x.path, x.to)); S.save('profile');
   return { n: d.length, undo: () => { const cur = S.load('profile'); Object.keys(cur).forEach(q => delete cur[q]); Object.assign(cur, JSON.parse(before)); S.save('profile'); } }; }
-CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)';
+CH_HE['prefs.maxPrep'] = 'זמן הכנה מרבי למנה (דק׳)'; CH_HE['prefs.budget'] = 'מצב חיסכון (מנות זולות)';
 Object.assign(CH_HE, { shopDay: 'יום קניות קבוע', 'reminders.on': 'תזכורות בתוך האפליקציה', 'reminders.workout': 'תזכורת אימון', 'reminders.meals': 'תזכורת ארוחות', 'reminders.water': 'תזכורת מים', 'reminders.weigh': 'תזכורת שקילה', 'reminders.quiet': 'שעות שקט' });
 Screens.presets = function () {
   const ap = root.Plans && root.Plans.active(), planDiff = ap && root.Plans.profileDiff ? (root.Plans.profileDiff(ap.id) || []) : [];

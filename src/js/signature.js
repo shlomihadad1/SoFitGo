@@ -124,7 +124,7 @@
       sessions: sessionsOf([...new Set(r.dates)], d => ({ g: 0, n: r.dates.filter(x => x === d).length })) }));
     const batch = Object.values(items).filter(it => ['raw', 'dry'].includes(it.st) && ['protein', 'carb', 'legume'].includes(it.grp) && it.recipes.size >= 2 && !F[it.f].unit)
       .sort((a, b) => b.g - a.g).map(it => ({ kind: 'batch', f: it.f, he: it.he.split(' (')[0], st: ST_HE[it.st], g: Math.round(it.g), meals: it.uses, dates: [...it.dates].sort(), sessions: sessionsOf([...it.dates], d => it.byDate[d]) }));
-    return { from, days, to: dates[dates.length - 1], groups: order.filter(k => groups[k]).map(k => ({ k, he: GRP_HE[k], items: groups[k] })), prep, batch, blocked: blockedN, recipeCount: Object.keys(recipes).length, itemCount: Object.keys(items).length };
+    return { from, days, to: dates[dates.length - 1], recipeIds: Object.fromEntries(Object.keys(recipes).map(k => [k, recipes[k].n])), groups: order.filter(k => groups[k]).map(k => ({ k, he: GRP_HE[k], items: groups[k] })), prep, batch, blocked: blockedN, recipeCount: Object.keys(recipes).length, itemCount: Object.keys(items).length };
   }
   const shopKey = (from, days) => from + '+' + days;
   function shoppingChecks() { const nu = S().load('nutrition'); nu.shopping = nu.shopping || { checked: {} }; return nu.shopping; }
