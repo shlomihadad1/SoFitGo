@@ -53,7 +53,11 @@ const IND = ['indian', 'himachali'], ISR = ['israeli', 'middle_eastern', 'morocc
   await p.locator('[data-fp=geo]').click(); await p.waitForTimeout(800);
   const rg = await p.evaluate(() => Core.normPrefs(Core.profile().prefs).region);
   ok(rg.consent && rg.code === 'india' && rg.src === 'gps' && rg.group === 'indian', 'region detected on the device → India', rg);
-  ok(!/28\.6|77\.2/.test(await p.evaluate(() => JSON.stringify(Object.assign({}, localStorage)))), 'coordinates not stored');
+  /* the mocked position is exactly 28.6 / 77.2. Match those numbers only when no digit follows or precedes them: an ISO timestamp such
+     as "…:28.612Z" (seconds.milliseconds) used to match the old /28\.6/ check by chance — an intermittent false failure. */
+  const COORD = /(?<!\d)(28\.6|77\.2)(?!\d)/;
+  ok(COORD.test('{"lat":28.6,"lng":77.2}') && !COORD.test('"at":"2026-10-26T03:59:28.612Z"'), 'coordinate check: catches a stored position, ignores timestamps (control)');
+  ok(!COORD.test(await p.evaluate(() => JSON.stringify(Object.assign({}, localStorage)))), 'coordinates not stored');
   w = await week(p); ok(share(w, IND) >= 0.8, 'regional recommendations: menu mostly Indian now', w.map(x => x.cu));
   const after = await shown(p); ok(after.every(x => x.onScreen) && after.map(x => x.he).join() !== before.map(x => x.he).join(), 'the dishes on screen actually changed', { before, after });
   G = 'explicit cuisine beats region';
