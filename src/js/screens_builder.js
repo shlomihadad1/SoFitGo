@@ -21,11 +21,30 @@ function listScreen() {
         : `<p class="empty" data-builder-empty>עוד לא שמרת אימון. "אימון חדש" יציע אימון לפי מה שתבחרו, ואפשר לשנות בו כל דבר.</p>`}</section>
     ${hist.length ? `<section class="card stack" data-builder-history><h3>אימונים שבוצעו</h3><div class="list">${hist.map(r => `<div class="li"><div class="grow"><div class="t">${esc((r.snapshot && r.snapshot.name) || 'אימון')}</div><div class="s">${esc(S.fmtDate(r.date))} · ${r.status === 'partial' ? 'חלקי' : 'הושלם'} · ${Math.round((r.durationSec || 0) / 60)} דק׳ בפועל${r.snapshot ? ' · ' + r.snapshot.main.length + ' תרגילים' : ''}</div></div></div>`).join('')}</div><p class="tiny faint">כל אימון שבוצע נשמר כפי שבוצע — עריכה או מחיקה של האימון לא משנים את ההיסטוריה.</p></section>` : ''}`, handlers: {} };
 }
+/* SLL-19 + SLL-01 · "לפי ההרגשה" — readiness, desired feel and place in one step, mapped transparently onto the builder's EXISTING
+   choices (goal, minutes, level, equipment, no-jump); the full form below stays editable before "הצעת אימון", and "לבנות עכשיו"
+   does it in one tap. Mapping (shown on screen):
+     energy  low → 15 min and one level easier · ok → minutes from the profile · high → +15 min (max 60), same level
+     feel    להירגע → mobility · להזיע → endurance · להתחזק → strength · כללי → general
+     place   בבית בלי ציוד → no equipment · עם הציוד שלי → the profile's equipment · חדר במלון → no equipment + no jumping
+   Nothing is inferred about health; "low energy" never raises load. */
+const FEEL = { energy: [['low', 'אנרגיה נמוכה'], ['ok', 'רגילה'], ['high', 'גבוהה']], feel: [['calm', 'להירגע'], ['sweat', 'להזיע'], ['strong', 'להתחזק'], ['any', 'כללי']], place: [['home', 'בבית בלי ציוד'], ['mine', 'עם הציוד שלי'], ['hotel', 'חדר במלון']] };
+const FEEL_GOAL = { calm: 'mobility', sweat: 'endurance', strong: 'strength', any: 'general' }, LVL_DOWN = { advanced: 'intermediate', intermediate: 'beginner', beginner: 'beginner' };
+function feelParams(sel) { const base = B().fromProfile(), pr = S.load('profile'), out = {};
+  if (sel.feel) out.goal = FEEL_GOAL[sel.feel];
+  if (sel.energy === 'low') { out.minutes = 15; out.level = LVL_DOWN[base.level || 'beginner']; } else if (sel.energy === 'high') { out.minutes = Math.min(60, (base.minutes || 30) + 15); out.level = base.level; } else if (sel.energy === 'ok') { out.minutes = base.minutes; out.level = base.level; }
+  if (sel.place === 'home') { out.equipment = []; } else if (sel.place === 'mine') { out.equipment = ((pr.environment || {}).equipment || []).slice(); } else if (sel.place === 'hotel') { out.equipment = []; out.noJump = true; }
+  return out; }
+function feelCard(f) { const sel = st.feel = st.feel || {}, chip = (q, k, v) => `<button class="chip" data-act="feel" data-q="${q}" data-v="${k}" aria-pressed="${sel[q] === k}">${esc(v)}</button>`, ready = sel.energy && sel.feel && sel.place;
+  return `<section class="card stack" data-feel><h3>לפי ההרגשה <span class="tiny muted">(בחירה מהירה)</span></h3>
+    ${Object.entries(FEEL).map(([q, opts]) => `<div class="chips" data-feel-q="${q}">${opts.map(([k, v]) => chip(q, k, v)).join('')}</div>`).join('')}
+    ${ready ? `<p class="small" data-feel-map>${(() => { const p = feelParams(sel); return `מטרה: ${esc(B().GOALS[p.goal])} · ${p.minutes} דק׳${p.level ? ' · רמה: ' + esc(B().LEVELS[p.level]) : ''} · ${p.equipment.length ? 'עם ' + p.equipment.map(eqHe).join(', ') : 'בלי ציוד'}${p.noJump ? ' · בלי קפיצות' : ''}`; })()}</p>
+      <div class="btns"><button class="btn primary" data-act="feelGo">לבנות עכשיו</button><button class="btn" data-act="feelFill">למלא את הטופס ולערוך</button></div>` : '<p class="tiny muted">בוחרים אנרגיה, מה בא לך ואיפה — והאימון נבנה מהבחירות הקיימות למטה. אנרגיה נמוכה אף פעם לא מעלה עומס.</p>'}</section>`; }
 function formScreen() {
   const f = st.form = st.form || Object.assign(B().fromProfile(), { name: '' }), pr = S.load('profile');
   const chip = (k, v, sel, act) => `<button class="chip" data-act="${act}" data-v="${k}" aria-pressed="${sel}">${esc(v)}</button>`;
   const exOpts = sel => root.EXERCISES.slice().sort((a, b) => a.he.localeCompare(b.he, 'he')).map(e => `<option value="${e.id}" ${sel === e.id ? 'selected' : ''}>${esc(e.he)}</option>`).join('');
-  return { title: 'אימון חדש', back: '#/builder', html: `<section class="card stack" data-builder-form>
+  return { title: 'אימון חדש', back: '#/builder', html: `${feelCard(f)}<section class="card stack" data-builder-form>
     <fieldset class="stack"><legend>מטרה</legend><div class="chips">${Object.entries(B().GOALS).map(([k, v]) => chip(k, v, f.goal === k, 'fGoal')).join('')}</div></fieldset>
     <fieldset class="stack"><legend>זמן זמין</legend><div class="chips">${B().MINUTES.map(m => chip(m, m + ' דק׳', f.minutes === m, 'fMin')).join('')}</div>
       <label class="field">או זמן אחר (10–90 דק׳)<input id="bf-min" type="number" inputmode="numeric" min="10" max="90" value="${f.minutes}"></label></fieldset>
@@ -53,7 +72,10 @@ function formHandlers() {
     fUnFav: el => { readForm(); f().fav = f().fav.filter(x => x !== el.dataset.v); root.App.render(); },
     fAddEx: () => { readForm(); const x = document.getElementById('bf-exsel').value; if (x && !f().exclude.includes(x)) { f().exclude.push(x); f().fav = f().fav.filter(y => y !== x); } root.App.render(); },
     fUnEx: el => { readForm(); f().exclude = f().exclude.filter(x => x !== el.dataset.v); root.App.render(); },
-    fGen: () => { readForm(); const g = B().generate(f()); st.draft = { id: null, name: (B().GOALS[g.params.goal] || 'אימון') + ' · ' + g.params.minutes + ' דק׳', params: g.params, warm: g.warm, main: g.main, cool: g.cool, notes: g.notes, original: null };
+    feel: el => { const s = st.feel = st.feel || {}; s[el.dataset.q] = s[el.dataset.q] === el.dataset.v ? undefined : el.dataset.v; root.App.render(); },
+    feelFill: () => { readForm(); Object.assign(f(), feelParams(st.feel || {})); root.App.render(); root.UI.toast('הטופס מולא לפי הבחירה — אפשר לשנות כל דבר'); },
+    feelGo: () => { readForm(); Object.assign(f(), feelParams(st.feel || {})); formHandlers().fGen(null, null, true); },
+    fGen: (el, e, fromFeel) => { if (!fromFeel) readForm(); /* the quick choice already set the params; re-reading the on-screen form would undo them */ const g = B().generate(f()); st.draft = { id: null, name: (B().GOALS[g.params.goal] || 'אימון') + ' · ' + g.params.minutes + ' דק׳', params: g.params, warm: g.warm, main: g.main, cool: g.cool, notes: g.notes, original: null };
       keepDraft(); location.hash = '#/builder/draft'; }
   };
 }

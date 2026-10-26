@@ -35,7 +35,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 
 | ID | Name | Status | Evidence in the code | Missing / next | P |
 |---|---|---|---|---|---|
-| SLL-01 | Sofit Flex | partial | 15/30/60 versions, swaps, low-energy suggestion (`Logic.VERSIONS`, `plans.js`, `builder.js`) | choice by reported energy + place in one step | P1 |
+| SLL-01 | Sofit Flex | verified-complete | Adapting to time, energy, equipment and circumstances: minimum / short / regular / long versions (incl. SLL-02 minimum), exercise swaps, travel mode, Plan B check-in "מה יש לך היום?" (SLL-07), "היום שלי" (SLL-13), and **one-step choice by energy + feel + place → a built workout** ("לפי ההרגשה" → "לבנות עכשיו"; hotel = no equipment + no jumping, verified against the catalog: 14 equipment and 4 high-impact exercises excluded) (`e2e_feel`, `e2e_minimum`, `e2e_planb_feedback`, `e2e_autopilot`) | — | P1 |
 | SLL-02 | Minimum Mode | partial | **26.10 (owner authorized safe defaults):** a "מינימום" version (~5 min) in every version picker (home, plan day, manual log), built ONLY from the day's own content: quick warm-up, the first two work exercises at 1 set on the easy level, quick cool-down. Never on test / recovery days; works for the 30-day program and personal plans (never reduced twice). Always logged as "בוצע חלקית" ("done" cannot be chosen; a manual "done" becomes partial), so it never counts as a full workout and today counts it as half (`Logic.versionParts(d,'min')`, `Planner.versioned(…,'min')`; `e2e_minimum` 13, `e2e` version buttons) | 1 / 3 / 8-minute variants and a professional review of the minimum format (DR-01) | P1 |
 | SLL-03 | Fridge-to-Meal | verified-complete | `screens_fridge.js`; `e2e_fridge` | — | P1 |
 | SLL-04 | Restaurant Copilot | blocked | — | menu understanding / local language needs an AI or translation service (privacy + cost decision) | P2 |
@@ -53,7 +53,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-16 | Budget Mode | partial | relative cost 1–3, 87 budget-tagged recipes; no prices (none invented) | budget-bounded plan and list | P2 |
 | SLL-17 | Equipment Passport | partial | equipment list in plan setup; travel swaps | profiles per place; needs exercises for more equipment (content) | P2 |
 | SLL-18 | Quiet & Small-Space Workouts | partial | `noJump` preference, low-impact filter | explicit quiet / small-space mode | P2 |
-| SLL-19 | Workout Builder by Feeling | partial | Workout Builder by goal / time / level / equipment (`e2e_builder`) | readiness / desired-feel inputs | P2 |
+| SLL-19 | Workout Builder by Feeling | verified-complete | Workout Builder by goal / time / level / equipment (`e2e_builder`). **26.10:** "לפי ההרגשה" on top of the builder: energy (low / ok / high), desired feel (להירגע → mobility, להזיע → endurance, להתחזק → strength, כללי → general) and place, mapped transparently onto the existing choices and shown before building; low energy = 15 min and one level easier (never raises load); high energy = +15 min, same level; "למלא ולערוך" keeps the full form editable. Bug found by the test and fixed: building from the quick choice re-read the on-screen form and overwrote level / no-jump (`e2e_feel` 8) | — | P2 |
 | SLL-20 | Progress Story | verified-complete | Weekly review `#/review` (`e2e_stageG`) now opens with "הסיפור של השבוע" in three separate parts: **עובדות** (counts from the log), **פרשנות** (labelled, from stated rules: ≥80% / 50–79% / <50% completion with a Plan B link, few logged nutrition days, week not over), **מה הפריע** (the plan's missed / skipped / partial days with dates; no guessed reasons). Each section carries its provenance label (workouts entered by you, nutrition averages an estimate, weight entered by you) (`Signature.review` → `barriers`; `e2e_story` 7) | — | P2 |
 | SLL-21 | Smart Reminders | verified-complete | **In the app** (26.10): Settings → "תזכורות בתוך האפליקציה", off by default — workout not done (from a chosen time), planned meals not marked (from a chosen time), water clearly behind the day's pace (≥2 h after waking), weigh-in on a chosen weekday; **quiet hours** (default 22:00–07:00, may cross midnight) show nothing. A reminder is due only when the logged data says so; the home card offers the action (+0.25 L, open the workout / journal / weight) and "לא היום" (that day only); rendering writes nothing; settings recorded in the change log (`Core.remindersDue`, `e2e_reminders` 22, fixed clocks). **Outside the app:** the existing calendar export (.ics) with an alert before each training day | push notifications when the app is closed need a push server or a native app (cost / platform decision) | P2 |
 | SLL-22 | Recovery Choice | partial | rest-day guidance | new routines need content review | P2 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 19 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13, SLL-07 added 26.10.2026);
-- 13 partial;
+- 21 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20, SLL-12, SLL-33, SLL-13, SLL-07, SLL-19, SLL-01 added 26.10.2026);
+- 11 partial;
 - 6 missing;
 - 5 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 19 verified-complete, 13 partial, 6 missing, 5 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 21 verified-complete, 11 partial, 6 missing, 5 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.
