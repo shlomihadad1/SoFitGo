@@ -83,7 +83,7 @@ function secEquipment() {
     <h4>ציוד</h4><div class="list">${OTHER_EQ.map(row).join('')}</div>
     <div class="banner warn small">${icon('info')}<div>הספרייה כוללת כרגע <b>${root.EXERCISES.filter(e => CT().exMeta(e.id).eq.length === 0).length} תרגילים ללא ציוד</b> ו־${root.EXERCISES.filter(e => CT().exMeta(e.id).eq.length > 0).length} עם ריהוט ביתי. אין עדיין תרגילי משקולות, גומיות, מתח או מכונות — סימון שלהם נשמר, אבל האימונים ייבנו רק מתרגילים שקיימים.</div></div>
     <h4>ציוד נוסף שלך (רשות)</h4><div class="chips wrap">${env.custom.map((c, i) => `<button class="chip" data-act="rmcus" data-i="${i}" aria-label="הסרה ${esc(c)}">${esc(c)} ✕</button>`).join('') || '<span class="tiny faint">—</span>'}</div>
-    <div class="row gap"><input id="pf-cus" class="grow" maxlength="40" placeholder="למשל: קטלבל 12 ק״ג"><button class="btn sm" data-act="addcus">הוספה</button></div>
+    <div class="row gap"><input id="pf-cus" aria-label="ציוד נוסף שיש לך" class="grow" maxlength="40" placeholder="למשל: קטלבל 12 ק״ג"><button class="btn sm" data-act="addcus">הוספה</button></div>
     ${why('ציוד מותאם אישית נשמר כתיעוד בלבד — אין לו עדיין תרגילים, ולכן הוא לא ישמש בתוכנית.')}`;
 }
 const eqHandlers = { eq: el => { const env = P().environment, e = el.dataset.v; env.equipment = env.equipment.includes(e) ? env.equipment.filter(x => x !== e) : env.equipment.concat(e); saveP(); root.App.render(); },

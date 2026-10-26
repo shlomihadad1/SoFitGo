@@ -43,12 +43,23 @@ const I = {
 };
 const icon = (n, cls) => `<svg class="${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n] || ''}</svg>`;
 
+/* quality pass: a destructive control that has been on screen for less than 400 ms ignores taps. A double tap on "הוספה" used to
+   land its second tap on the NEW item's "מחיקה" (same position after the redraw) and delete what was just added; nobody means to
+   delete something they have not seen yet. Explicit list — other controls (steppers, +0.25 L) stay fully responsive. */
+const DESTRUCTIVE = new Set(['cdel', 'uneat', 'tripEnd', /* only actions that REMOVE data; undo-type actions (unskip, unexclude…) restore, so they stay instant */ 'rmcus', 'resetIng', 'resetGo', 'delete', 'delM', 'delLog', 'delEntry', 'del', 'clear', 'chClear', 'cancel', 'wipeForeign', 'uoff']);
+const FRESH_MS = 400; /* a double tap's second tap arrives within ~300 ms */
 function bind(rootEl, handlers) {
   rootEl.querySelectorAll('[data-act]').forEach(el => {
-    const act = el.getAttribute('data-act'); const fn = handlers[act];
+    const act = el.getAttribute('data-act'); const fn = handlers[act]; el._boundAt = Date.now();
     if (!fn) { console.warn('no handler', act); return; }
     const ev = (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') && el.type !== 'button' && el.type !== 'checkbox' ? 'change' : 'click';
-    el.addEventListener(ev, e => { if (ev === 'click' && el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault(); fn(el, e); });
+    /* quality pass: an ASYNC handler (login, sync, backup, offline pack…) ignores further taps on the same control until it settles
+       (aria-busy while running), so a double tap never runs it twice. Synchronous handlers are unchanged (a repeat tap on
+       "+0.25 ל׳" still adds twice — that is intended). */
+    el.addEventListener(ev, e => { if (ev === 'click' && el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault();
+      if (el._busy) { e.preventDefault(); return; }
+      if (DESTRUCTIVE.has(act) && Date.now() - el._boundAt < FRESH_MS) { e.preventDefault(); return; }
+      const r = fn(el, e); if (r && typeof r.then === 'function') { el._busy = true; el.setAttribute('aria-busy', 'true'); const done = () => { el._busy = false; el.removeAttribute('aria-busy'); }; r.then(done, done); } });
   });
 }
 /* RC5: optional action button (e.g. "ביטול" to undo the step that was just saved). The action runs at most once. */
