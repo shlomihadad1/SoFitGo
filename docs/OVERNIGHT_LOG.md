@@ -48,6 +48,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 7a | Quality pass: accessibility + double actions | done. **Bugs found and fixed:** (1) 5 form fields had no label (placeholder only): steps on home, add item on the shopping list, extra equipment in the profile, step target, journal date; (2) a double tap on "הוספה" in the shopping list deleted the item just added, because the second tap landed on its new "מחיקה" button; destructive controls now ignore taps during their first 400 ms on screen; (3) async actions could run twice on a double tap; they now ignore taps until finished (aria-busy) | (see git log) | e2e_a11y_sweep (25 screens × he/en), e2e_double_tap 9, plus 20 suites using these actions (grocery, meal_journal, stageB…F, e2e, stageG/H1, m8, m10_ux, m11_meals, m12_gate, activity, beta, changelog, reset, fridge, builder): all pass |
 | 7b | Quality pass: empty/edge states + LTR overflow | done, no defect found (e2e_text_sanity 8) | cb229e8 | — |
 | 7c | SLL-32 meal prep (from the backlog review) | done → verified-complete. **Food-safety defect fixed:** a batch could cover meals up to 14 days after cooking, although the same screen says cooked food keeps 3–4 days. Batches and repeated dishes are now split into sessions of at most 3 days | (see git log) | stageG_test 52 (+5), e2e_grocery 45, stageG e2e, reset: all pass |
+| 7d | SLL-20 Progress Story (from the backlog review) | done → verified-complete | (see git log) | e2e_story 7, stageG unit+e2e, a11y_sweep, text_sanity, reset, provenance: all pass |
 | 7 | Quality pass + final regression + report | | | |
 
 ## Full regression checkpoints
@@ -66,6 +67,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 - **SLL-21 defaults:** everything off until the user turns it on. Workout from 18:00, meals from 20:30, water by pace, weigh-in off (Friday 08:00 when on), quiet hours 22:00–07:00. Reminders are in-app only; for alerts while the app is closed there is the existing calendar export. To change the defaults: `C.REM_DEF` in core.js.
 - **SLL-24:** the pack covers the trip dates, or the next 14 days when no trip is set, and only small (480 px) photos. Videos are not packed (size). To change this: `packList()` in screens_m8.js.
 - **Double-tap guard:** the window is 400 ms, which covers the second tap of a double tap (≤300 ms). It applies only to actions that remove data; undo-type actions (unskip etc.) stay instant. The list is `DESTRUCTIVE` in ui.js.
+- **SLL-20 interpretation rules:** ≥80% "עקבי"; 50–79% "רוב האימונים בוצעו"; <50% "קשה להתמדה" with a Plan B link; fewer than 4 days of nutrition logging means "few days". The rules are in `story()` in screens_signature_more.js. No reasons are guessed for missed days.
 - **Testing per feature:** focused suites after each change, local commit as a recovery point, then the full regression on the final tree (it takes ~45 min, so not after every feature). Each commit message says which tests ran.
 
 ## BLOCKED (needs the owner)

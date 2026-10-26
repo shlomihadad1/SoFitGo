@@ -88,6 +88,7 @@
       nutrition: { daysLogged: eat.length, ofDays: past.length, kcal: avg(eat, x => x.e.k), protein: avg(eat, x => x.e.p), target: tg ? { kcal: tg.kcal, protein: tg.protein } : null },
       tracking: { steps: steps.length ? { avg: avg(steps, x => x), days: steps.length } : null, sleep: sleep.length ? { avg: r1(sleep.reduce((a, b) => a + b, 0) / sleep.length), days: sleep.length } : null, water: water.length ? { avg: avg(water, x => x), days: water.length } : null },
       weight: ms.length ? { n: ms.length, last: ms[ms.length - 1].weight, prev: prevMs.length ? prevMs[prevMs.length - 1].weight : null } : null,
+      barriers: PS().days(plan).filter(d => d.week === wk.w && ['missed', 'skipped', 'partial'].includes(d.status)).map(d => ({ date: d.movedTo || d.date, n: d.n, st: d.status, title: d.title || '' })), /* SLL-20: what got in the way, from the plan's own day statuses */
       bests: newBest, next: next ? { w: next.w, from: next.from, sessions: nds.length, deload: next.deload, phase: next.phase, minutes: nds.length ? Math.round(nds.reduce((s, d) => s + (d.minutes || 0), 0)) : 0 } : null,
       adapt: root.Adapt ? root.Adapt.proposals(plan).list.length : 0 };
   }

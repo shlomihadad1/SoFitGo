@@ -54,7 +54,7 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-17 | Equipment Passport | partial | equipment list in plan setup; travel swaps | profiles per place; needs exercises for more equipment (content) | P2 |
 | SLL-18 | Quiet & Small-Space Workouts | partial | `noJump` preference, low-impact filter | explicit quiet / small-space mode | P2 |
 | SLL-19 | Workout Builder by Feeling | partial | Workout Builder by goal / time / level / equipment (`e2e_builder`) | readiness / desired-feel inputs | P2 |
-| SLL-20 | Progress Story | partial | weekly review `#/review` (`e2e_stageG`) | facts vs interpretation, barriers | P2 |
+| SLL-20 | Progress Story | verified-complete | Weekly review `#/review` (`e2e_stageG`) now opens with "הסיפור של השבוע" in three separate parts: **עובדות** (counts from the log), **פרשנות** (labelled, from stated rules: ≥80% / 50–79% / <50% completion with a Plan B link, few logged nutrition days, week not over), **מה הפריע** (the plan's missed / skipped / partial days with dates; no guessed reasons). Each section carries its provenance label (workouts entered by you, nutrition averages an estimate, weight entered by you) (`Signature.review` → `barriers`; `e2e_story` 7) | — | P2 |
 | SLL-21 | Smart Reminders | verified-complete | **In the app** (26.10): Settings → "תזכורות בתוך האפליקציה", off by default — workout not done (from a chosen time), planned meals not marked (from a chosen time), water clearly behind the day's pace (≥2 h after waking), weigh-in on a chosen weekday; **quiet hours** (default 22:00–07:00, may cross midnight) show nothing. A reminder is due only when the logged data says so; the home card offers the action (+0.25 L, open the workout / journal / weight) and "לא היום" (that day only); rendering writes nothing; settings recorded in the change log (`Core.remindersDue`, `e2e_reminders` 22, fixed clocks). **Outside the app:** the existing calendar export (.ics) with an alert before each training day | push notifications when the app is closed need a push server or a native app (cost / platform decision) | P2 |
 | SLL-22 | Recovery Choice | partial | rest-day guidance | new routines need content review | P2 |
 | SLL-23 | Local Food Translator | blocked | — | translation service decision | P3 |
@@ -80,8 +80,8 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | SLL-43 | Beta Feedback Button | verified-complete | `#/feedback` (`e2e_planb_feedback`), admin triage (`e2e_admin`) | — | P3 |
 
 **Count:**
-- 14 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32 added 26.10.2026);
-- 16 partial;
+- 15 verified-complete (SLL-08, SLL-42, SLL-28, SLL-35, SLL-25, SLL-40, SLL-21, SLL-24, SLL-32, SLL-20 added 26.10.2026);
+- 15 partial;
 - 7 missing;
 - 6 blocked;
 - 0 broken (none found by the regression).
@@ -152,6 +152,6 @@ Detailed evidence for each item lives in `docs/FEATURE_REGISTRY.md` (FR-…), `d
 | ENV-25-01 | Tutorials 0/12 | **Environment**, not product: the local server on 8096 had stopped (`ERR_CONNECTION_REFUSED`). After a restart: 12/12, `rc1_test` 87/87 | `rc1_test` |
 
 ## 4. Totals (this register)
-- **Sofit Life Loop:** all 43 named (owner's list). 14 verified-complete, 16 partial, 7 missing, 6 blocked, 0 broken.
+- **Sofit Life Loop:** all 43 named (owner's list). 15 verified-complete, 15 partial, 7 missing, 6 blocked, 0 broken.
 - **Product requirements:** 32 rows. See §2.
 - **Bugs:** §3. This week's 6 are fixed and covered by tests.

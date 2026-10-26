@@ -16,6 +16,26 @@ Screens.explain = function () {
 };
 
 /* G2 */
+/* SLL-20 · Progress Story: the week told in three clearly separated parts.
+     עובדות   — counts straight from what was logged (no judgement)
+     פרשנות   — a few stated rules over those facts, labelled "פרשנות" (provenance kind rec); never medical, never blame
+     מה הפריע — the plan's own missed / skipped / partial days with their dates (nothing guessed about why)
+   Rules: completion ≥80% → "עקבי"; 50–79% → "רוב האימונים בוצעו"; below 50% with planned sessions → "שבוע קשה להתמדה" + Plan B link;
+   nutrition logged on fewer than 4 days → averages are based on few days; a current week says it is not over yet. */
+function story(r) {
+  const t = r.training, nu = r.nutrition, done = t.done + t.partial, pct = t.planned ? Math.round(done / t.planned * 100) : null, br = r.barriers || [];
+  const ST = { missed: 'לא בוצע', skipped: 'דילוג מכוון', partial: 'בוצע חלקית' };
+  const facts = [t.planned ? `${done} מתוך ${t.planned} אימונים בוצעו${t.partial ? ` (${t.partial} חלקית)` : ''}.` : 'לא היו אימונים מתוכננים.', `רישום תזונה ב־${nu.daysLogged} מתוך ${nu.ofDays} ימים.`, r.weight ? `${r.weight.n} שקילות.` : 'לא נרשמה שקילה.'];
+  const interp = [];
+  if (r.current) interp.push('השבוע עוד לא הסתיים — התמונה חלקית.');
+  if (pct != null) interp.push(pct >= 80 ? 'השבוע היה עקבי באימונים.' : pct >= 50 ? 'רוב האימונים בוצעו.' : 'השבוע היה קשה להתמדה באימונים — זה קורה. <a href="#/planb">Plan B</a> יכול לעזור בשבוע הבא.');
+  if (nu.ofDays && nu.daysLogged < 4) interp.push('הממוצעים בתזונה מבוססים על מעט ימים — כדאי לא להסיק מהם הרבה.');
+  return `<section class="card" data-review="story"><h3>הסיפור של השבוע</h3>
+    <h4>עובדות ${root.UI.srcTag('user', 'מה שנרשם')}</h4><ul class="bul small" data-story-facts>${facts.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    <h4>פרשנות ${root.UI.srcTag('rec', 'פרשנות')}</h4><ul class="bul small" data-story-interp>${interp.map(x => `<li>${x}</li>`).join('')}</ul>
+    <h4>מה הפריע</h4>${br.length ? `<ul class="bul small" data-story-barriers>${br.map(b => `<li data-barrier="${b.st}">${esc(S.fmtShort(b.date))} · יום ${b.n}: ${ST[b.st]}</li>`).join('')}</ul>` : '<p class="small muted" data-story-none>לא נרשמו אימונים שפוספסו, דולגו או בוצעו חלקית.</p>'}
+    <p class="tiny faint">העובדות נלקחות מהרישום. הפרשנות היא כמה כללים פשוטים מעליהן — לא אבחנה ולא שיפוט.</p></section>`;
+}
 Screens.review = function (arg) {
   const p = PS().active(); if (!p) return noPlan('סיכום שבועי', 'אין עדיין שבועות לסכם');
   const r = G().review(p, arg ? +arg : null); if (!r) return noPlan('סיכום שבועי', 'אין עדיין שבועות לסכם');
@@ -25,12 +45,13 @@ Screens.review = function (arg) {
     <div class="row between month-nav"><a class="btn sm" ${i > 0 ? `href="#/review/${r.weeks[i - 1]}"` : 'aria-disabled="true"'} aria-label="השבוע הקודם">${icon('back')}</a><h2 class="num">שבוע ${r.w} בתוכנית</h2><a class="btn sm" ${i < r.weeks.length - 1 && r.weeks[i + 1] && r.next && r.next.from <= S.today() ? `href="#/review/${r.weeks[i + 1]}"` : 'aria-disabled="true"'} aria-label="השבוע הבא">${icon('chev')}</a></div>
     <p class="small muted center">${esc(S.fmtDate(r.from))} – ${esc(S.fmtDate(r.to))} · ${esc(r.phase ? r.phase.he : '')}${r.deload ? ' · שבוע קל' : ''}${r.current ? ' · <b>השבוע הנוכחי — עדיין לא הסתיים</b>' : ''}</p>
     <p class="center"><a class="btn sm ghost" href="#/reset" data-reset-link>איפוס שבועי — התחלה נקייה</a></p>
-    <section class="card" data-review="training"><h3>אימונים</h3><div class="grid3"><div class="stat"><span class="v num">${t.done + t.partial}/${t.planned}</span><span class="l">בוצעו${t.partial ? ` (${t.partial} חלקית)` : ''}</span></div><div class="stat"><span class="v num">${t.minutes || '—'}</span><span class="l">דקות שנמדדו</span></div><div class="stat"><span class="v num">${t.rpe != null ? t.rpe : '—'}</span><span class="l">מאמץ ממוצע /10</span></div></div>
+    ${story(r)}
+    <section class="card" data-review="training"><h3>אימונים ${root.UI.srcTag('user', 'נרשם על ידך')}</h3><div class="grid3"><div class="stat"><span class="v num">${t.done + t.partial}/${t.planned}</span><span class="l">בוצעו${t.partial ? ` (${t.partial} חלקית)` : ''}</span></div><div class="stat"><span class="v num">${t.minutes || '—'}</span><span class="l">דקות שנמדדו</span></div><div class="stat"><span class="v num">${t.rpe != null ? t.rpe : '—'}</span><span class="l">מאמץ ממוצע /10</span></div></div>
       <p class="tiny muted">${t.skipped ? `דילוג מכוון: ${t.skipped}. ` : ''}${t.missed ? `לא בוצעו: ${t.missed}. ` : ''}${!t.done && !t.partial ? 'לא נרשמו אימונים בשבוע הזה.' : ''}</p>
       ${r.bests.length ? `<h4>שיאים חדשים השבוע</h4><ul class="bul small">${r.bests.map(b => `<li>${esc(root.EX_BY_ID[b.ex].he)}: ${b.from} ← <b>${b.to}</b> ${b.unit === 'sec' ? 'שנ׳' : 'חזרות'}</li>`).join('')}</ul>` : ''}</section>
-    <section class="card" data-review="nutrition"><h3>תזונה — מה שנרשם בפועל</h3>${nu.daysLogged ? `<div class="facts">${line('ימים עם רישום', `${nu.daysLogged} מתוך ${nu.ofDays}`)}${line('ממוצע קלוריות', `${fmtN(nu.kcal)}${nu.target ? ' / יעד ' + fmtN(nu.target.kcal) : ''}`)}${line('ממוצע חלבון', `${fmtN(nu.protein)} ג׳${nu.target ? ' / יעד ' + nu.target.protein : ''}`)}</div><p class="tiny faint">ממוצע רק על ימים שבהם נרשמה ארוחה. ימים בלי רישום לא נספרים כאפס.</p>` : '<div class="empty">לא נרשמו ארוחות בשבוע הזה.</div>'}</section>
+    <section class="card" data-review="nutrition"><h3>תזונה — מה שנרשם בפועל ${root.UI.srcTag('est', 'הערכה לפי המתכונים')}</h3>${nu.daysLogged ? `<div class="facts">${line('ימים עם רישום', `${nu.daysLogged} מתוך ${nu.ofDays}`)}${line('ממוצע קלוריות', `${fmtN(nu.kcal)}${nu.target ? ' / יעד ' + fmtN(nu.target.kcal) : ''}`)}${line('ממוצע חלבון', `${fmtN(nu.protein)} ג׳${nu.target ? ' / יעד ' + nu.target.protein : ''}`)}</div><p class="tiny faint">ממוצע רק על ימים שבהם נרשמה ארוחה. ימים בלי רישום לא נספרים כאפס.</p>` : '<div class="empty">לא נרשמו ארוחות בשבוע הזה.</div>'}</section>
     <section class="card" data-review="tracking"><h3>צעדים, שינה ומים</h3>${tk.steps || tk.sleep || tk.water ? `<div class="facts">${tk.steps ? line('צעדים', `${fmtN(tk.steps.avg)} בממוצע (${tk.steps.days} ימים)`) : ''}${tk.sleep ? line('שינה', `${tk.sleep.avg} שע׳ בממוצע (${tk.sleep.days} לילות)`) : ''}${tk.water ? line('מים', `${root.Core.fmtL(tk.water.avg)} ליטר בממוצע (${tk.water.days} ימים)`) : ''}</div>` : '<div class="empty">לא נרשמו צעדים, שינה או מים.</div>'}</section>
-    <section class="card" data-review="weight"><h3>משקל</h3>${r.weight ? `<p class="small">${r.weight.n} שקילות. אחרונה: <b class="num">${r.weight.last}</b> ק״ג${r.weight.prev != null ? ` (לפני השבוע: ${r.weight.prev})` : ''}.</p><p class="tiny faint">שינוי משקל בשבוע אחד מושפע ממים, מלח ועיכול — הוא לא מדד לשינוי בשומן. כדאי להסתכל על מגמה של כמה שבועות.</p>` : '<div class="empty">אין שקילה בשבוע הזה.</div>'}</section>
+    <section class="card" data-review="weight"><h3>משקל ${root.UI.srcTag('user')}</h3>${r.weight ? `<p class="small">${r.weight.n} שקילות. אחרונה: <b class="num">${r.weight.last}</b> ק״ג${r.weight.prev != null ? ` (לפני השבוע: ${r.weight.prev})` : ''}.</p><p class="tiny faint">שינוי משקל בשבוע אחד מושפע ממים, מלח ועיכול — הוא לא מדד לשינוי בשומן. כדאי להסתכל על מגמה של כמה שבועות.</p>` : '<div class="empty">אין שקילה בשבוע הזה.</div>'}</section>
     ${r.next ? `<section class="card" data-review="next"><h3>השבוע הבא</h3><p class="small">${r.next.sessions} אימונים, כ־${r.next.minutes} דק׳ בסך הכול${r.next.deload ? ' · שבוע קל מתוכנן' : ''}${r.next.phase && (!r.phase || r.next.phase.k !== r.phase.k) ? ` · מתחיל שלב חדש: ${esc(r.next.phase.he)}` : ''}.</p>${r.adapt ? `<p class="small">יש ${r.adapt} התאמות מוצעות לאישורך. <a href="#/plan">לצפייה</a></p>` : ''}</section>` : ''}`, handlers: {} };
 };
 
