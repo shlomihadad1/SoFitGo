@@ -53,11 +53,14 @@ const IND = ['indian', 'himachali'], ISR = ['israeli', 'middle_eastern', 'morocc
   await p.locator('[data-fp=geo]').click(); await p.waitForTimeout(800);
   const rg = await p.evaluate(() => Core.normPrefs(Core.profile().prefs).region);
   ok(rg.consent && rg.code === 'india' && rg.src === 'gps' && rg.group === 'indian', 'region detected on the device → India', rg);
-  /* the mocked position is exactly 28.6 / 77.2. Match those numbers only when no digit follows or precedes them: an ISO timestamp such
-     as "…:28.612Z" (seconds.milliseconds) used to match the old /28\.6/ check by chance — an intermittent false failure. */
-  const COORD = /(?<!\d)(28\.6|77\.2)(?!\d)/;
-  ok(COORD.test('{"lat":28.6,"lng":77.2}') && !COORD.test('"at":"2026-10-26T03:59:28.612Z"'), 'coordinate check: catches a stored position, ignores timestamps (control)');
-  ok(!COORD.test(await p.evaluate(() => JSON.stringify(Object.assign({}, localStorage)))), 'coordinates not stored');
+  /* Root cause of an intermittent failure (reproduced with a frozen clock): ISO timestamps already stored by the app (region.at,
+     profile.createdAt) read "…:28.6xxZ" when the seconds are 28 and the milliseconds 600–699, which the plain /28\.6/ check took
+     for the latitude. The ORIGINAL check is kept as it was; only ISO timestamps are removed from the text before it runs, so any
+     stored coordinate in any form (28.6, 28.60, 28.6139, "77.2") is still caught. */
+  const noTs = s => s.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g, '');
+  const leaks = s => /28\.6|77\.2/.test(noTs(s));
+  ok(['{"lat":28.6}', '{"lat":28.60}', '{"lat":28.6139,"lng":77.209}', '"77.2"'].every(leaks) && !leaks('"at":"2026-10-26T10:00:28.650Z"'), 'coordinate check: still catches a stored position in any precision, ignores ISO timestamps (control)');
+  ok(!leaks(await p.evaluate(() => JSON.stringify(Object.assign({}, localStorage)))), 'coordinates not stored');
   w = await week(p); ok(share(w, IND) >= 0.8, 'regional recommendations: menu mostly Indian now', w.map(x => x.cu));
   const after = await shown(p); ok(after.every(x => x.onScreen) && after.map(x => x.he).join() !== before.map(x => x.he).join(), 'the dishes on screen actually changed', { before, after });
   G = 'explicit cuisine beats region';
@@ -70,6 +73,18 @@ const IND = ['indian', 'himachali'], ISR = ['israeli', 'middle_eastern', 'morocc
   await p.evaluate(() => { const pr = Core.profile(); const pf = Core.normPrefs(pr.prefs); delete pf.cuisines; Store.save('profile'); Core.applyPrefs(pf); pr.prefs = pf; Store.save('profile'); });
   w = await week(p); ok(w.every(x => x.conf === 0), 'Indian region + restrictions → still no restricted food', w.filter(x => x.conf));
   await ctx.close();
+
+  /* regression for the intermittent failure: the same consent flow with the clock frozen where timestamps read "…:28.650Z" */
+  G = 'India, consents — timestamp at 28.650 s';
+  { const c2 = await b.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, locale: 'he-IL', serviceWorkers: 'block' }); const q = await c2.newPage(); q.on('pageerror', e => errs.push(e.message));
+    await q.addInitScript(g => { navigator.geolocation.getCurrentPosition = ok2 => setTimeout(() => ok2({ coords: { latitude: g[0], longitude: g[1], accuracy: 50 } }), 30); }, [28.6, 77.2]);
+    await q.clock.setFixedTime(new Date('2026-10-26T10:00:28.650'));
+    await q.goto(URL0); await q.waitForTimeout(700); await q.evaluate(BASICS); await q.reload(); await q.waitForTimeout(800); await mountSettings(q);
+    await q.locator('[data-fp=regYes]').click(); await q.locator('[data-fp=geo]').waitFor(); await q.locator('[data-fp=geo]').click(); await q.waitForTimeout(900);
+    const all = await q.evaluate(() => JSON.stringify(Object.assign({}, localStorage))), rg2 = await q.evaluate(() => Core.normPrefs(Core.profile().prefs).region);
+    ok(rg2.consent && rg2.code === 'india' && /28\.6/.test(all), 'the risky case is really exercised (stored timestamps contain "28.6", region detected)', rg2);
+    ok(!leaks(all), 'coordinates still not stored, and the check does not mistake the timestamp for the latitude');
+    await c2.close(); }
 
   /* 4 · location denied */
   ({ ctx, p } = await mk(null));
