@@ -261,6 +261,29 @@ C.remindersDue = now => {
   return out.filter(x => !off[x.k]);
 };
 C.remindOff = (k, date) => { date = date || S().today(); const off = Object.assign({}, C.daily(date).remOff || {}, { [k]: true }); C.setDaily(date, { remOff: off }); };
+/* SLL-12 · Friction Radar: repeated obstacles found in what was logged, ONE suggestion at a time, each with its numbers and a
+   link to the existing setting; nothing changes automatically. Each rule needs a minimum amount of data:
+     weekday — last 28 days of the active plan: a weekday with ≥2 missed sessions that are ≥50% of that weekday's past sessions
+     slot    — last 14 days, counting only days with at least one marked meal: a planned meal left unmarked on ≥8 of them
+     water   — last 7 days with water logged: under half the day's goal on ≥5 of them, while the water reminder is off
+   "לא רלוונטי" hides that suggestion for 30 days (meta.frictionOff, this device only). Deterministic for a given log and date. */
+C.friction = date => {
+  date = date || S().today(); const out = [], off = (S().load('meta').frictionOff) || {}, fresh = k => !(off[k] && S().diffDays(off[k], date) < 30);
+  const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const ap = root.Plans && root.Plans.active();
+  if (ap) { const by = {}; root.Plans.days(ap).filter(d => root.Plans.isTraining(d) && d.date < date && d.date >= S().addDays(date, -28) && d.status !== 'skipped').forEach(d => { const w = new Date(d.date + 'T12:00:00').getDay(); const o = by[w] = by[w] || { n: 0, miss: 0 }; o.n++; if (d.status === 'missed') o.miss++; });
+    const w = Object.keys(by).filter(k => by[k].miss >= 2 && by[k].miss / by[k].n >= 0.5).sort((a, b) => by[b].miss - by[a].miss)[0];
+    if (w != null) out.push({ k: 'weekday:' + w, he: `בימי ${DOW[w]} פספסת ${by[w].miss} מתוך ${by[w].n} אימונים בארבעת השבועות האחרונים.`, sug: 'אולי יום אחר מתאים יותר לאימון הזה? אפשר לשנות את ימי האימון בתוכנית.', href: '#/plan', act: 'לשינוי הימים' }); }
+  { const days = []; for (let i = 1; i <= 14; i++) days.push(S().addDays(date, -i)); const logged = days.filter(d => C.entries(d).length);
+    if (logged.length >= 8) { const miss = {}; logged.forEach(d => { const pl = C.plan(d); C.DAY.forEach(k => { if (pl[k] && pl[k].rid && !pl[k].off && !C.slotEntry(d, k)) miss[k] = (miss[k] || 0) + 1; }); });
+      const k = Object.keys(miss).filter(x => miss[x] >= 8).sort((a, b) => miss[b] - miss[a])[0];
+      if (k) out.push({ k: 'slot:' + k, he: `את ה${C.slotNames[k]} לא סימנת ב־${miss[k]} מתוך ${logged.length} הימים שבהם רשמת ארוחות.`, sug: 'אם היא לא מתאימה ליום שלך, אפשר לבחור פחות ארוחות ביום — התפריט יתעדכן רק באישור.', href: '#/settings', act: 'להגדרת הארוחות' }); } }
+  { const days = []; for (let i = 1; i <= 7; i++) days.push(S().addDays(date, -i)); const w = days.filter(d => (C.daily(d).water || 0) > 0); const r = C.remSettings();
+    if (w.length >= 5 && !(r.on && r.water.on)) { const low = w.filter(d => C.daily(d).water < C.waterGoalOn(d).ml / 2).length;
+      if (low >= 5) out.push({ k: 'water', he: `ב־${low} מתוך ${w.length} הימים האחרונים ששתית פחות מחצי מיעד המים.`, sug: 'תזכורת מים בתוך האפליקציה מופיעה רק כשמאחורי הקצב, ואפשר לכבות אותה בכל רגע.', href: '#/settings', act: 'להפעלת תזכורת' }); } }
+  return out.filter(x => fresh(x.k));
+};
+C.frictionOff = (k, date) => { const m = S().load('meta'); m.frictionOff = Object.assign({}, m.frictionOff || {}, { [k]: date || S().today() }); S().save('meta'); };
 C.fmtL = ml => String(Math.round((+ml || 0) / 10) / 100);
 C.workoutMinutesOn = date => { try { const pl = root.MealPlan && root.Plans && root.MealPlan.planFor(date); if (pl) { const pd = root.Insights ? root.Insights.mainOn(pl, date) : null; return pd && root.Plans.isTraining(pd) && pd.status !== 'skipped' ? Math.round(pd.minutes || 45) : 0; }
   const n = C.programDay(date); if (n >= 1 && n <= 30 && C.isTraining(n) && !C.nutritionOnly()) return Math.round(L().estimateMinutes(C.dayDef(n), 'std') || 45); } catch (e) { } return 0; };

@@ -49,6 +49,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 | 7b | Quality pass: empty/edge states + LTR overflow | done, no defect found (e2e_text_sanity 8) | cb229e8 | — |
 | 7c | SLL-32 meal prep (from the backlog review) | done → verified-complete. **Food-safety defect fixed:** a batch could cover meals up to 14 days after cooking, although the same screen says cooked food keeps 3–4 days. Batches and repeated dishes are now split into sessions of at most 3 days | (see git log) | stageG_test 52 (+5), e2e_grocery 45, stageG e2e, reset: all pass |
 | 7d | SLL-20 Progress Story (from the backlog review) | done → verified-complete | (see git log) | e2e_story 7, stageG unit+e2e, a11y_sweep, text_sanity, reset, provenance: all pass |
+| 7e | SLL-12 Friction Radar (was missing) | done → verified-complete | (see git log) | e2e_friction 13 (one weak assertion in my draft replaced), text_sanity, a11y_sweep, m10_ux, stageA: all pass |
 | 7 | Quality pass + final regression + report | | | |
 
 ## Full regression checkpoints
@@ -68,6 +69,7 @@ git fetch /path/sofitgo-local-<hash>.bundle fix/default-cuisine:restored
 - **SLL-24:** the pack covers the trip dates, or the next 14 days when no trip is set, and only small (480 px) photos. Videos are not packed (size). To change this: `packList()` in screens_m8.js.
 - **Double-tap guard:** the window is 400 ms, which covers the second tap of a double tap (≤300 ms). It applies only to actions that remove data; undo-type actions (unskip etc.) stay instant. The list is `DESTRUCTIVE` in ui.js.
 - **SLL-20 interpretation rules:** ≥80% "עקבי"; 50–79% "רוב האימונים בוצעו"; <50% "קשה להתמדה" with a Plan B link; fewer than 4 days of nutrition logging means "few days". The rules are in `story()` in screens_signature_more.js. No reasons are guessed for missed days.
+- **SLL-12 thresholds:** weekday ≥2 misses and ≥50% in 28 days; meal unmarked on ≥8 logged days in 14; water <50% on ≥5 of 7 logged days. Dismissed for 30 days. Thresholds are in `Core.friction`.
 - **Testing per feature:** focused suites after each change, local commit as a recovery point, then the full regression on the final tree (it takes ~45 min, so not after every feature). Each commit message says which tests ran.
 
 ## BLOCKED (needs the owner)
