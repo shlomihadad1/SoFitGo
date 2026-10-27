@@ -1,5 +1,5 @@
 SoFitGo — אפליקציית כושר ותזונה (PWA)
-Build 57f33cce03
+Build f015e15ed9
 
 קבצים: index.html (כל האפליקציה), sw.js (עבודה ללא חיבור), manifest.webmanifest, אייקונים.
 
